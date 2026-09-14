@@ -2,7 +2,6 @@ name: piper
 usd_path: Assets/Robots/piper/Piper.usd
 urdf_path: Assets/Robots/piper/piper_description/urdf/piper.urdf
 curobo_config_path: curobo/piper.yml
-grasp_catalog_path: ../grasps/piper_matryoshka_dolls.yml
 fixed_base: true
 disable_gravity: false
 self_collisions: false

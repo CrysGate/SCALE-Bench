@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import math
-from typing import Self
+from typing import Literal, Self
 from urllib.parse import urlsplit
 
 from pydantic import Field, StrictBool, field_validator, model_validator
 
 from scale_bench.config.base import (
+    FiniteFloat,
     FrozenModel,
     Name,
     NonNegativeFloat,
@@ -16,10 +17,10 @@ from scale_bench.config.base import (
     Position3,
     PositiveFloat,
     PositiveInt,
-    Quaternion,
     UnitIntervalFloat,
     require_unit_quaternion,
 )
+from scale_bench.config.models.robot import TcpConfig
 
 
 class AnyGraspConfig(FrozenModel):
@@ -53,52 +54,50 @@ class AnyGraspConfig(FrozenModel):
             raise ValueError("service_url must not contain a query or fragment")
         return normalized
 
-class GraspCandidateConfig(FrozenModel):
-    """One physics-validated ``T_object_tcp`` candidate."""
+
+class AssetGraspCandidateConfig(FrozenModel):
+    """One GraspDataGen stable-closure TCP pose in the object frame."""
 
     candidate_id: NonNegativeInt
-    position_object_m: Position3
-    orientation_object_xyzw: Quaternion
-    approach_axis_tcp: Position3 = (1.0, 0.0, 0.0)
-    score: UnitIntervalFloat
+    robot: Name
+    pose_object_tcp_xyz_xyzw: tuple[
+        FiniteFloat, FiniteFloat, FiniteFloat, FiniteFloat,
+        FiniteFloat, FiniteFloat, FiniteFloat,
+    ]
+    approach_axis_object: Position3
+    closed_joint_positions_m: dict[Name, FiniteFloat] = Field(min_length=1)
 
     @model_validator(mode="after")
     def _validate_pose(self) -> Self:
         require_unit_quaternion(
-            self.orientation_object_xyzw,
-            "orientation_object_xyzw",
+            self.pose_object_tcp_xyz_xyzw[3:],
+            "pose_object_tcp_xyz_xyzw quaternion",
         )
-        axis_norm = math.sqrt(sum(value * value for value in self.approach_axis_tcp))
+        axis_norm = math.sqrt(sum(value * value for value in self.approach_axis_object))
         if not math.isclose(axis_norm, 1.0, abs_tol=1.0e-6):
-            raise ValueError("approach_axis_tcp must be a unit vector")
+            raise ValueError("approach_axis_object must be a unit vector")
         return self
 
 
-class GraspCatalogConfig(FrozenModel):
-    """Compact generated grasp catalog consumed by manipulation skills."""
+class AssetGraspsConfig(FrozenModel):
+    """The compact grasps.yaml stored beside one object asset."""
 
-    robot_name: Name
-    tcp_parent_frame: Name
-    tcp_position_m: Position3
-    tcp_orientation_xyzw: Quaternion
+    object: Name
+    position_unit: Literal["m"]
+    pose_layout: tuple[
+        Literal["x"], Literal["y"], Literal["z"], Literal["qx"],
+        Literal["qy"], Literal["qz"], Literal["qw"],
+    ]
+    tcp: TcpConfig
     approach_distance_m: PositiveFloat
-    objects: dict[Name, tuple[GraspCandidateConfig, ...]] = Field(min_length=1)
+    candidates: tuple[AssetGraspCandidateConfig, ...] = Field(min_length=1)
 
     @model_validator(mode="after")
-    def _validate_catalog(self) -> Self:
-        require_unit_quaternion(
-            self.tcp_orientation_xyzw,
-            "tcp_orientation_xyzw",
-        )
-        for object_name, candidates in self.objects.items():
-            if not candidates:
-                raise ValueError(f"{object_name!r} has no grasp candidates")
-            ids = tuple(candidate.candidate_id for candidate in candidates)
-            if len(ids) != len(set(ids)):
-                raise ValueError(
-                    f"{object_name!r} contains duplicate grasp candidate IDs"
-                )
+    def _validate_candidates(self) -> Self:
+        ids = tuple(candidate.candidate_id for candidate in self.candidates)
+        if len(ids) != len(set(ids)):
+            raise ValueError("duplicate grasp candidate IDs")
         return self
 
 
-__all__ = ["AnyGraspConfig", "GraspCandidateConfig", "GraspCatalogConfig"]
+__all__ = ["AnyGraspConfig", "AssetGraspCandidateConfig", "AssetGraspsConfig"]

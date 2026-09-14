@@ -226,7 +226,7 @@ parser.add_argument(
     "--episodes",
     type=int,
     default=1,
-    help=("Episode count, or independent AnyGrasp capture count for collect-grasps."),
+    help="Episode count.",
 )
 parser.add_argument("--base-seed", type=int, default=100)
 parser.add_argument("--max-steps", type=int, default=128)
@@ -255,7 +255,6 @@ parser.add_argument(
         "pick-and-place",
         "expert",
         "grasp-diagnostics",
-        "collect-grasps",
     ),
     default="pick",
     help=(
@@ -301,23 +300,20 @@ parser.add_argument(
     "--scene-config",
     type=Path,
     default=Path("configs/scene/default.yml"),
-    help="Scene profile; omit AnyGrasp there to use the offline grasp catalog.",
+    help="Scene profile.",
 )
 parser.add_argument(
     "--grasp-source",
-    choices=("scene", "catalog"),
-    default="scene",
-    help=(
-        "Use the scene's configured grasp source, or force the robot's "
-        "offline catalog for reproducible diagnostics."
-    ),
+    choices=("asset", "anygrasp"),
+    default="asset",
+    help="Load asset grasps.yaml (default), or request candidates from AnyGrasp.",
 )
 parser.add_argument(
     "--grasp-arm",
     choices=("auto", "left", "right"),
     default="auto",
     help=(
-        "Arm used by grasp diagnostics and physical grasp collection; auto "
+        "Arm used by grasp diagnostics; auto "
         "selects the arm nearest the object."
     ),
 )
@@ -407,15 +403,10 @@ if args.replay_manifest is not None and args.record_output is None:
 if args.program == "grasp-diagnostics":
     if args.num_envs != 1 or args.episodes != 1:
         parser.error("grasp-diagnostics requires --num-envs 1 --episodes 1")
-    if args.grasp_source != "scene":
-        parser.error("grasp-diagnostics requires --grasp-source scene")
+    if args.grasp_source != "anygrasp":
+        parser.error("grasp-diagnostics requires --grasp-source anygrasp")
     if args.record_output is not None:
         parser.error("grasp-diagnostics does not record an episode")
-elif args.program == "collect-grasps":
-    if args.task != "single_object_pick_and_place":
-        parser.error("collect-grasps requires --task single_object_pick_and_place")
-    if args.grasp_source != "scene":
-        parser.error("collect-grasps requires --grasp-source scene")
 if args.program != "grasp-diagnostics":
     if args.diagnostics_output is not None:
         parser.error("--diagnostics-output requires --program grasp-diagnostics")
@@ -458,17 +449,13 @@ from scale_bench.runtime import (
     DemoGenerationRunner,
     EpisodeSpec,
     EpisodeState,
-    SingleCandidateSkillContext,
     TerminationReason,
-    append_physics_validated_grasps,
-    grasp_annotation_path,
 )
 from scale_bench.runtime.logging import configure_logging
 from scale_bench.skills import (
     Arm,
     ArmSelection,
     CommandExecutor,
-    GraspCandidate,
     OperationSkillPlanner,
     Pick,
     PickAndPlace,
@@ -486,14 +473,6 @@ from scale_bench.tasks.single_object_pick_and_place.task import (
 )
 from scale_bench.tasks.sort_dolls_by_size.config import SortDollsBySizeConfig
 from scale_bench.tasks.sort_dolls_by_size.task import SortDollsBySize
-
-
-@dataclass(frozen=True, slots=True)
-class _GraspCollectionTrial:
-    spec: EpisodeSpec
-    candidate: GraspCandidate
-    detection_index: int
-    arm: Arm
 
 
 def _resolve_grasp_arm(
@@ -662,8 +641,9 @@ def main() -> int:
         SceneConfig,
         asset_root=asset_root,
     )
-    if args.grasp_source == "catalog":
-        scene_config = scene_config.model_copy(update={"anygrasp": None})
+    scene_config = SceneConfig.model_validate(
+        {**scene_config.model_dump(), "grasp_source": args.grasp_source}
+    )
     robot_config = load_config(
         PROJECT_ROOT / args.robot_config,
         RobotConfig,
@@ -704,7 +684,7 @@ def main() -> int:
             )
         )
     placement_context = PlacementContext.from_scene_config(scene_config)
-    source_specs = tuple(
+    specs = tuple(
         EpisodeSpec(
             episode_id=f"demo-seed-{seed}",
             task_id=task.task_id,
@@ -714,11 +694,10 @@ def main() -> int:
         )
         for seed in range(args.base_seed, args.base_seed + args.episodes)
     )
-    specs = source_specs
     initial_layouts = (
-        tuple(spec.layout for spec in source_specs[: args.num_envs])
-        if len(source_specs) >= args.num_envs
-        else (source_specs[0].layout,)
+        tuple(spec.layout for spec in specs[: args.num_envs])
+        if len(specs) >= args.num_envs
+        else (specs[0].layout,)
     )
     recording_config = (
         None
@@ -740,6 +719,7 @@ def main() -> int:
             "event_fields": {
                 "task": task.task_id,
                 "program": args.program,
+                "grasp_source": scene_config.grasp_source,
                 "num_envs": args.num_envs,
                 "episode_count": args.episodes,
                 "device": str(args.device),
@@ -788,7 +768,7 @@ def main() -> int:
         try:
             diagnostic_arm = _resolve_grasp_arm(
                 args.grasp_arm,
-                source_specs[0],
+                specs[0],
                 selected_object_name,
                 scene_config,
             )
@@ -797,7 +777,7 @@ def main() -> int:
                 task,
                 scene_config,
                 robot_config,
-                source_specs[0],
+                specs[0],
                 selected_object_name,
                 diagnostic_arm,
             )
@@ -835,113 +815,6 @@ def main() -> int:
         finally:
             env.close()
 
-    collection_trials: tuple[_GraspCollectionTrial, ...] = ()
-    collection_trial_by_episode_id: dict[str, _GraspCollectionTrial] = {}
-    if args.program == "collect-grasps":
-        trials = []
-        try:
-            for source_spec in source_specs:
-                trial_arm = _resolve_grasp_arm(
-                    args.grasp_arm,
-                    source_spec,
-                    selected_object_name,
-                    scene_config,
-                )
-                diagnostics = _collect_anygrasp_diagnostics(
-                    env,
-                    task,
-                    scene_config,
-                    robot_config,
-                    source_spec,
-                    selected_object_name,
-                    trial_arm,
-                )
-                valid_detections = tuple(
-                    detection
-                    for detection in diagnostics.detections
-                    if detection.status.is_valid
-                )
-                if len(valid_detections) != len(diagnostics.candidates):
-                    raise RuntimeError(
-                        "AnyGrasp diagnostics lost the candidate-to-detection mapping"
-                    )
-                LOGGER.info(
-                    "seed=%d arm=%s returned=%d valid=%d",
-                    source_spec.seed,
-                    trial_arm,
-                    len(diagnostics.detections),
-                    len(diagnostics.candidates),
-                    extra={
-                        "event": "COLLECT",
-                        "event_fields": {
-                            "seed": source_spec.seed,
-                            "arm": trial_arm,
-                            "detection_count": len(diagnostics.detections),
-                            "candidate_count": len(diagnostics.candidates),
-                        },
-                    },
-                )
-                for candidate, detection in zip(
-                    diagnostics.candidates,
-                    valid_detections,
-                    strict=True,
-                ):
-                    candidate_spec = EpisodeSpec(
-                        episode_id=(
-                            f"grasp-seed-{source_spec.seed}-"
-                            f"candidate-{detection.detection_index}"
-                        ),
-                        task_id=source_spec.task_id,
-                        seed=source_spec.seed,
-                        layout=source_spec.layout,
-                        max_steps=source_spec.max_steps,
-                    )
-                    trials.append(
-                        _GraspCollectionTrial(
-                            spec=candidate_spec,
-                            candidate=candidate,
-                            detection_index=detection.detection_index,
-                            arm=trial_arm,
-                        )
-                    )
-        except Exception:
-            env.close()
-            raise
-        collection_trials = tuple(trials)
-        if not collection_trials:
-            LOGGER.warning(
-                "AnyGrasp returned no geometry-valid candidate to collect",
-                extra={
-                    "event": "SUMMARY",
-                    "event_fields": {
-                        "task": task.task_id,
-                        "program": args.program,
-                        "capture_count": len(source_specs),
-                        "candidate_count": 0,
-                        "success_count": 0,
-                        "valid": False,
-                    },
-                },
-            )
-            env.close()
-            return 1
-        collection_trial_by_episode_id = {
-            trial.spec.episode_id: trial for trial in collection_trials
-        }
-        specs = tuple(trial.spec for trial in collection_trials)
-        LOGGER.info(
-            "collected %d candidates from %d AnyGrasp captures",
-            len(collection_trials),
-            len(source_specs),
-            extra={
-                "event": "COLLECT",
-                "event_fields": {
-                    "capture_count": len(source_specs),
-                    "candidate_count": len(collection_trials),
-                },
-            },
-        )
-
     def expert_factory(state: EpisodeState) -> Iterator[SkillRequest]:
         if args.program == "expert":
             return task.expert(
@@ -957,16 +830,11 @@ def main() -> int:
             target.position_m,
             source.orientation_xyzw,
         )
-        request_arm = (
-            collection_trial_by_episode_id[state.spec.episode_id].arm
-            if args.program == "collect-grasps"
-            else "auto"
-        )
         return iter(
             (
                 PickAndPlace(
                     object_name,
-                    request_arm,
+                    "auto",
                     target_object_pose_env,
                 ),
             )
@@ -1014,21 +882,12 @@ def main() -> int:
     executor = CommandExecutor(env, action_layout)
 
     def context_factory(state: EpisodeState) -> SkillContext:
-        context = IsaacLabSkillContext(
+        return IsaacLabSkillContext(
             env,
             task,
             scene_config,
             {"left": robot_config, "right": robot_config},
             env_id=state.env_id,
-        )
-        if args.program != "collect-grasps":
-            return context
-        trial = collection_trial_by_episode_id[state.spec.episode_id]
-        return SingleCandidateSkillContext(
-            context,
-            selected_object_name,
-            trial.arm,
-            trial.candidate,
         )
 
     runner = DemoGenerationRunner(
@@ -1047,27 +906,15 @@ def main() -> int:
         valid &= result.batch_count == expected_batches
         for index, episode in enumerate(result.episodes.values()):
             slot = index % args.num_envs
-            if args.program == "collect-grasps":
-                episode_valid = (
-                    episode.termination.reason
-                    not in {
-                        TerminationReason.INVALID_ACTION,
-                        TerminationReason.INVALID_ROBOT_STATE,
-                        TerminationReason.CANCELLED,
-                        TerminationReason.RUNTIME_ERROR,
-                    }
-                    and episode.steps > 0
-                )
-            else:
-                episode_valid = (
-                    episode.termination.reason
-                    in {
-                        TerminationReason.CONTROLLER_FINISHED,
-                        TerminationReason.GOAL_REACHED,
-                    }
-                    and episode.steps > 0
-                    and (args.program != "expert" or episode.success)
-                )
+            episode_valid = (
+                episode.termination.reason
+                in {
+                    TerminationReason.CONTROLLER_FINISHED,
+                    TerminationReason.GOAL_REACHED,
+                }
+                and episode.steps > 0
+                and (args.program != "expert" or episode.success)
+            )
             valid &= episode_valid
             episode_fields: dict[str, object] = {
                 "episode_id": episode.spec.episode_id,
@@ -1078,11 +925,6 @@ def main() -> int:
                 "progress": episode.evaluation.progress,
                 "termination": episode.termination.reason.value,
             }
-            if args.program == "collect-grasps":
-                trial = collection_trial_by_episode_id[episode.spec.episode_id]
-                episode_fields["detection_index"] = trial.detection_index
-                episode_fields["candidate_score"] = trial.candidate.score
-                episode_fields["arm"] = trial.arm
             if episode.termination.message is not None:
                 episode_fields["termination_message"] = episode.termination.message
             LOGGER.log(
@@ -1143,56 +985,8 @@ def main() -> int:
                 },
             },
         )
-        if args.program == "collect-grasps":
-            successful_candidates = tuple(
-                collection_trial_by_episode_id[episode_id].candidate
-                for episode_id, episode in result.episodes.items()
-                if episode.success
-            )
-            object_usd_path = Path(task.assets[selected_object_name].usd_path)
-            annotation_path = grasp_annotation_path(object_usd_path)
-            if successful_candidates:
-                catalog = append_physics_validated_grasps(
-                    annotation_path,
-                    selected_object_name,
-                    robot_config,
-                    successful_candidates,
-                )
-                total_count = len(catalog.objects[selected_object_name])
-                LOGGER.info(
-                    "appended %d successful grasps to %s (total=%d)",
-                    len(successful_candidates),
-                    annotation_path,
-                    total_count,
-                    extra={
-                        "event": "OUTPUT",
-                        "event_fields": {
-                            "output_kind": "physics_validated_grasps",
-                            "path": str(annotation_path),
-                            "appended_count": len(successful_candidates),
-                            "total_count": total_count,
-                        },
-                    },
-                )
-            else:
-                LOGGER.info(
-                    "no candidate completed pick-and-place; annotation unchanged",
-                    extra={
-                        "event": "OUTPUT",
-                        "event_fields": {
-                            "output_kind": "physics_validated_grasps",
-                            "path": str(annotation_path),
-                            "appended_count": 0,
-                        },
-                    },
-                )
         if args.visualize_curobo:
-            visualization_arm = (
-                collection_trials[-1].arm
-                if args.program == "collect-grasps"
-                else "left"
-            )
-            curobo_planners[visualization_arm].browse_captured_stages()
+            curobo_planners["left"].browse_captured_stages()
         replay_request = (
             GuiReplayRequest(
                 dataset_path=_recording_dataset_path(env),

@@ -14,10 +14,9 @@ import numpy as np
 from isaaclab.sensors import Camera
 from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
-from scale_bench.config.loader import load_config
-from scale_bench.config.models.grasp import GraspCatalogConfig
 from scale_bench.config.models.robot import RobotConfig
 from scale_bench.config.models.scene import SceneConfig
+from scale_bench.runtime.asset_grasps import load_asset_grasps
 from scale_bench.skills.context import (
     GraspCandidate,
     GraspState,
@@ -29,7 +28,6 @@ from scale_bench.skills.context import (
 from scale_bench.skills.errors import SkillError
 from scale_bench.skills.geometry import (
     compose_pose,
-    conjugate_quaternion_xyzw,
     inverse_pose,
     multiply_quaternions_xyzw,
     normalize_quaternion_xyzw,
@@ -181,25 +179,19 @@ class IsaacLabSkillContext:
         self._anygrasp_config = scene_config.anygrasp
         self._anygrasp_client = (
             AnyGraspClient(scene_config.anygrasp)
-            if scene_config.anygrasp is not None
+            if scene_config.grasp_source == "anygrasp"
             else None
         )
         self._gripper_apertures_m = {
             arm: robot_configs[arm].gripper.max_aperture_m for arm in ("left", "right")
         }
-        self._grasp_catalogs = {}
-        if self._anygrasp_client is None:
-            self._grasp_catalogs = {
-                arm: _load_grasp_catalog(robot_configs[arm])
+        self._asset_grasps: dict[tuple[Arm, str], tuple[GraspCandidate, ...]] = {}
+        if scene_config.grasp_source == "asset":
+            self._asset_grasps = {
+                (arm, object_name): load_asset_grasps(Path(asset.usd_path), robot_configs[arm])
                 for arm in ("left", "right")
+                for object_name, asset in task.assets.items()
             }
-            for arm, catalog in self._grasp_catalogs.items():
-                missing = set(task.metadata) - set(catalog.objects)
-                if missing:
-                    raise ValueError(
-                        f"{arm} grasp catalog is missing task objects: "
-                        f"{sorted(missing)}"
-                    )
 
     def snapshot(self) -> SceneSnapshot:
         """Read current robot, static-scene, and task-object geometry."""
@@ -255,24 +247,7 @@ class IsaacLabSkillContext:
                     f"target_points={len(inference.target_points_env_m)})"
                 )
         else:
-            catalog = self._grasp_catalogs[arm]
-            approach_distance_m = catalog.approach_distance_m
-            candidates = tuple(
-                GraspCandidate(
-                    tcp_pose_object=Pose(
-                        candidate.position_object_m,
-                        candidate.orientation_object_xyzw,
-                    ),
-                    approach_axis_tcp=candidate.approach_axis_tcp,
-                    approach_distance_m=approach_distance_m,
-                    score=candidate.score,
-                )
-                for candidate in catalog.objects[object_name]
-            ) + self._procedural_side_grasps(
-                arm,
-                object_position_env_m,
-                object_orientation_env_xyzw,
-            )
+            candidates = self._asset_grasps[arm, object_name]
         return tuple(sorted(candidates, key=lambda item: item.score, reverse=True))
 
     def analyze_anygrasp(
@@ -952,70 +927,6 @@ class IsaacLabSkillContext:
         camera.reset(env_ids=[self._env_id])
         camera.update(0.0, force_recompute=True)
 
-    def _procedural_side_grasps(
-        self,
-        arm: Arm,
-        object_position_env_m: tuple[float, float, float],
-        object_orientation_env_xyzw: tuple[float, float, float, float],
-    ) -> tuple[GraspCandidate, ...]:
-        """Generate arm-reachable side grasps for full-arm CuRobo filtering."""
-
-        arm_base_pose_env = self._arm_base_poses_env[arm]
-        object_pose_env = Pose(
-            object_position_env_m,
-            object_orientation_env_xyzw,
-        )
-        object_pose_base = relative_pose(arm_base_pose_env, object_pose_env)
-        radial_yaw_base_rad = math.atan2(
-            object_pose_base.position_m[1],
-            object_pose_base.position_m[0],
-        )
-        yaw_offsets_base_rad = (
-            0.0,
-            math.pi / 2.0,
-            -math.pi / 2.0,
-            math.pi,
-            math.pi / 4.0,
-            -math.pi / 4.0,
-            3.0 * math.pi / 4.0,
-            -3.0 * math.pi / 4.0,
-        )
-        env_orientation_object_xyzw = conjugate_quaternion_xyzw(
-            object_orientation_env_xyzw
-        )
-        candidates = []
-        for tilt_base_rad in (math.radians(30.0), math.radians(45.0)):
-            for yaw_offset_base_rad in yaw_offsets_base_rad:
-                yaw_base_rad = radial_yaw_base_rad + yaw_offset_base_rad
-                tcp_orientation_base_xyzw = quaternion_xyzw_from_rpy(
-                    0.0,
-                    tilt_base_rad,
-                    yaw_base_rad,
-                )
-                tcp_orientation_env_xyzw = multiply_quaternions_xyzw(
-                    arm_base_pose_env.orientation_xyzw,
-                    tcp_orientation_base_xyzw,
-                )
-                candidates.append(
-                    GraspCandidate(
-                        tcp_pose_object=Pose(
-                            (0.0, 0.0, 0.0),
-                            normalize_quaternion_xyzw(
-                                multiply_quaternions_xyzw(
-                                    env_orientation_object_xyzw,
-                                    tcp_orientation_env_xyzw,
-                                )
-                            ),
-                        ),
-                        approach_axis_tcp=(1.0, 0.0, 0.0),
-                        approach_distance_m=(
-                            self._grasp_catalogs[arm].approach_distance_m
-                        ),
-                        score=0.0,
-                    )
-                )
-        return tuple(candidates)
-
 
 def _camera_position_tcp_m(
     robot_config: RobotConfig,
@@ -1123,26 +1034,6 @@ def _camera_stand_collision_objects_env(
             f"{camera_stand_usd_path}"
         )
     return tuple(collision_objects_env)
-
-
-def _load_grasp_catalog(robot_config: RobotConfig) -> GraspCatalogConfig:
-    if robot_config.grasp_catalog_path is None:
-        raise ValueError(
-            f"robot {robot_config.name!r} requires a grasp candidate catalog"
-        )
-    catalog = load_config(
-        Path(robot_config.grasp_catalog_path),
-        GraspCatalogConfig,
-    )
-    tcp = robot_config.kinematics.tcp
-    if (
-        catalog.robot_name != robot_config.name
-        or catalog.tcp_parent_frame != tcp.parent_frame
-        or catalog.tcp_position_m != tcp.position_m
-        or catalog.tcp_orientation_xyzw != tcp.orientation_xyzw
-    ):
-        raise ValueError("grasp catalog TCP does not match RobotConfig")
-    return catalog
 
 
 def _matrix_from_quaternion_xyzw(

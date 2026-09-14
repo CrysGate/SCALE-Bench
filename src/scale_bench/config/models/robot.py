@@ -15,7 +15,6 @@ from scale_bench.config.base import (
     Name,
     NonNegativeFloat,
     OptionalAssetReference,
-    OptionalConfigReference,
     PositiveFloat,
     Position3,
     Quaternion,
@@ -141,7 +140,6 @@ class RobotConfig(FrozenModel):
     usd_path: AssetReference
     urdf_path: OptionalAssetReference = None
     curobo_config_path: ConfigReference
-    grasp_catalog_path: OptionalConfigReference = None
     fixed_base: StrictBool = True
     disable_gravity: StrictBool = False
     self_collisions: StrictBool = False

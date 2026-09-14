@@ -42,6 +42,9 @@ camera:
   sensor_local_orientation_xyzw: [0.12278780, -0.12278780, -0.69636424, 0.69636424]
   convention: opengl
 
+grasp_source: asset
+
+# Used only when grasp_source is anygrasp.
 # The external model is reached through the local SSH tunnel. Isaac Lab depth
 # is already in metres; the client sends scale=1.0 to the service.
 anygrasp:

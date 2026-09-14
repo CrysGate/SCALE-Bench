@@ -9,7 +9,7 @@ Two tasks are currently implemented:
 - `sort_dolls_by_size`: arrange five nesting dolls in size order at fixed slots.
 - `single_object_pick_and_place`: place a randomly positioned bottle upright at a fixed slot.
 
-Both tasks support deterministic seeds, layout import/export, and final-state evaluation. The expert path supports CuRobo planning with either live AnyGrasp detections or an offline grasp catalog from the robot configuration.
+Both tasks support deterministic seeds, layout import/export, and final-state evaluation. The expert path supports CuRobo planning with either live AnyGrasp detections or asset-local `grasps.yaml` annotations.
 
 ## Environment
 
@@ -71,6 +71,7 @@ Run the complete expert path:
 ```bash
 uv run python scripts/run_demo_generation.py \
   --task single_object_pick_and_place \
+  --robot-config configs/robots/piper.yml \
   --program expert \
   --num-envs 1 \
   --episodes 1 \
@@ -78,7 +79,7 @@ uv run python scripts/run_demo_generation.py \
   --viz none
 ```
 
-The default scene uses an AnyGrasp service. See [the AnyGrasp guide](docs/anygrasp.md) for deployment and diagnostics. Add `--grasp-source catalog` to use the offline nesting-doll catalog.
+The default grasp source reads `grasps.yaml` beside each object USD, including its TCP definition and approach distance. See [the AnyGrasp guide](docs/anygrasp.md) for deployment and diagnostics.
 
 ## Entry Points
 
@@ -96,7 +97,7 @@ See [scripts/README.md](scripts/README.md) for command examples. Run scripts thr
 
 ## Configuration Boundaries
 
-- `configs/robots/`: joints, TCP, actuators, gripper, camera mount, URDF, and grasp catalog.
+- `configs/robots/`: joints, TCP, actuators, gripper, camera mount, and URDF.
 - `configs/cameras/`: image dimensions, outputs, intrinsics, and clipping range.
 - `configs/scene/`: static assets, robot mounts, inference camera, AnyGrasp, and lighting.
 - `configs/tasks/`: task assets, layout constraints, target slots, and success thresholds.
