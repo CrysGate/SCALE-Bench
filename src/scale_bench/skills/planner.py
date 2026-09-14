@@ -171,6 +171,7 @@ class OperationSkillPlanner:
         snapshot = context.snapshot()
         source_object = snapshot.object(object_name)
         selected_arm = self._select_arm(arm, source_object)
+        arm_base_position_env_m = self._arm_base_positions_env_m[selected_arm]
         try:
             candidates = context.grasp_candidates(object_name, selected_arm)
         except SkillError as error:
@@ -202,7 +203,15 @@ class OperationSkillPlanner:
         failure_stage_counts: Counter[str] = Counter()
         attempt_count = 0
         for candidate_index, candidate in enumerate(
-            sorted(candidates, key=lambda item: item.score, reverse=True)
+            sorted(
+                candidates,
+                key=lambda item: (
+                    _grasp_geometry_cost(
+                        item, source_object.pose_env, arm_base_position_env_m
+                    ),
+                    -item.score,
+                ),
+            )
         ):
             for grasp_tcp_pose_env in _parallel_jaw_grasp_poses(
                 source_object.pose_env,
@@ -280,7 +289,6 @@ class OperationSkillPlanner:
                     )
                     continue
 
-                arm_base_position_env_m = self._arm_base_positions_env_m[selected_arm]
                 base_distance_m = math.sqrt(
                     sum(
                         (tcp_coordinate_env_m - base_coordinate_env_m) ** 2
@@ -307,6 +315,9 @@ class OperationSkillPlanner:
                             "candidate_count": len(candidates),
                             "candidate_index": candidate_index,
                             "score": candidate.score,
+                            "geometry_cost": _grasp_geometry_cost(
+                                candidate, source_object.pose_env, arm_base_position_env_m
+                            ),
                             "attempt_count": attempt_count,
                             "failure_stage_counts": dict(failure_stage_counts),
                             "base_distance_m": base_distance_m,
@@ -714,6 +725,49 @@ def _objects_excluding(
     return tuple(
         scene_object for scene_object in objects if scene_object.name != object_name
     )
+
+
+def _grasp_geometry_cost(
+    candidate: GraspCandidate,
+    object_pose_env: Pose,
+    base_position_env_m: tuple[float, float, float],
+) -> float:
+    """Prefer transverse finger opening and penalize approach from the far side.
+
+    The two squared penalties have equal weight. Vertical approaches incur no
+    approach penalty. With no horizontal base-to-object offset, all costs are
+    zero so the existing score and source order decide the ranking.
+    """
+    base_to_object_displacement_env_m = (
+        object_pose_env.position_m[0] - base_position_env_m[0],
+        object_pose_env.position_m[1] - base_position_env_m[1],
+        0.0,
+    )
+    horizontal_distance_m = math.hypot(*base_to_object_displacement_env_m)
+    base_to_object_direction_env = tuple(
+        component_m / horizontal_distance_m
+        for component_m in base_to_object_displacement_env_m
+    )
+    tcp_pose_env = compose_pose(object_pose_env, candidate.tcp_pose_object)
+    gripper_open_axis_env = rotate_vector_xyzw(
+        tcp_pose_env.orientation_xyzw, (0.0, 1.0, 0.0)
+    )
+    approach_axis_env = rotate_vector_xyzw(
+        tcp_pose_env.orientation_xyzw, candidate.approach_axis_tcp
+    )
+    open_dot = sum(
+        component * direction
+        for component, direction in zip(
+            gripper_open_axis_env, base_to_object_direction_env, strict=True
+        )
+    )
+    approach_dot = sum(
+        component * direction
+        for component, direction in zip(
+            approach_axis_env, base_to_object_direction_env, strict=True
+        )
+    )
+    return open_dot**2 + min(0.0, approach_dot)**2
 
 
 def _camera_side_up_dot(

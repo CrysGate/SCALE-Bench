@@ -57,7 +57,7 @@ anygrasp:
   capture_elevation_deg: 45.0
   capture_azimuth_offset_deg: 0.0
   depth_trunc_m: 2.0
-  # Request a wide hypothesis pool, then plan geometry-valid poses by score.
+  # Request a wide hypothesis pool, then rank valid poses by arm-relative geometry.
   top_k: 200
   min_score: 0.0
   collision_detection: true
