@@ -72,10 +72,10 @@ uv run python scripts/preview_scene.py \
 uv run python scripts/run_demo_generation.py \
   --task single_object_pick_and_place \
   --robot-config configs/robots/piper.yml \
-  --program expert \
   --num-envs 1 \
   --episodes 1 \
   --max-steps 1200 \
+  --record-output outputs/demonstrations \
   --viz none
 ```
 
@@ -87,7 +87,9 @@ uv run python scripts/run_demo_generation.py \
 |---|---|
 | `scripts/preview_scene.py` | 预览场景、检查布局、执行有界运行。 |
 | `scripts/run_policy_rollout.py` | 验证 policy、fixed-batch 调度和记录链路。 |
-| `scripts/run_demo_generation.py` | 运行 skill expert、CuRobo 和数据记录。 |
+| `scripts/run_demo_generation.py` | 执行完整任务专家并采集 HDF5 数据。 |
+| `scripts/run_skill_debug.py` | 单步技能和 CuRobo 规划调试。 |
+| `scripts/run_grasp_diagnostics.py` | 检查 AnyGrasp 候选和 RGB-D。 |
 | `scripts/replay_episode.py` | 恢复 HDF5 初态、重放 action 并重新评测。 |
 | `scripts/view_hdf5.py` | 在浏览器中检查录制的 episode、相机和状态。 |
 | `scripts/export_hdf5_camera_videos.py` | 导出 RGB 和深度视频。 |

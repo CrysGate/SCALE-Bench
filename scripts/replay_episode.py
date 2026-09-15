@@ -64,7 +64,7 @@ parser.add_argument(
     action="store_true",
     help=(
         "After replay, pause on the final episode state until the Kit window "
-        "is closed. Used by run_demo_generation.py --replay for inspection."
+        "is closed, for interactive inspection."
     ),
 )
 AppLauncher.add_app_launcher_args(parser)

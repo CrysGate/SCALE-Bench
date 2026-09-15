@@ -50,129 +50,70 @@ uv run python scripts/run_policy_rollout.py \
 
 默认 policy 保持 reset 关节位置，并按 seed 在不同 step 结束。传入 `--left-joint4-offset-rad` 时会执行一次真实 `MoveToJoints` command，用于检查 action adapter。
 
-## 专家数据生成
+## 专家数据采集
 
-`run_demo_generation.py` 支持五种 program：
-
-- `pick`：抓取一个物体。
-- `pick-and-place`：抓取并放置一个物体。
-- `expert`：执行 Task 提供的完整专家程序。
-- `grasp-diagnostics`：只检查 AnyGrasp 候选，不执行运动。
-- `collect-grasps`：逐个规划并真实执行 AnyGrasp 候选，只保存完成完整
-  pick-and-place 的抓取姿态。
-
-完整 bottle task：
+`run_demo_generation.py` 是专家数据采集客户端：始终执行 Task 提供的完整专家程序并保存 HDF5。默认任务为 `single_object_pick_and_place`，默认步数上限为 1200，默认输出为 `outputs/demonstrations/demo_generation.hdf5`。同名数据集存在时自动增加后缀，结束日志给出实际文件路径。
 
 ```bash
 HEADLESS=1 uv run python scripts/run_demo_generation.py \
   --task single_object_pick_and_place \
-  --program expert \
   --base-seed 101 \
   --num-envs 2 \
-  --episodes 2 \
+  --episodes 3 \
   --max-steps 1200 \
   --viz kit \
   --record-output outputs/bottle-pick-place \
   --dataset-name bottle_pick_place \
-  --record-camera-observations \
-  --replay
+  --record-camera-observations
 ```
 
-HEADLESS=1 uv run python scripts/run_demo_generation.py \
-  --task single_object_pick_and_place \
-  --program grasp-diagnostics \
-  --base-seed 101 \
-  --num-envs 1 \
-  --episodes 1 \
-  --max-steps 1200 \
-  --viz kit \
-  --open3d
+seed 范围为 `[base-seed, base-seed + episodes)`，`--num-envs` 只改变并行 slot 数；最后一批可以不满。采集成功和失败的 episode 都保留，并记录 success、终止原因和技能语义。退出码为 0 表示全部 episode 成功；存在失败或运行异常时为非零。日志输出每条结果、成功率和实际数据集路径。
 
-seed 范围固定为 `[base-seed, base-seed + episodes)`，增加 `--num-envs` 只改变并行 slot 数。末尾输出成功数量、总数和成功率。
+省略 `--record-camera-observations` 时记录关节、动作等默认数据；传入时额外保存左腕、右腕和俯视相机的 RGB-D。无显示器采集相机时使用 `HEADLESS=1 --viz kit`，使 reset 阶段生成有效 RTX 帧；`--viz none` 适用于不录制相机的运行。
 
-需要保存 episode 时增加：
+默认 `--grasp-source asset` 读取物体 USD 同目录的 `grasps.yaml`；传入 `--grasp-source anygrasp` 使用在线候选。机器人通过 `--robot-config` 选择，其 TCP 和关节定义必须与抓取数据匹配。
+
+`--log-file PATH` 追加完整 DEBUG JSONL；省略时只输出终端日志。自定义配置路径相对于当前目录解析，内置配置默认使用仓库中的绝对路径。
+
+### 单步技能与 CuRobo 调试
+
+`run_skill_debug.py` 执行一次 `pick` 或 `pick-and-place`，不写入演示数据集。`--object-name` 省略时使用任务的第一个目标物体。
 
 ```bash
-  --record-output outputs/bottle-pick-place \
-  --dataset-name bottle_pick_place
-```
-
-需要同时记录左腕、右腕和俯视相机的 RGB-D 时，再增加
-`--record-camera-observations`。不传该开关时只记录关节等默认观测，避免产生大量图像数据；该开关要求同时传入 `--record-output`。无显示器采集相机时必须使用 `HEADLESS=1 --viz kit`，使 reset 阶段的 rerender 生成有效 RTX 帧；`--viz none` 不适用于相机数据采集。
-
-`run_demo_generation.py` 使用 CuRobo 规划真实轨迹。默认 `--grasp-source scene` 使用 Scene 中的 AnyGrasp；套娃任务可以传 `--grasp-source catalog` 使用离线候选。
-
-### 采集物理验证的抓取姿态
-
-`collect-grasps` 只用于 `single_object_pick_and_place`。每次 AnyGrasp
-推理后，程序会把本地几何过滤通过的每个 candidate 放进独立 episode；该
-episode 的规划器只能看到这一条 candidate。`--grasp-arm` 默认是 `auto`，每个
-seed 按物体到左右 robot base 的距离选臂，并在拍摄、过滤、规划和执行期间固定
-使用选出的机械臂；显式传 `left` 或 `right` 时则始终使用指定机械臂。只有
-完整抓取、搬运、释放和最终稳定性验证都成功的 candidate 才会保存：
-
-```bash
-HEADLESS=1 uv run python scripts/run_demo_generation.py \
-  --task single_object_pick_and_place \
-  --program collect-grasps \
-  --base-seed 101 \
-  --episodes 1 \
-  --num-envs 1 \
-  --max-steps 1200 \
-  --viz kit
-```
-
-此模式下 `--episodes` 表示独立的 AnyGrasp 采集轮数，而不是最终 candidate
-episode 数；每轮使用 `[base-seed, base-seed + episodes)` 中对应的物体布局。
-`--num-envs` 控制 candidate episode 的并行 slot 数。
-
-结果写到物体 USD 同目录的 `<usd文件名>_grasps.yml`，例如
-`Assets/Object/Rigid/bottle/bottle_grasps.yml`。文件使用项目现有
-`GraspCatalogConfig` 格式，姿态为 `T_object_tcp`、四元数顺序为 `xyzw`。文件
-已存在时会先校验 robot、TCP、approach distance 和对象名，再保留原数据并为
-本次成功项分配连续 `candidate_id` 后原子追加；本轮没有成功项时文件保持不变。
-
-### CuRobo 碰撞模型可视化
-
-规划调试时传入 `--visualize-curobo`。程序会正常完成规划和实际执行以取得各阶段的真实状态，但运行过程中不显示碰撞标记；episode 结束后会在 Kit Viewer 中打开阶段浏览器：
-
-```bash
-uv run python scripts/run_demo_generation.py \
+uv run python scripts/run_skill_debug.py \
   --task single_object_pick_and_place \
   --program pick-and-place \
-  --num-envs 1 \
-  --episodes 1 \
-  --max-steps 1200 \
+  --seed 101 \
   --visualize-curobo
 ```
 
-该开关会自动启用 Kit，不需要另外传入 `--viz kit`。可视化目前只支持 `--num-envs 1`，不能与 `--headless`、`--viz none` 或不包含 Kit 的其他显式 visualizer 配置一起使用。
+`--visualize-curobo` 启用 Kit，在执行后浏览实际规划阶段；关闭浏览器后退出。该入口固定使用一个环境、一个 episode，不能将该开关与 `--headless` 或不包含 Kit 的显式 visualizer 配置组合。
 
-- 蓝色球：当前求解机械臂的 CuRobo collision spheres。
-- 橙色球：当前夹持物的 collision spheres。
-- 黄色半透明盒体：桌面 collision cuboid。
-- 红色半透明盒体：场景物体 collision cuboids。
-- 灰色半透明盒体：相机支架 USD 中启用碰撞的几何体包围盒。
-- 绿色半透明盒体：另一机械臂在当前 CuRobo world 中的 collision cuboids。
+- 蓝色球：求解机械臂的 collision spheres。
+- 橙色球：夹持物的 collision spheres。
+- 黄色盒体：桌面。
+- 红色盒体：场景物体。
+- 灰色盒体：相机支架。
+- 绿色盒体：另一机械臂。
 
-浏览器不会逐个列出失败的抓取候选或放置朝向，一次运行最多显示七个阶段。最终方案使用的阶段标为 `selected`；尚未成功的阶段保留最后一次实际送入 CuRobo 的尝试，并标为 `attempted`，可用于检查失败现场。使用 `<` 和 `>` 依次查看 `pre_grasp`、`grasp`、`lift`、`pre_place`、`place`、`retreat`、`clear` 中实际进入过的阶段；标题会显示阶段序号、名称、状态和当前机械臂。浏览期间仿真时间线暂停，点击 `Close` 后程序退出。
+使用 `<` 和 `>` 浏览实际进入过的 `pre_grasp`、`grasp`、`lift`、`pre_place`、`place`、`retreat`、`clear` 阶段。这些是规划起点的碰撞快照，不是轨迹动画。
 
-这些标记是各阶段规划起点的碰撞快照，不是轨迹动画；它们不参与物理，也不会写入相机观测。
+### AnyGrasp 诊断
 
-采集后逐条打开 Kit 回放：
+`run_grasp_diagnostics.py` 采集单帧 RGB-D、检查返回候选，不执行机器人技能：
 
 ```bash
-uv run python scripts/run_demo_generation.py \
-  --program expert \
-  --record-output outputs/curobo-expert \
-  --dataset-name curobo_expert \
-  --replay \
-  --viz none
+HEADLESS=1 uv run python scripts/run_grasp_diagnostics.py \
+  --task single_object_pick_and_place \
+  --seed 101 \
+  --diagnostics-output outputs/anygrasp-seed101.json \
+  --viz kit \
+  --open3d
 ```
 
-`--replay` 要求 `--record-output`。采集与每个 GUI replay 分别运行在独立进程；关闭当前 Kit 窗口后才会启动下一个 episode。
+`--grasp-arm` 支持 `auto`、`left`、`right`，auto 选择距离物体最近的机器人 base。`--open3d` 在 Isaac 退出后启动独立 Open3D 进程，显示实际请求的 RGB-D 和抓取候选。省略时仅输出诊断日志；`--diagnostics-output` 可另外保存 JSON 证据。
 
-AnyGrasp 设置和诊断命令见 [`docs/anygrasp.md`](../docs/anygrasp.md)。
+采集入口不再接受 `--program`、`--object-name`、`--replay`、`--open3d` 或 `--visualize-curobo`。技能和诊断使用上面的独立入口，数据回放使用下面的 `replay_episode.py`。AnyGrasp 设置详见 [docs/anygrasp.md](../docs/anygrasp.md)。
 
 ## Episode 回放
 
@@ -223,7 +164,7 @@ python scripts/run_anygrasp_service.py \
   --port 5001
 ```
 
-部署后检查 `GET /health` 返回 `protocol_version: 3`。`run_demo_generation.py --program grasp-diagnostics --open3d` 会先显示实际发送给服务的二维 RGB-D，再显示返回候选的彩色点云。`view_anygrasp_open3d.py` 是该命令启动的隔离查看进程，通常不直接调用。
+部署后检查 `GET /health` 返回 `protocol_version: 3`。`run_grasp_diagnostics.py --open3d` 会先显示实际发送给服务的二维 RGB-D，再显示返回候选的彩色点云。`view_anygrasp_open3d.py` 是该命令启动的隔离查看进程，通常不直接调用。
 
 ## 生成 CuRobo 配置
 

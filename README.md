@@ -72,10 +72,10 @@ Run the complete expert path:
 uv run python scripts/run_demo_generation.py \
   --task single_object_pick_and_place \
   --robot-config configs/robots/piper.yml \
-  --program expert \
   --num-envs 1 \
   --episodes 1 \
   --max-steps 1200 \
+  --record-output outputs/demonstrations \
   --viz none
 ```
 
@@ -87,7 +87,9 @@ The default grasp source reads `grasps.yaml` beside each object USD, including i
 |---|---|
 | `scripts/preview_scene.py` | Preview scenes, inspect layouts, and run bounded checks. |
 | `scripts/run_policy_rollout.py` | Exercise policy rollout, fixed-batch scheduling, and recording. |
-| `scripts/run_demo_generation.py` | Run task skills, CuRobo, and data recording. |
+| `scripts/run_demo_generation.py` | Collect complete task experts into HDF5 datasets. |
+| `scripts/run_skill_debug.py` | Run one skill and inspect CuRobo planning. |
+| `scripts/run_grasp_diagnostics.py` | Inspect AnyGrasp candidates and RGB-D. |
 | `scripts/replay_episode.py` | Restore HDF5 state, replay actions, and re-evaluate. |
 | `scripts/view_hdf5.py` | Inspect recorded episodes, cameras, and state in a browser. |
 | `scripts/export_hdf5_camera_videos.py` | Export RGB and depth videos. |

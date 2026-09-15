@@ -99,11 +99,9 @@ X5 使用 `configs/robots/x5.yml`：TCP 是用于 AnyGrasp 抓放的夹持参考
 执行单次真实 pick：
 
 ```bash
-uv run python scripts/run_demo_generation.py \
+uv run python scripts/run_skill_debug.py \
   --grasp-source anygrasp \
   --program pick \
-  --num-envs 1 \
-  --episodes 1 \
   --max-steps 1200 \
   --viz none
 ```
@@ -111,10 +109,10 @@ uv run python scripts/run_demo_generation.py \
 检查单帧原始候选，不执行机器人动作：
 
 ```bash
-uv run python scripts/run_demo_generation.py \
+uv run python scripts/run_grasp_diagnostics.py \
   --grasp-source anygrasp \
-  --program grasp-diagnostics \
-  --base-seed 107 \
+  --task sort_dolls_by_size \
+  --seed 107 \
   --object-name doll_00004 \
   --grasp-arm left \
   --diagnostics-output outputs/anygrasp-seed107.json \
