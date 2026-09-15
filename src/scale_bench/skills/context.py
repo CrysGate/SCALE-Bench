@@ -8,6 +8,7 @@ one parallel environment rather than Isaac Sim's shared absolute world frame.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol, TypeAlias
 
@@ -45,6 +46,8 @@ class JointTrajectory:
 class RobotState:
     joints: JointState
     tcp_pose_env: Pose
+    camera_position_tcp_m: tuple[float, float, float]
+    gripper_joint_positions: Mapping[str, float]
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +62,7 @@ class SceneSnapshot:
     left_robot: RobotState
     right_robot: RobotState
     table: SceneObject
+    camera_stand: tuple[SceneObject, ...]
     objects: tuple[SceneObject, ...]
 
     def robot(self, arm: Arm) -> RobotState:
@@ -84,6 +88,7 @@ class GraspCandidate:
     approach_axis_tcp: tuple[float, float, float]
     approach_distance_m: float
     score: float
+    candidate_id: int = 0
 
     def __post_init__(self) -> None:
         axis_norm = math.sqrt(sum(value * value for value in self.approach_axis_tcp))
@@ -126,10 +131,12 @@ class PlanningScene:
     """All collision facts required to plan one arm segment."""
 
     table: SceneObject
+    camera_stand: tuple[SceneObject, ...]
     objects: tuple[SceneObject, ...]
     other_arm: Arm
     other_robot: RobotState
     tool: ToolState
+    gripper_joint_positions: Mapping[str, float]
 
 
 class SkillContext(Protocol):

@@ -13,6 +13,11 @@ python scripts/run_anygrasp_service.py \
   --port 5001
 ```
 
+服务在请求线程内禁用梯度，并在每次 SDK 推理结束后、释放推理锁前清理
+CUDA 闲置缓存，避免不同规模点云使预留显存长期停留在历史峰值。模型保持
+常驻；清理不会降低单次推理所需的峰值显存，并会增加少量显存释放和后续
+重新分配的开销。更新脚本后需要重启已部署的服务才能生效。
+
 本机验证：
 
 ```bash
@@ -55,7 +60,7 @@ anygrasp:
 
 这些参数分别控制服务连接、采集距离、点云范围、候选数量，以及本地目标归属、桌面净空和夹爪方向过滤。
 
-完全省略 `anygrasp` 时，运行时使用机器人配置的 `grasp_catalog_path`。服务错误或无有效候选不会自动回退到 catalog，当前 skill 会明确失败。
+默认 `grasp_source: asset` 从物体 USD 同目录的 `grasps.yaml` 读取候选。运行脚本时传 `--grasp-source anygrasp` 才启用本服务；直接创建运行上下文时在 Scene 中设置 `grasp_source: anygrasp`。资产模式可以省略 `anygrasp` 配置，在线模式必须提供。服务错误或无有效候选时当前 skill 会明确失败，不会自动切换来源。
 
 ## 运行流程
 
@@ -66,30 +71,37 @@ anygrasp:
 3. 客户端发送同一帧 RGB-D、内参和目标像素索引。深度单位已经是米，因此请求使用 `scale: 1.0`。
 4. 服务返回相机光学坐标系中的候选；客户端将它们变换到环境局部世界系。
 5. 本地按分数、夹爪最大开度、目标包围盒、桌面净空和开合轴方向过滤。
-6. Planner 对候选及其平行夹爪 180 度等价姿态做 IK 和碰撞检查，选择分数最高的完整可行轨迹。
+6. Planner 按相对所选机器人 base 的几何代价从低到高尝试候选，同代价时优先使用高分候选，同分保留来源顺序。对候选及其平行夹爪 180 度等价姿态进行相机朝上筛选、预抓取与抓取规划及抬升可行性检查，选择第一个通过的候选。
 7. 闭合后从实时物体与 TCP 位姿重测 `T_object_tcp`，再规划搬运和放置。
 
-相机刷新不调用 `env.step()`，不会推进 episode，也不会写入 recorder。默认只请求一次服务；目标点不足时的重拍发生在请求之前。
+asset 和 AnyGrasp 共用上述规划排序。令 `r` 为 base 指向物体的水平单位向量，
+`g` 为 TCP `+Y` 开合轴在 env 中的单位向量，`a` 为接近轴在 env 中的单位向量，
+几何代价为 `(g · r)² + min(0, a · r)²`，两项等权。它偏好开合轴与 `r`
+垂直，并惩罚从远离机器人的一侧反向接近；正面和竖直接近均没有接近方向惩罚。
+物体与 base 的水平位置重合时，各候选几何代价均为零。几何排序不删除候选，
+也不修改来源分数；规划日志中的 `candidate_index` 表示新排序后的序号，
+`geometry_cost` 记录选中候选的几何代价。
 
 ## 坐标约定
 
-Isaac Lab 的相机 optical pose 直接用于 AnyGrasp 的 `+Z` 向前、`+Y` 向下坐标系。AnyGrasp tip 按官方定义计算：
+Isaac Lab 的相机 optical pose 直接用于 AnyGrasp 的 `+Z` 向前、`+Y` 向下坐标系。检测的 `translation` 和 `rotation_matrix` 定义抓取中心，运行时将其变换为 benchmark TCP 位姿。AnyGrasp tip 用于诊断显示，按官方定义计算：
 
 ```text
 tip = translation + depth * rotation_matrix[:, 0]
 ```
 
-检测 tip 先解释为机器人 `tcp.parent_frame`，再应用 `RobotConfig.kinematics.tcp` 得到 benchmark TCP。运行时不硬编码 Piper offset；修改 TCP 时必须同步验证在线抓取和离线 catalog。
+`RobotConfig.kinematics.tcp` 定义机器人 TCP 相对 URDF 父帧的固定变换，由 CuRobo 和仿真状态读取共同使用。检测位姿本身不再叠加该偏移。修改 TCP 时必须同步验证在线抓取和资产抓取标注。
+
+X5 使用 `configs/robots/x5.yml`：TCP 是用于 AnyGrasp 抓放的夹持参考点，`tcp_position_parent_m = [0.118, 0.0, 0.0]`，`parent=link6`，姿态为单位旋转。TCP 的 `+X` 为接近方向，`+Y` 为开合轴。指尖闭合时的最小间距约为 `0.000807166 m`，夹爪总开度为该间距加 `joint7 + joint8`，最大约 `0.088807166 m`。
 
 ## 运行与诊断
 
 执行单次真实 pick：
 
 ```bash
-uv run python scripts/run_demo_generation.py \
+uv run python scripts/run_skill_debug.py \
+  --grasp-source anygrasp \
   --program pick \
-  --num-envs 1 \
-  --episodes 1 \
   --max-steps 1200 \
   --viz none
 ```
@@ -97,9 +109,10 @@ uv run python scripts/run_demo_generation.py \
 检查单帧原始候选，不执行机器人动作：
 
 ```bash
-uv run python scripts/run_demo_generation.py \
-  --program grasp-diagnostics \
-  --base-seed 107 \
+uv run python scripts/run_grasp_diagnostics.py \
+  --grasp-source anygrasp \
+  --task sort_dolls_by_size \
+  --seed 107 \
   --object-name doll_00004 \
   --grasp-arm left \
   --diagnostics-output outputs/anygrasp-seed107.json \

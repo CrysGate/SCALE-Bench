@@ -6,8 +6,8 @@ import logging
 import math
 from collections import Counter
 from collections.abc import Mapping
-from dataclasses import dataclass
-from typing import Protocol
+from dataclasses import asdict, dataclass, replace
+from typing import Literal, Protocol, TypeAlias, cast
 
 from .commands import MoveToJoints, MoveToPose
 from .context import (
@@ -29,14 +29,25 @@ from .geometry import (
     multiply_quaternions_xyzw,
     normalize_quaternion_xyzw,
     offset_z_env,
-    quaternion_angular_distance_rad,
     quaternion_xyzw_from_axis_angle,
     quaternion_xyzw_from_rpy,
+    relative_pose,
     rotate_vector_xyzw,
 )
 from .models import Arm, ArmSelection, PickAndPlace, Pose
 
 LOGGER = logging.getLogger(__name__)
+
+PlanningStage: TypeAlias = Literal[
+    "pre_grasp",
+    "grasp",
+    "lift",
+    "pre_place",
+    "adjust",
+    "place",
+    "retreat",
+    "clear",
+]
 
 
 class MotionPlanner(Protocol):
@@ -45,19 +56,37 @@ class MotionPlanner(Protocol):
     @property
     def arm(self) -> Arm: ...
 
+    def solve_ik(
+        self,
+        start: JointState,
+        target_tcp_pose_env: Pose,
+        scene: PlanningScene,
+        stage: PlanningStage,
+    ) -> tuple[JointState, ...]: ...
+
     def plan_pose(
         self,
         start: JointState,
         target_tcp_pose_env: Pose,
         scene: PlanningScene,
-    ) -> JointTrajectory: ...
+        stage: PlanningStage,
+        linear_axis_env: tuple[float, float, float] | None,
+    ) -> JointTrajectory:
+        """An axis fixes contact motion; None allows transit and adjustment."""
+        ...
 
     def plan_joints(
         self,
         start: JointState,
         target_joint_state: JointState,
         scene: PlanningScene,
+        stage: PlanningStage,
     ) -> JointTrajectory: ...
+
+    def commit_inspection_stages(
+        self,
+        stages: tuple[PlanningStage, ...],
+    ) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,12 +96,19 @@ class PickPlan:
     candidate: GraspCandidate
     pre_grasp: MoveToPose
     grasp: MoveToPose
+    target_object_pose_env: Pose | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PrePlacePlan:
+    target_object_pose_env: Pose
+    pre_place: MoveToPose
 
 
 @dataclass(frozen=True, slots=True)
 class PlacePlan:
     arm: Arm
-    pre_place: MoveToPose
+    adjust: MoveToPose
     place: MoveToPose
     retreat: MoveToPose
     clear: MoveToJoints
@@ -86,6 +122,12 @@ class SkillPlanner(Protocol):
         context: SkillContext,
     ) -> PickPlan: ...
 
+    def plan_pick_and_place(
+        self,
+        request: PickAndPlace,
+        context: SkillContext,
+    ) -> PickPlan: ...
+
     def plan_lift(
         self,
         plan: PickPlan,
@@ -93,9 +135,17 @@ class SkillPlanner(Protocol):
         context: SkillContext,
     ) -> MoveToPose: ...
 
-    def plan_place(
+    def plan_pre_place(
         self,
         request: PickAndPlace,
+        plan: PickPlan,
+        grasp: GraspState,
+        context: SkillContext,
+    ) -> PrePlacePlan: ...
+
+    def plan_place(
+        self,
+        target_object_pose_env: Pose,
         plan: PickPlan,
         grasp: GraspState,
         context: SkillContext,
@@ -110,10 +160,14 @@ class OperationSkillPlanner:
         motion_planners: Mapping[Arm, MotionPlanner],
         arm_base_positions_env_m: Mapping[Arm, tuple[float, float, float]],
         lift_height_m: float,
+        gripper_open_positions: Mapping[Arm, Mapping[str, float]],
     ) -> None:
         self._motion_planners = dict(motion_planners)
         self._arm_base_positions_env_m = dict(arm_base_positions_env_m)
         self._lift_height_m = lift_height_m
+        self._gripper_open_positions = {
+            arm: dict(positions) for arm, positions in gripper_open_positions.items()
+        }
 
     def plan_pick(
         self,
@@ -121,9 +175,28 @@ class OperationSkillPlanner:
         arm: ArmSelection,
         context: SkillContext,
     ) -> PickPlan:
+        return self._plan_pick_impl(object_name, arm, context, None)
+
+    def plan_pick_and_place(
+        self,
+        request: PickAndPlace,
+        context: SkillContext,
+    ) -> PickPlan:
+        return self._plan_pick_impl(
+            request.object_name, request.arm, context, request
+        )
+
+    def _plan_pick_impl(
+        self,
+        object_name: str,
+        arm: ArmSelection,
+        context: SkillContext,
+        request: PickAndPlace | None,
+    ) -> PickPlan:
         snapshot = context.snapshot()
         source_object = snapshot.object(object_name)
         selected_arm = self._select_arm(arm, source_object)
+        arm_base_position_env_m = self._arm_base_positions_env_m[selected_arm]
         try:
             candidates = context.grasp_candidates(object_name, selected_arm)
         except SkillError as error:
@@ -155,20 +228,20 @@ class OperationSkillPlanner:
         failure_stage_counts: Counter[str] = Counter()
         attempt_count = 0
         for candidate_index, candidate in enumerate(
-            sorted(candidates, key=lambda item: item.score, reverse=True)
+            sorted(
+                candidates,
+                key=lambda item: (
+                    _grasp_geometry_cost(
+                        item, source_object.pose_env, arm_base_position_env_m
+                    ),
+                    -item.score,
+                ),
+            )
         ):
-            for symmetry_index, grasp_tcp_pose_env in enumerate(
-                _parallel_jaw_grasp_poses(
-                    source_object.pose_env,
-                    candidate,
-                    snapshot.robot(selected_arm).tcp_pose_env.orientation_xyzw,
-                )
+            for grasp_tcp_pose_env in _parallel_jaw_grasp_poses(
+                source_object.pose_env,
+                candidate,
             ):
-                symmetry_variant = (
-                    "smaller_wrist_rotation",
-                    "larger_wrist_rotation",
-                )[symmetry_index]
-                symmetry_label = ("small", "large")[symmetry_index]
                 pre_grasp_tcp_pose_env = approach_start_pose(
                     grasp_tcp_pose_env,
                     candidate.approach_axis_tcp,
@@ -176,12 +249,22 @@ class OperationSkillPlanner:
                 )
                 attempt_count += 1
                 try:
+                    camera_side_up_dot = _camera_side_up_dot(
+                        grasp_tcp_pose_env,
+                        snapshot.robot(selected_arm).camera_position_tcp_m,
+                        candidate.approach_axis_tcp,
+                    )
+                    if camera_side_up_dot <= 0.0:
+                        failures.append("grasp: camera-side approach points below the wrist")
+                        failure_stage_counts["grasp"] += 1
+                        continue
                     pre_grasp = self._move(
                         selected_arm,
                         snapshot.robot(selected_arm).joints,
                         pre_grasp_tcp_pose_env,
                         pick_transit_scene,
                         "pre_grasp",
+                        None,
                     )
                     grasp = self._move(
                         selected_arm,
@@ -189,14 +272,42 @@ class OperationSkillPlanner:
                         grasp_tcp_pose_env,
                         grasp_contact_scene,
                         "grasp",
+                        rotate_vector_xyzw(
+                            grasp_tcp_pose_env.orientation_xyzw,
+                            candidate.approach_axis_tcp,
+                        ),
                     )
+                    held_object_scene = _planning_scene(
+                        snapshot,
+                        selected_arm,
+                        unmanipulated_objects,
+                        HeldObject(
+                            source_object,
+                            relative_pose(source_object.pose_env, grasp_tcp_pose_env),
+                        ),
+                    )
+                    # Reject grasps that cannot lift; execution replans from live state.
+                    self._lift_from_state(
+                        selected_arm,
+                        grasp.trajectory.end,
+                        grasp_tcp_pose_env,
+                        held_object_scene,
+                    )
+                    selected_target_object_pose_env = None
+                    if request is not None:
+                        selected_target_object_pose_env = self._precheck_place_candidate(
+                            request,
+                            selected_arm,
+                            candidate,
+                            grasp_tcp_pose_env,
+                            snapshot,
+                        )
                 except PlanningError as error:
                     failures.append(f"{error.stage}: {error.reason}")
                     failure_stage_counts[error.stage] += 1
                     LOGGER.debug(
-                        "candidate=%d symmetry=%s score=%.4f stage=%s rejected: %s",
+                        "candidate=%d score=%.4f stage=%s rejected: %s",
                         candidate_index,
-                        symmetry_label,
                         candidate.score,
                         error.stage,
                         error.reason,
@@ -206,7 +317,6 @@ class OperationSkillPlanner:
                                 "object": object_name,
                                 "arm": selected_arm,
                                 "candidate_index": candidate_index,
-                                "symmetry_variant": symmetry_variant,
                                 "score": candidate.score,
                                 "stage": error.stage,
                                 "reason": error.reason,
@@ -215,7 +325,6 @@ class OperationSkillPlanner:
                     )
                     continue
 
-                arm_base_position_env_m = self._arm_base_positions_env_m[selected_arm]
                 base_distance_m = math.sqrt(
                     sum(
                         (tcp_coordinate_env_m - base_coordinate_env_m) ** 2
@@ -230,9 +339,8 @@ class OperationSkillPlanner:
                     round(value, 4) for value in grasp_tcp_pose_env.position_m
                 )
                 LOGGER.info(
-                    "selected #%d/%s score=%.3f tries=%d",
+                    "selected #%d score=%.3f tries=%d",
                     candidate_index,
-                    symmetry_label,
                     candidate.score,
                     attempt_count,
                     extra={
@@ -242,14 +350,21 @@ class OperationSkillPlanner:
                             "arm": selected_arm,
                             "candidate_count": len(candidates),
                             "candidate_index": candidate_index,
-                            "symmetry_variant": symmetry_variant,
+                            "candidate_id": candidate.candidate_id,
                             "score": candidate.score,
+                            "geometry_cost": _grasp_geometry_cost(
+                                candidate, source_object.pose_env, arm_base_position_env_m
+                            ),
                             "attempt_count": attempt_count,
                             "failure_stage_counts": dict(failure_stage_counts),
                             "base_distance_m": base_distance_m,
                             "tcp_position_env_m": tcp_position_env_m,
+                            "camera_side_up_dot": camera_side_up_dot,
                         },
                     },
+                )
+                self._motion_planners[selected_arm].commit_inspection_stages(
+                    ("pre_grasp", "grasp")
                 )
                 return PickPlan(
                     source_object.name,
@@ -257,6 +372,7 @@ class OperationSkillPlanner:
                     candidate,
                     pre_grasp,
                     grasp,
+                    selected_target_object_pose_env,
                 )
 
         LOGGER.warning(
@@ -276,8 +392,65 @@ class OperationSkillPlanner:
             },
         )
         raise SkillError(
-            f"{selected_arm} arm could not reach any of {len(candidates)} valid "
-            f"{object_name!r} grasps; last failure: {failures[-1]}"
+            f"{selected_arm} arm could not plan an upright grasp and lift for any of "
+            f"{len(candidates)} valid {object_name!r} candidates; "
+            f"last failure: {failures[-1]}"
+        )
+
+    def _precheck_place_candidate(
+        self,
+        request: PickAndPlace,
+        arm: Arm,
+        candidate: GraspCandidate,
+        grasp_tcp_pose_env: Pose,
+        snapshot: SceneSnapshot,
+    ) -> Pose:
+        """Reject a grasp whose nominal relationship cannot place the object."""
+        source_object = snapshot.object(request.object_name)
+        tcp_pose_object = relative_pose(source_object.pose_env, grasp_tcp_pose_env)
+        target_orientations = _target_object_orientations_env_xyzw(
+            request.target_object_pose_env,
+            tcp_pose_object,
+            grasp_tcp_pose_env.orientation_xyzw,
+            candidate.approach_axis_tcp,
+            self._arm_base_positions_env_m[arm],
+        )
+        nominal_plan = PickPlan(
+            request.object_name,
+            arm,
+            candidate,
+            MoveToPose(
+                arm,
+                grasp_tcp_pose_env,
+                JointTrajectory(snapshot.robot(arm).joints.positions.unsqueeze(0)),
+                "pre_grasp",
+            ),
+            MoveToPose(
+                arm,
+                grasp_tcp_pose_env,
+                JointTrajectory(snapshot.robot(arm).joints.positions.unsqueeze(0)),
+                "grasp",
+            ),
+        )
+        failures: list[str] = []
+        for orientation_xyzw in target_orientations:
+            target_pose = Pose(request.target_object_pose_env.position_m, orientation_xyzw)
+            try:
+                self._plan_place_with_ik(
+                    nominal_plan,
+                    tcp_pose_object,
+                    target_pose,
+                    snapshot,
+                    "pre_place",
+                )
+            except PlanningError as error:
+                failures.append(f"{error.stage}: {error.reason}")
+                continue
+            return target_pose
+        raise PlanningError(
+            arm,
+            "pre_place",
+            "candidate has no feasible target orientation: " + "; ".join(failures),
         )
 
     def plan_lift(
@@ -288,10 +461,6 @@ class OperationSkillPlanner:
     ) -> MoveToPose:
         snapshot = context.snapshot()
         source_object = snapshot.object(plan.object_name)
-        lift_tcp_pose_env = Pose(
-            offset_z_env(grasp.tcp_pose_env.position_m, self._lift_height_m),
-            grasp.tcp_pose_env.orientation_xyzw,
-        )
         unmanipulated_objects = _objects_excluding(
             snapshot.objects,
             source_object.name,
@@ -302,95 +471,241 @@ class OperationSkillPlanner:
             unmanipulated_objects,
             HeldObject(source_object, grasp.tcp_pose_object),
         )
-        return self._move(
+        lift = self._lift_from_state(
             plan.arm,
             snapshot.robot(plan.arm).joints,
-            lift_tcp_pose_env,
+            grasp.tcp_pose_env,
             held_object_scene,
+        )
+        self._motion_planners[plan.arm].commit_inspection_stages(("lift",))
+        return lift
+
+    def _lift_from_state(
+        self,
+        arm: Arm,
+        joint_state: JointState,
+        tcp_pose_env: Pose,
+        scene: PlanningScene,
+    ) -> MoveToPose:
+        lift_tcp_pose_env = Pose(
+            offset_z_env(tcp_pose_env.position_m, self._lift_height_m),
+            tcp_pose_env.orientation_xyzw,
+        )
+        return self._move(
+            arm,
+            joint_state,
+            lift_tcp_pose_env,
+            scene,
             "lift",
+            (0.0, 0.0, 1.0),
         )
 
-    def plan_place(
+    def plan_pre_place(
         self,
         request: PickAndPlace,
         plan: PickPlan,
         grasp: GraspState,
         context: SkillContext,
-    ) -> PlacePlan:
+    ) -> PrePlacePlan:
+        """Select a fixed object target with a feasible transport and placement."""
         snapshot = context.snapshot()
-        source_object = snapshot.object(request.object_name)
         target_object_orientations_env_xyzw = _target_object_orientations_env_xyzw(
-            request,
+            request.target_object_pose_env,
             grasp.tcp_pose_object,
             grasp.tcp_pose_env.orientation_xyzw,
+            plan.candidate.approach_axis_tcp,
+            self._arm_base_positions_env_m[plan.arm],
         )
+        if plan.target_object_pose_env is not None:
+            preserved_orientation = plan.target_object_pose_env.orientation_xyzw
+            target_object_orientations_env_xyzw = (
+                preserved_orientation,
+                *tuple(
+                    orientation_xyzw
+                    for orientation_xyzw in target_object_orientations_env_xyzw
+                    if orientation_xyzw != preserved_orientation
+                ),
+            )
         failures: list[str] = []
-        for target_object_orientation_env_xyzw in target_object_orientations_env_xyzw:
+        for orientation_index, target_object_orientation_env_xyzw in enumerate(
+            target_object_orientations_env_xyzw
+        ):
+            target_object_pose_env = Pose(
+                request.target_object_pose_env.position_m,
+                target_object_orientation_env_xyzw,
+            )
+            LOGGER.debug(
+                "pre-place orientation #%d", orientation_index,
+                extra={"event": "PLACE-TRY", "event_fields": {
+                    "object": plan.object_name, "arm": plan.arm,
+                    "orientation_index": orientation_index,
+                    "measured_grasp": asdict(grasp),
+                    "target_object_pose_env": asdict(target_object_pose_env),
+                }},
+            )
             try:
-                return self._plan_measured_place(
-                    plan.arm,
-                    source_object,
-                    grasp,
-                    plan.candidate.approach_axis_tcp,
-                    plan.candidate.approach_distance_m,
-                    target_object_orientation_env_xyzw,
-                    request.target_object_pose_env.position_m,
+                pre_place, _, _, _ = self._plan_place_with_ik(
+                    plan,
+                    grasp.tcp_pose_object,
+                    target_object_pose_env,
                     snapshot,
+                    "pre_place",
                 )
             except PlanningError as error:
                 failures.append(f"{error.stage}: {error.reason}")
+                LOGGER.debug(
+                    "pre-place orientation #%d rejected: %s",
+                    orientation_index, error.reason,
+                    extra={"event": "PLACE-FAIL", "event_fields": {
+                        "object": plan.object_name, "arm": plan.arm,
+                        "orientation_index": orientation_index,
+                        "stage": error.stage, "reason": error.reason,
+                    }},
+                )
+                continue
+            self._motion_planners[plan.arm].commit_inspection_stages(("pre_place",))
+            return PrePlacePlan(target_object_pose_env, pre_place)
         raise SkillError(
-            f"actual-grasp place planning failed for {request.object_name!r}: "
+            f"actual-grasp pre-place planning failed for {request.object_name!r}: "
             + "; ".join(failures)
         )
 
-    def _plan_measured_place(
+    def _plan_place_with_ik(
         self,
-        arm: Arm,
-        source_object: SceneObject,
-        grasp: GraspState,
-        approach_axis_tcp: tuple[float, float, float],
-        approach_distance_m: float,
-        target_object_orientation_env_xyzw: tuple[float, float, float, float],
-        target_object_position_env_m: tuple[float, float, float],
+        plan: PickPlan,
+        tcp_pose_object: Pose,
+        target_object_pose_env: Pose,
         snapshot: SceneSnapshot,
-    ) -> PlacePlan:
-        target_object_pose_env = Pose(
-            target_object_position_env_m,
-            target_object_orientation_env_xyzw,
+        stage: Literal["pre_place", "adjust"],
+    ) -> tuple[MoveToPose, MoveToPose, MoveToPose, MoveToJoints]:
+        """Accept an above-place IK solution only with a feasible continuation."""
+        place_tcp_pose_env = compose_pose(target_object_pose_env, tcp_pose_object)
+        above_place_tcp_pose_env = Pose(
+            offset_z_env(place_tcp_pose_env.position_m, self._lift_height_m),
+            place_tcp_pose_env.orientation_xyzw,
         )
+        source_object = snapshot.object(plan.object_name)
+        held_object_scene = _planning_scene(
+            snapshot,
+            plan.arm,
+            _objects_excluding(snapshot.objects, source_object.name),
+            HeldObject(source_object, tcp_pose_object),
+        )
+        motion_planner = self._motion_planners[plan.arm]
+        candidates = motion_planner.solve_ik(
+            snapshot.robot(plan.arm).joints,
+            above_place_tcp_pose_env,
+            held_object_scene,
+            stage,
+        )
+        failures: list[str] = []
+        for candidate_index, target_joint_state in enumerate(candidates):
+            try:
+                trajectory = motion_planner.plan_joints(
+                    snapshot.robot(plan.arm).joints,
+                    target_joint_state,
+                    held_object_scene,
+                    stage,
+                )
+                above_place = MoveToPose(
+                    plan.arm, above_place_tcp_pose_env, trajectory, stage
+                )
+                place, retreat, clear = self._place_from_state(
+                    plan,
+                    tcp_pose_object,
+                    target_object_pose_env,
+                    trajectory.end,
+                    snapshot,
+                )
+            except PlanningError as error:
+                failures.append(f"IK #{candidate_index} {error.stage}: {error.reason}")
+                LOGGER.debug(
+                    "%s IK #%d rejected at %s: %s",
+                    stage,
+                    candidate_index,
+                    error.stage,
+                    error.reason,
+                    extra={
+                        "event": "PLAN-TRY",
+                        "event_fields": {
+                            "object": plan.object_name,
+                            "arm": plan.arm,
+                            "ik_candidate_index": candidate_index,
+                            "stage": error.stage,
+                            "reason": error.reason,
+                        },
+                    },
+                )
+                continue
+            return above_place, place, retreat, clear
+        raise PlanningError(
+            plan.arm,
+            stage,
+            "no IK configuration supports placement: " + "; ".join(failures),
+        )
+
+    def plan_place(
+        self,
+        target_object_pose_env: Pose,
+        plan: PickPlan,
+        grasp: GraspState,
+        context: SkillContext,
+    ) -> PlacePlan:
+        """Correct the TCP for the measured grasp while keeping the object target."""
+        snapshot = context.snapshot()
+        try:
+            place, retreat, clear = self._place_from_state(
+                plan, grasp.tcp_pose_object, target_object_pose_env,
+                snapshot.robot(plan.arm).joints, snapshot,
+            )
+        except PlanningError:
+            adjust, place, retreat, clear = self._plan_place_with_ik(
+                plan, grasp.tcp_pose_object, target_object_pose_env,
+                snapshot, "adjust",
+            )
+        else:
+            adjust = MoveToPose(
+                plan.arm, grasp.tcp_pose_env,
+                JointTrajectory(snapshot.robot(plan.arm).joints.positions.unsqueeze(0)),
+                "adjust",
+            )
+        self._motion_planners[plan.arm].commit_inspection_stages(
+            ("adjust", "place", "retreat", "clear")
+        )
+        return PlacePlan(plan.arm, adjust, place, retreat, clear)
+
+    def _place_from_state(
+        self,
+        plan: PickPlan,
+        tcp_pose_object: Pose,
+        target_object_pose_env: Pose,
+        joint_state: JointState,
+        snapshot: SceneSnapshot,
+    ) -> tuple[MoveToPose, MoveToPose, MoveToJoints]:
+        source_object = snapshot.object(plan.object_name)
         place_tcp_pose_env = compose_pose(
             target_object_pose_env,
-            grasp.tcp_pose_object,
-        )
-        pre_place_tcp_pose_env = approach_start_pose(
-            place_tcp_pose_env,
-            approach_axis_tcp,
-            approach_distance_m,
+            tcp_pose_object,
         )
         unmanipulated_objects = _objects_excluding(
             snapshot.objects,
             source_object.name,
         )
-        held_object_scene = _planning_scene(
+        # The gripper stays closed through place; EmptyTool only omits its
+        # collision geometry for the final descent and the released retreat.
+        object_contact_scene = _planning_scene(
             snapshot,
-            arm,
+            plan.arm,
             unmanipulated_objects,
-            HeldObject(source_object, grasp.tcp_pose_object),
-        )
-        pre_place = self._move(
-            arm,
-            snapshot.robot(arm).joints,
-            pre_place_tcp_pose_env,
-            held_object_scene,
-            "pre_place",
+            EmptyTool(),
         )
         place = self._move(
-            arm,
-            pre_place.trajectory.end,
+            plan.arm,
+            joint_state,
             place_tcp_pose_env,
-            held_object_scene,
+            object_contact_scene,
             "place",
+            (0.0, 0.0, -1.0),
         )
         placed_object = SceneObject(
             source_object.name,
@@ -399,22 +714,60 @@ class OperationSkillPlanner:
         )
         released_object_scene = _planning_scene(
             snapshot,
-            arm,
+            plan.arm,
             (*unmanipulated_objects, placed_object),
             EmptyTool(),
         )
-        release_contact_scene = _planning_scene(
-            snapshot,
-            arm,
-            unmanipulated_objects,
-            EmptyTool(),
+        open_gripper_positions = self._gripper_open_positions[plan.arm]
+        retreat_scene = replace(
+            object_contact_scene, gripper_joint_positions=open_gripper_positions
+        )
+        released_object_scene = replace(
+            released_object_scene, gripper_joint_positions=open_gripper_positions
+        )
+        approach_axis_env = rotate_vector_xyzw(
+            place_tcp_pose_env.orientation_xyzw,
+            plan.candidate.approach_axis_tcp,
+        )
+        approach_axis_object = rotate_vector_xyzw(
+            tcp_pose_object.orientation_xyzw,
+            plan.candidate.approach_axis_tcp,
+        )
+        object_half_extent_m = 0.5 * sum(
+            abs(axis_component) * size_component
+            for axis_component, size_component in zip(
+                approach_axis_object,
+                source_object.size_m,
+                strict=True,
+            )
+        )
+        retreat_distance_m = max(0.08, object_half_extent_m + 0.04)
+        retreat_position_env_m = cast(
+            tuple[float, float, float],
+            tuple(
+                coordinate_env_m - retreat_distance_m * axis_component_env
+                for coordinate_env_m, axis_component_env in zip(
+                    place_tcp_pose_env.position_m,
+                    approach_axis_env,
+                    strict=True,
+                )
+            ),
+        )
+        retreat_tcp_pose_env = Pose(
+            retreat_position_env_m,
+            place_tcp_pose_env.orientation_xyzw,
+        )
+        retreat_axis_env = cast(
+            tuple[float, float, float],
+            tuple(-component_env for component_env in approach_axis_env),
         )
         retreat = self._move(
-            arm,
+            plan.arm,
             place.trajectory.end,
-            pre_place_tcp_pose_env,
-            release_contact_scene,
+            retreat_tcp_pose_env,
+            retreat_scene,
             "retreat",
+            retreat_axis_env,
         )
         clear_target_joint_state = JointState(
             retreat.trajectory.end.positions.new_zeros(
@@ -422,13 +775,13 @@ class OperationSkillPlanner:
             )
         )
         clear = self._move_joints(
-            arm,
+            plan.arm,
             retreat.trajectory.end,
             clear_target_joint_state,
             released_object_scene,
             "clear",
         )
-        return PlacePlan(arm, pre_place, place, retreat, clear)
+        return place, retreat, clear
 
     def _move(
         self,
@@ -436,13 +789,17 @@ class OperationSkillPlanner:
         start: JointState,
         target_tcp_pose_env: Pose,
         scene: PlanningScene,
-        stage: str,
+        stage: PlanningStage,
+        linear_axis_env: tuple[float, float, float] | None,
     ) -> MoveToPose:
+        """Use an axis for contact motion; None permits transit and uprighting."""
         try:
             trajectory = self._motion_planners[arm].plan_pose(
                 start,
                 target_tcp_pose_env,
                 scene,
+                stage,
+                linear_axis_env,
             )
         except PlanningError as error:
             raise PlanningError(arm, stage, error.reason) from error
@@ -454,13 +811,14 @@ class OperationSkillPlanner:
         start: JointState,
         target_joint_state: JointState,
         scene: PlanningScene,
-        stage: str,
+        stage: PlanningStage,
     ) -> MoveToJoints:
         try:
             trajectory = self._motion_planners[arm].plan_joints(
                 start,
                 target_joint_state,
                 scene,
+                stage,
             )
         except PlanningError as error:
             raise PlanningError(arm, stage, error.reason) from error
@@ -499,10 +857,12 @@ def _planning_scene(
     other_arm: Arm = "right" if active_arm == "left" else "left"
     return PlanningScene(
         table=snapshot.table,
+        camera_stand=snapshot.camera_stand,
         objects=objects,
         other_arm=other_arm,
         other_robot=snapshot.robot(other_arm),
         tool=tool,
+        gripper_joint_positions=snapshot.robot(active_arm).gripper_joint_positions,
     )
 
 
@@ -515,12 +875,88 @@ def _objects_excluding(
     )
 
 
+def _grasp_geometry_cost(
+    candidate: GraspCandidate,
+    object_pose_env: Pose,
+    base_position_env_m: tuple[float, float, float],
+) -> float:
+    """Prefer transverse finger opening and penalize approach from the far side.
+
+    The two squared penalties have equal weight. Vertical approaches incur no
+    approach penalty. With no horizontal base-to-object offset, all costs are
+    zero so the existing score and source order decide the ranking.
+    """
+    base_to_object_displacement_env_m = (
+        object_pose_env.position_m[0] - base_position_env_m[0],
+        object_pose_env.position_m[1] - base_position_env_m[1],
+        0.0,
+    )
+    horizontal_distance_m = math.hypot(*base_to_object_displacement_env_m)
+    if horizontal_distance_m <= 1.0e-9:
+        return 0.0
+    base_to_object_direction_env = tuple(
+        component_m / horizontal_distance_m
+        for component_m in base_to_object_displacement_env_m
+    )
+    tcp_pose_env = compose_pose(object_pose_env, candidate.tcp_pose_object)
+    gripper_open_axis_env = rotate_vector_xyzw(
+        tcp_pose_env.orientation_xyzw, (0.0, 1.0, 0.0)
+    )
+    approach_axis_env = rotate_vector_xyzw(
+        tcp_pose_env.orientation_xyzw, candidate.approach_axis_tcp
+    )
+    open_dot = sum(
+        component * direction
+        for component, direction in zip(
+            gripper_open_axis_env, base_to_object_direction_env, strict=True
+        )
+    )
+    approach_dot = sum(
+        component * direction
+        for component, direction in zip(
+            approach_axis_env, base_to_object_direction_env, strict=True
+        )
+    )
+    return open_dot**2 + min(0.0, approach_dot)**2
+
+
+def _camera_side_up_dot(
+    tcp_pose_env: Pose,
+    camera_position_tcp_m: tuple[float, float, float],
+    approach_axis_tcp: tuple[float, float, float],
+) -> float:
+    """Measure the camera mounting side, excluding its axial TCP offset."""
+    camera_axial_offset_m = sum(
+        component_m * axis_component
+        for component_m, axis_component in zip(
+            camera_position_tcp_m, approach_axis_tcp, strict=True
+        )
+    )
+    camera_side_tcp_m = tuple(
+        component_m - camera_axial_offset_m * axis_component
+        for component_m, axis_component in zip(
+            camera_position_tcp_m, approach_axis_tcp, strict=True
+        )
+    )
+    camera_side_length_m = math.hypot(*camera_side_tcp_m)
+    if camera_side_length_m <= 1.0e-9:
+        return 1.0
+    camera_side_axis_tcp = cast(
+        tuple[float, float, float],
+        tuple(component_m / camera_side_length_m for component_m in camera_side_tcp_m),
+    )
+    camera_side_axis_env = rotate_vector_xyzw(
+        tcp_pose_env.orientation_xyzw,
+        camera_side_axis_tcp,
+    )
+    return camera_side_axis_env[2]
+
+
 def _parallel_jaw_grasp_poses(
     object_pose_env: Pose,
     candidate: GraspCandidate,
-    reference_tcp_orientation_env_xyzw: tuple[float, float, float, float],
 ) -> tuple[Pose, Pose]:
-    """Prefer the equivalent pose requiring less rotation from the live TCP."""
+    """Return the original grasp and its half-turn equivalent for upright filtering."""
 
     canonical_tcp_pose_env = compose_pose(
         object_pose_env,
@@ -539,26 +975,18 @@ def _parallel_jaw_grasp_poses(
             )
         ),
     )
-    canonical_rotation_from_reference_rad = quaternion_angular_distance_rad(
-        reference_tcp_orientation_env_xyzw,
-        canonical_tcp_pose_env.orientation_xyzw,
-    )
-    alternate_rotation_from_reference_rad = quaternion_angular_distance_rad(
-        reference_tcp_orientation_env_xyzw,
-        alternate_tcp_pose_env.orientation_xyzw,
-    )
-    if canonical_rotation_from_reference_rad <= alternate_rotation_from_reference_rad:
-        return canonical_tcp_pose_env, alternate_tcp_pose_env
-    return alternate_tcp_pose_env, canonical_tcp_pose_env
+    return canonical_tcp_pose_env, alternate_tcp_pose_env
 
 
 def _target_object_orientations_env_xyzw(
-    request: PickAndPlace,
+    target_object_pose_env: Pose,
     tcp_pose_object: Pose,
     reference_tcp_orientation_env_xyzw: tuple[float, float, float, float],
+    approach_axis_tcp: tuple[float, float, float],
+    arm_base_position_env_m: tuple[float, float, float],
 ) -> tuple[tuple[float, float, float, float], ...]:
     target_tcp_pose_env = compose_pose(
-        request.target_object_pose_env,
+        target_object_pose_env,
         tcp_pose_object,
     )
     target_finger_open_axis_env = rotate_vector_xyzw(
@@ -579,7 +1007,7 @@ def _target_object_orientations_env_xyzw(
     aligned_object_orientation_env_xyzw = normalize_quaternion_xyzw(
         multiply_quaternions_xyzw(
             quaternion_xyzw_from_rpy(0.0, 0.0, alignment_yaw_env_rad),
-            request.target_object_pose_env.orientation_xyzw,
+            target_object_pose_env.orientation_xyzw,
         )
     )
     yaw_offsets_env_rad = (
@@ -592,7 +1020,34 @@ def _target_object_orientations_env_xyzw(
         -3.0 * math.pi / 4.0,
         math.pi,
     )
-    return tuple(
+    target_approach_axis_env = rotate_vector_xyzw(
+        target_tcp_pose_env.orientation_xyzw, approach_axis_tcp
+    )
+    approach_xy_norm = math.hypot(
+        target_approach_axis_env[0],
+        target_approach_axis_env[1],
+    )
+    if approach_xy_norm < 1e-5:
+        return tuple(
+            normalize_quaternion_xyzw(
+                multiply_quaternions_xyzw(
+                    quaternion_xyzw_from_rpy(0.0, 0.0, yaw_offset_env_rad),
+                    aligned_object_orientation_env_xyzw,
+                )
+            )
+            for yaw_offset_env_rad in yaw_offsets_env_rad
+        )
+    radial_yaw_env_rad = math.atan2(
+        target_object_pose_env.position_m[1] - arm_base_position_env_m[1],
+        target_object_pose_env.position_m[0] - arm_base_position_env_m[0],
+    ) - math.atan2(target_approach_axis_env[1], target_approach_axis_env[0])
+    radial_object_orientation_env_xyzw = normalize_quaternion_xyzw(
+        multiply_quaternions_xyzw(
+            quaternion_xyzw_from_rpy(0.0, 0.0, radial_yaw_env_rad),
+            target_object_pose_env.orientation_xyzw,
+        )
+    )
+    return (radial_object_orientation_env_xyzw, *(
         normalize_quaternion_xyzw(
             multiply_quaternions_xyzw(
                 quaternion_xyzw_from_rpy(0.0, 0.0, yaw_offset_env_rad),
@@ -600,13 +1055,15 @@ def _target_object_orientations_env_xyzw(
             )
         )
         for yaw_offset_env_rad in yaw_offsets_env_rad
-    )
+    ))
 
 
 __all__ = [
     "MotionPlanner",
     "OperationSkillPlanner",
     "PickPlan",
+    "PlanningStage",
     "PlacePlan",
+    "PrePlacePlan",
     "SkillPlanner",
 ]

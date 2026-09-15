@@ -9,7 +9,7 @@ ScaleBench 是一个配置驱动的 Isaac Lab 双臂操作项目。它把机器�
 - `sort_dolls_by_size`：将五个套娃按尺寸排列到固定槽位。
 - `single_object_pick_and_place`：将随机位置的 bottle 直立放到固定槽位。
 
-两个任务都支持确定性 seed、layout 导入导出和最终状态评测。专家链路支持 CuRobo 规划，以及 AnyGrasp 在线抓取或机器人配置中的离线抓取 catalog。
+两个任务都支持确定性 seed、layout 导入导出和最终状态评测。专家链路支持 CuRobo 规划，以及 AnyGrasp 在线抓取或物体资产目录中的 `grasps.yaml` 抓取标注。
 
 ## 环境
 
@@ -71,14 +71,15 @@ uv run python scripts/preview_scene.py \
 ```bash
 uv run python scripts/run_demo_generation.py \
   --task single_object_pick_and_place \
-  --program expert \
+  --robot-config configs/robots/piper.yml \
   --num-envs 1 \
   --episodes 1 \
   --max-steps 1200 \
+  --record-output outputs/demonstrations \
   --viz none
 ```
 
-默认场景使用 AnyGrasp 服务。服务部署和诊断见 [AnyGrasp 文档](docs/anygrasp.md)。使用套娃离线 catalog 时增加 `--grasp-source catalog`。
+默认读取物体 USD 同目录的 `grasps.yaml`，包括 TCP 定义和接近距离。服务部署和诊断见 [AnyGrasp 文档](docs/anygrasp.md)。
 
 ## 主要入口
 
@@ -86,7 +87,9 @@ uv run python scripts/run_demo_generation.py \
 |---|---|
 | `scripts/preview_scene.py` | 预览场景、检查布局、执行有界运行。 |
 | `scripts/run_policy_rollout.py` | 验证 policy、fixed-batch 调度和记录链路。 |
-| `scripts/run_demo_generation.py` | 运行 skill expert、CuRobo 和数据记录。 |
+| `scripts/run_demo_generation.py` | 执行完整任务专家并采集 HDF5 数据。 |
+| `scripts/run_skill_debug.py` | 单步技能和 CuRobo 规划调试。 |
+| `scripts/run_grasp_diagnostics.py` | 检查 AnyGrasp 候选和 RGB-D。 |
 | `scripts/replay_episode.py` | 恢复 HDF5 初态、重放 action 并重新评测。 |
 | `scripts/view_hdf5.py` | 在浏览器中检查录制的 episode、相机和状态。 |
 | `scripts/export_hdf5_camera_videos.py` | 导出 RGB 和深度视频。 |
@@ -96,7 +99,7 @@ uv run python scripts/run_demo_generation.py \
 
 ## 配置边界
 
-- `configs/robots/`：关节、TCP、执行器、夹爪、相机挂载、URDF 和抓取 catalog。
+- `configs/robots/`：关节、TCP、执行器、夹爪、相机挂载、URDF。
 - `configs/cameras/`：图像尺寸、输出类型、内参和裁剪范围。
 - `configs/scene/`：静态场景、机器人安装位、推理相机、AnyGrasp 和光照。
 - `configs/tasks/`：任务资产、布局约束、目标槽位和成功阈值。

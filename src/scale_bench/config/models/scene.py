@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Self
+from typing import Literal, Self
 from pydantic import field_validator, model_validator
 
 from scale_bench.config.base import (
@@ -20,6 +20,7 @@ from scale_bench.config.base import (
     UnitIntervalFloat,
     require_unit_quaternion,
 )
+from scale_bench.config.models.grasp import AnyGraspConfig
 
 
 class RoomConfig(FrozenModel):
@@ -50,6 +51,10 @@ class RobotMountConfig(FrozenModel):
 class RobotMountsConfig(FrozenModel):
     left: RobotMountConfig
     right: RobotMountConfig
+
+
+class ManipulationConfig(FrozenModel):
+    lift_height_m: PositiveFloat
 
 
 class OverheadCameraConfig(FrozenModel):
@@ -99,8 +104,17 @@ class SceneConfig(FrozenModel):
     table: SurfaceConfig
     task_object_placement_area: TaskObjectPlacementArea
     robot_mounts: RobotMountsConfig
+    manipulation: ManipulationConfig
     camera: OverheadCameraConfig
+    grasp_source: Literal["asset", "anygrasp"] = "asset"
+    anygrasp: AnyGraspConfig | None = None
     lighting: LightingConfig
+
+    @model_validator(mode="after")
+    def _validate_grasp_source(self) -> Self:
+        if self.grasp_source == "anygrasp" and self.anygrasp is None:
+            raise ValueError("anygrasp grasp source requires AnyGrasp configuration")
+        return self
 
     @property
     def table_top_z_m(self) -> float:
