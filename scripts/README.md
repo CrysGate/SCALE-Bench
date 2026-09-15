@@ -69,6 +69,12 @@ HEADLESS=1 uv run python scripts/run_demo_generation.py \
 
 seed 范围为 `[base-seed, base-seed + episodes)`，`--num-envs` 只改变并行 slot 数；最后一批可以不满。采集成功和失败的 episode 都保留，并记录 success、终止原因和技能语义。退出码为 0 表示全部 episode 成功；存在失败或运行异常时为非零。日志输出每条结果、成功率和实际数据集路径。
 
+每个环境拥有独立的 CuRobo 单场景规划器、碰撞场景和 CUDA stream，不同环境的规划请求由工作线程并发求解。规划器保留单场景求解的重试与图搜索能力，同一环境内的运动阶段和候选尝试依次执行。`--num-envs` 决定环境和规划器数量。
+
+启动时在主线程逐个预热规划器并捕获 CUDA Graph，随后才开始并发求解。相机采集和 Isaac 状态读取仍在主线程完成。规划期间暂停仿真，本轮所需命令准备完成后统一步进，避免计算等待时间变成录制中的额外物理步。
+
+`PLAN-INIT` 记录环境数量和初始化预热耗时；`PLAN-PARALLEL` 记录同轮并发请求的环境 ID、数量与耗时；`PLAN-STATS` 汇总请求数、规划成功/失败数、参与并发的请求数以及规划队列与预热耗时。规划请求失败后由技能层决定是否继续尝试候选，规划成功数不等于最终 episode 成功数。增加环境数会增加 GPU 资源需求，显存不足时应降低 `--num-envs`。
+
 省略 `--record-camera-observations` 时记录关节、动作等默认数据；传入时额外保存左腕、右腕和俯视相机的 RGB-D。无显示器采集相机时使用 `HEADLESS=1 --viz kit`，使 reset 阶段生成有效 RTX 帧；`--viz none` 适用于不录制相机的运行。
 
 默认 `--grasp-source asset` 读取物体 USD 同目录的 `grasps.yaml`；传入 `--grasp-source anygrasp` 使用在线候选。机器人通过 `--robot-config` 选择，其 TCP 和关节定义必须与抓取数据匹配。

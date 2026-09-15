@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 
 from .commands import Hold, SetGripper, SkillCommand
 from .context import SkillContext
@@ -10,32 +10,32 @@ from .models import PickAndPlace
 from .planner import SkillPlanner
 
 
-def pick_and_place(
+async def pick_and_place(
     context: SkillContext,
     planner: SkillPlanner,
     request: PickAndPlace,
-) -> Iterator[SkillCommand]:
+) -> AsyncIterator[SkillCommand]:
     """Select one grasp, plan each stage from live state, then place it."""
 
     yield Hold(steps=1, label="observe")
-    plan = planner.plan_pick_and_place(request, context)
+    plan = await planner.plan_pick_and_place(request, context)
     yield plan.pre_grasp
     yield plan.grasp
     yield SetGripper(plan.arm, closed=True, label="grasp")
     yield Hold(steps=request.grasp_settle_steps, label="grasped")
 
     grasp = context.measure_grasp(request.object_name, plan.arm)
-    lift = planner.plan_lift(plan, grasp, context)
+    lift = await planner.plan_lift(plan, grasp, context)
     yield lift
     yield Hold(steps=request.grasp_settle_steps, label="lifted")
 
     lifted_grasp = context.measure_grasp(request.object_name, plan.arm)
-    pre_place = planner.plan_pre_place(request, plan, lifted_grasp, context)
+    pre_place = await planner.plan_pre_place(request, plan, lifted_grasp, context)
     yield pre_place.pre_place
 
     # Transport can change the object-to-TCP relation through finger slip.
     transported_grasp = context.measure_grasp(request.object_name, plan.arm)
-    place = planner.plan_place(
+    place = await planner.plan_place(
         pre_place.target_object_pose_env, plan, transported_grasp, context
     )
     yield place.adjust

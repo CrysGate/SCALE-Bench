@@ -42,9 +42,6 @@ from scale_bench.skills.geometry import (
 )
 from scale_bench.skills.models import Arm, Pose
 from scale_bench.skills.planner import (
-    MotionPlanner as MotionPlannerProtocol,
-)
-from scale_bench.skills.planner import (
     PlanningStage,
 )
 
@@ -57,7 +54,7 @@ TCP_FRAME = "scale_bench_tcp"
 LOGGER = logging.getLogger(__name__)
 
 
-class CuroboMotionPlanner(MotionPlannerProtocol):
+class CuroboMotionPlanner:
     """Plan one environment-frame TCP target for one fixed robot mount."""
 
     def __init__(
@@ -832,7 +829,7 @@ def build_curobo_motion_planners(
     visualize: bool,
     env_origin_world_m: tuple[float, float, float],
 ) -> Mapping[Arm, CuroboMotionPlanner]:
-    """Share one statelessly synchronized backend per kinematic profile."""
+    """Build one environment; matching arms share its sequential backend."""
 
     backends: dict[tuple[Path, str, TcpConfig, tuple[str, ...]], MotionPlanner] = {}
     visualizer = None

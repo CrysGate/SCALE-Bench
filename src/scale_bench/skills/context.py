@@ -145,7 +145,7 @@ class SkillContext(Protocol):
 
     def snapshot(self) -> SceneSnapshot: ...
 
-    def grasp_candidates(
+    async def grasp_candidates(
         self,
         object_name: str,
         arm: Arm,

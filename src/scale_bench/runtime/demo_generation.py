@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, Mapping, Sequence
+import asyncio
+from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 
 import torch
@@ -23,11 +24,9 @@ from scale_bench.skills import (
 )
 
 from .driver import DriverEnvironment, EpisodeDriver
-from .episodes import EpisodeResult, EpisodeState, EpisodeTermination
-from .episodes import TerminationReason
+from .episodes import EpisodeResult, EpisodeState, EpisodeTermination, TerminationReason
 from .logging import episode_log_context
 from .recording import StepSemantics
-
 
 ExpertFactory = Callable[[EpisodeState], Iterator[SkillRequest]]
 SkillContextFactory = Callable[[EpisodeState], SkillContext]
@@ -40,7 +39,7 @@ class _ProgramState:
     expert: Iterator[SkillRequest]
     context: SkillContext
     planner: SkillPlanner
-    commands: Iterator[SkillCommand] | None = None
+    commands: AsyncIterator[SkillCommand] | None = None
     skill_name: str | None = None
     subgoal: str | None = None
     command_running: bool = False
@@ -58,12 +57,14 @@ class DemoGenerationRunner:
         expert_factory: ExpertFactory,
         context_factory: SkillContextFactory,
         planner_factory: SkillPlannerFactory,
+        flush_planning: Callable[[], None],
     ) -> None:
         self._env = env
         self._executor = executor
         self._expert_factory = expert_factory
         self._context_factory = context_factory
         self._planner_factory = planner_factory
+        self._flush_planning = flush_planning
         self._driver = EpisodeDriver(env)
         self._programs: dict[int, _ProgramState] = {}
 
@@ -74,6 +75,13 @@ class DemoGenerationRunner:
     def run_batch(
         self,
         states: Sequence[EpisodeState],
+    ) -> Mapping[str, EpisodeResult]:
+        # Own the planning loop without replacing Kit's default event loop.
+        with asyncio.Runner(loop_factory=asyncio.new_event_loop) as planning_runner:
+            return self._run_batch(states, planning_runner)
+
+    def _run_batch(
+        self, states: Sequence[EpisodeState], planning_runner: asyncio.Runner,
     ) -> Mapping[str, EpisodeResult]:
         self._executor.reset(tuple(state.env_id for state in states))
         snapshot = self._driver.start(states)
@@ -95,7 +103,17 @@ class DemoGenerationRunner:
         try:
             while self._driver.is_active:
                 active_mask = snapshot.active_mask
-                terminations = self._prepare_commands(active_mask)
+                # Kit advances its own event loop during physics/rendering.
+                # Run our loop only while preparing commands, never during step.
+                preparing = planning_runner.get_loop().create_task(
+                    self._prepare_commands(active_mask)
+                )
+                while not preparing.done():
+                    # Coroutines run until they have submitted their next work.
+                    # Solve/capture outside the loop so Kit can pump its own loop.
+                    planning_runner.run(asyncio.sleep(0))
+                    self._flush_planning()
+                terminations = preparing.result()
                 success_verification_mask = torch.zeros_like(active_mask)
                 for env_id, program in self._programs.items():
                     if program.verification_started and env_id not in terminations:
@@ -148,7 +166,7 @@ class DemoGenerationRunner:
             raise
         return self._driver.results
 
-    def _prepare_commands(
+    async def _prepare_commands(
         self,
         active_mask: Tensor,
     ) -> dict[int, EpisodeTermination]:
@@ -157,16 +175,17 @@ class DemoGenerationRunner:
             active_mask,
             as_tuple=False,
         ).flatten().detach().cpu().tolist()
-        for env_id in active_env_ids:
+
+        async def prepare(env_id: int) -> None:
             program = self._programs[env_id]
             if program.command_running:
-                continue
+                return
             try:
                 with episode_log_context(
                     episode_id=program.episode_id,
                     env_id=env_id,
                 ):
-                    command = _next_command(program)
+                    command = await _next_command(program)
                 if command is None:
                     if not program.verification_started:
                         command = Hold(
@@ -182,7 +201,7 @@ class DemoGenerationRunner:
                         terminations[env_id] = EpisodeTermination(
                             TerminationReason.CONTROLLER_FINISHED
                         )
-                        continue
+                        return
                 self._executor.begin(env_id, command)
                 program.command_running = True
             except SkillError as error:
@@ -191,6 +210,8 @@ class DemoGenerationRunner:
                     retryable=False,
                     message=str(error),
                 )
+
+        await asyncio.gather(*(prepare(env_id) for env_id in active_env_ids))
         return terminations
 
     def _remove_completed_programs(
@@ -208,12 +229,12 @@ class DemoGenerationRunner:
             del self._programs[env_id]
 
 
-def _next_command(program: _ProgramState) -> SkillCommand | None:
+async def _next_command(program: _ProgramState) -> SkillCommand | None:
     while True:
         if program.commands is not None:
             try:
-                return next(program.commands)
-            except StopIteration:
+                return await anext(program.commands)
+            except StopAsyncIteration:
                 program.commands = None
                 program.skill_name = None
                 program.subgoal = None

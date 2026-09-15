@@ -57,7 +57,7 @@ class MotionPlanner(Protocol):
     @property
     def arm(self) -> Arm: ...
 
-    def solve_ik(
+    async def solve_ik(
         self,
         start: JointState,
         target_tcp_pose_env: Pose,
@@ -65,7 +65,7 @@ class MotionPlanner(Protocol):
         stage: PlanningStage,
     ) -> tuple[JointState, ...]: ...
 
-    def plan_pose(
+    async def plan_pose(
         self,
         start: JointState,
         target_tcp_pose_env: Pose,
@@ -76,7 +76,7 @@ class MotionPlanner(Protocol):
         """An axis fixes contact motion; None allows transit and adjustment."""
         ...
 
-    def plan_joints(
+    async def plan_joints(
         self,
         start: JointState,
         target_joint_state: JointState,
@@ -122,27 +122,27 @@ class PlacePlan:
 
 
 class SkillPlanner(Protocol):
-    def plan_pick(
+    async def plan_pick(
         self,
         object_name: str,
         arm: ArmSelection,
         context: SkillContext,
     ) -> PickPlan: ...
 
-    def plan_pick_and_place(
+    async def plan_pick_and_place(
         self,
         request: PickAndPlace,
         context: SkillContext,
     ) -> PickPlan: ...
 
-    def plan_lift(
+    async def plan_lift(
         self,
         plan: PickPlan,
         grasp: GraspState,
         context: SkillContext,
     ) -> MoveToPose: ...
 
-    def plan_pre_place(
+    async def plan_pre_place(
         self,
         request: PickAndPlace,
         plan: PickPlan,
@@ -150,7 +150,7 @@ class SkillPlanner(Protocol):
         context: SkillContext,
     ) -> PrePlacePlan: ...
 
-    def plan_place(
+    async def plan_place(
         self,
         target_object_pose_env: Pose,
         plan: PickPlan,
@@ -176,24 +176,24 @@ class OperationSkillPlanner:
             arm: dict(positions) for arm, positions in gripper_open_positions.items()
         }
 
-    def plan_pick(
+    async def plan_pick(
         self,
         object_name: str,
         arm: ArmSelection,
         context: SkillContext,
     ) -> PickPlan:
-        return self._plan_pick_impl(object_name, arm, context, None)
+        return await self._plan_pick_impl(object_name, arm, context, None)
 
-    def plan_pick_and_place(
+    async def plan_pick_and_place(
         self,
         request: PickAndPlace,
         context: SkillContext,
     ) -> PickPlan:
-        return self._plan_pick_impl(
+        return await self._plan_pick_impl(
             request.object_name, request.arm, context, request
         )
 
-    def _plan_pick_impl(
+    async def _plan_pick_impl(
         self,
         object_name: str,
         arm: ArmSelection,
@@ -206,7 +206,7 @@ class OperationSkillPlanner:
         selected_arm = self._select_arm(arm, source_object)
         arm_base_position_env_m = self._arm_base_positions_env_m[selected_arm]
         try:
-            candidates = context.grasp_candidates(object_name, selected_arm)
+            candidates = await context.grasp_candidates(object_name, selected_arm)
         except SkillError as error:
             raise SkillError(
                 f"could not obtain {selected_arm} grasp candidates for "
@@ -266,7 +266,7 @@ class OperationSkillPlanner:
                         failures.append("grasp: camera-side approach points below the wrist")
                         failure_stage_counts["grasp"] += 1
                         continue
-                    pre_grasp = self._move(
+                    pre_grasp = await self._move(
                         selected_arm,
                         snapshot.robot(selected_arm).joints,
                         pre_grasp_tcp_pose_env,
@@ -274,7 +274,7 @@ class OperationSkillPlanner:
                         "pre_grasp",
                         None,
                     )
-                    grasp = self._move(
+                    grasp = await self._move(
                         selected_arm,
                         pre_grasp.trajectory.end,
                         grasp_tcp_pose_env,
@@ -300,7 +300,7 @@ class OperationSkillPlanner:
                         gripper_joint_positions=candidate.gripper_joint_positions,
                     )
                     # Reject grasps that cannot lift; execution replans from live state.
-                    lift = self._lift_from_state(
+                    lift = await self._lift_from_state(
                         selected_arm,
                         grasp.trajectory.end,
                         grasp_tcp_pose_env,
@@ -329,7 +329,7 @@ class OperationSkillPlanner:
                             ),
                             **{f"{selected_arm}_robot": lifted_robot},
                         )
-                        object_orientation_env_xyzw = self._precheck_place_candidate(
+                        object_orientation_env_xyzw = await self._precheck_place_candidate(
                             request, plan, tcp_pose_object, lifted_snapshot,
                         )
                         plan = replace(
@@ -427,7 +427,7 @@ class OperationSkillPlanner:
             f"last failure: {failures[-1]}"
         )
 
-    def _precheck_place_candidate(
+    async def _precheck_place_candidate(
         self,
         request: PickAndPlace,
         plan: PickPlan,
@@ -448,7 +448,7 @@ class OperationSkillPlanner:
                 request.target_object_pose_env.position_m, target_object_orientation_env_xyzw,
             )
             try:
-                self._plan_place_with_ik(
+                await self._plan_place_with_ik(
                     plan,
                     tcp_pose_object,
                     target_object_pose_env,
@@ -465,7 +465,7 @@ class OperationSkillPlanner:
             "candidate has no feasible target orientation: " + "; ".join(failures),
         )
 
-    def plan_lift(
+    async def plan_lift(
         self,
         plan: PickPlan,
         grasp: GraspState,
@@ -483,7 +483,7 @@ class OperationSkillPlanner:
             unmanipulated_objects,
             HeldObject(source_object, grasp.tcp_pose_object),
         )
-        lift = self._lift_from_state(
+        lift = await self._lift_from_state(
             plan.arm,
             snapshot.robot(plan.arm).joints,
             grasp.tcp_pose_env,
@@ -492,7 +492,7 @@ class OperationSkillPlanner:
         self._motion_planners[plan.arm].commit_inspection_stages(("lift",))
         return lift
 
-    def _lift_from_state(
+    async def _lift_from_state(
         self,
         arm: Arm,
         joint_state: JointState,
@@ -503,7 +503,7 @@ class OperationSkillPlanner:
             offset_z_env(tcp_pose_env.position_m, self._lift_height_m),
             tcp_pose_env.orientation_xyzw,
         )
-        return self._move(
+        return await self._move(
             arm,
             joint_state,
             lift_tcp_pose_env,
@@ -512,7 +512,7 @@ class OperationSkillPlanner:
             (0.0, 0.0, 1.0),
         )
 
-    def plan_pre_place(
+    async def plan_pre_place(
         self,
         request: PickAndPlace,
         plan: PickPlan,
@@ -557,7 +557,7 @@ class OperationSkillPlanner:
                     }},
                 )
             try:
-                pre_place, _, _, _ = self._plan_place_with_ik(
+                pre_place, _, _, _ = await self._plan_place_with_ik(
                     plan,
                     grasp.tcp_pose_object,
                     target_object_pose_env,
@@ -583,7 +583,7 @@ class OperationSkillPlanner:
             + "; ".join(failures)
         )
 
-    def _plan_place_with_ik(
+    async def _plan_place_with_ik(
         self,
         plan: PickPlan,
         tcp_pose_object: Pose,
@@ -605,7 +605,7 @@ class OperationSkillPlanner:
             HeldObject(source_object, tcp_pose_object),
         )
         motion_planner = self._motion_planners[plan.arm]
-        candidates = motion_planner.solve_ik(
+        candidates = await motion_planner.solve_ik(
             snapshot.robot(plan.arm).joints,
             above_place_tcp_pose_env,
             held_object_scene,
@@ -614,7 +614,7 @@ class OperationSkillPlanner:
         failures: list[str] = []
         for candidate_index, target_joint_state in enumerate(candidates):
             try:
-                trajectory = motion_planner.plan_joints(
+                trajectory = await motion_planner.plan_joints(
                     snapshot.robot(plan.arm).joints,
                     target_joint_state,
                     held_object_scene,
@@ -623,7 +623,7 @@ class OperationSkillPlanner:
                 above_place = MoveToPose(
                     plan.arm, above_place_tcp_pose_env, trajectory, stage
                 )
-                place, retreat, clear = self._place_from_state(
+                place, retreat, clear = await self._place_from_state(
                     plan,
                     tcp_pose_object,
                     target_object_pose_env,
@@ -657,7 +657,7 @@ class OperationSkillPlanner:
             "no IK configuration supports placement: " + "; ".join(failures),
         )
 
-    def plan_place(
+    async def plan_place(
         self,
         target_object_pose_env: Pose,
         plan: PickPlan,
@@ -667,12 +667,12 @@ class OperationSkillPlanner:
         """Correct the TCP for the measured grasp while keeping the object target."""
         snapshot = context.snapshot()
         try:
-            place, retreat, clear = self._place_from_state(
+            place, retreat, clear = await self._place_from_state(
                 plan, grasp.tcp_pose_object, target_object_pose_env,
                 snapshot.robot(plan.arm).joints, snapshot,
             )
         except PlanningError:
-            adjust, place, retreat, clear = self._plan_place_with_ik(
+            adjust, place, retreat, clear = await self._plan_place_with_ik(
                 plan, grasp.tcp_pose_object, target_object_pose_env,
                 snapshot, "adjust",
             )
@@ -687,7 +687,7 @@ class OperationSkillPlanner:
         )
         return PlacePlan(plan.arm, adjust, place, retreat, clear)
 
-    def _place_from_state(
+    async def _place_from_state(
         self,
         plan: PickPlan,
         tcp_pose_object: Pose,
@@ -712,7 +712,7 @@ class OperationSkillPlanner:
             unmanipulated_objects,
             EmptyTool(),
         )
-        place = self._move(
+        place = await self._move(
             plan.arm,
             joint_state,
             place_tcp_pose_env,
@@ -774,7 +774,7 @@ class OperationSkillPlanner:
             tuple[float, float, float],
             tuple(-component_env for component_env in approach_axis_env),
         )
-        retreat = self._move(
+        retreat = await self._move(
             plan.arm,
             place.trajectory.end,
             retreat_tcp_pose_env,
@@ -787,7 +787,7 @@ class OperationSkillPlanner:
                 retreat.trajectory.end.positions.shape
             )
         )
-        clear = self._move_joints(
+        clear = await self._move_joints(
             plan.arm,
             retreat.trajectory.end,
             clear_target_joint_state,
@@ -796,7 +796,7 @@ class OperationSkillPlanner:
         )
         return place, retreat, clear
 
-    def _move(
+    async def _move(
         self,
         arm: Arm,
         start: JointState,
@@ -807,7 +807,7 @@ class OperationSkillPlanner:
     ) -> MoveToPose:
         """Use an axis for contact motion; None permits transit and uprighting."""
         try:
-            trajectory = self._motion_planners[arm].plan_pose(
+            trajectory = await self._motion_planners[arm].plan_pose(
                 start,
                 target_tcp_pose_env,
                 scene,
@@ -818,7 +818,7 @@ class OperationSkillPlanner:
             raise PlanningError(arm, stage, error.reason) from error
         return MoveToPose(arm, target_tcp_pose_env, trajectory, stage)
 
-    def _move_joints(
+    async def _move_joints(
         self,
         arm: Arm,
         start: JointState,
@@ -827,7 +827,7 @@ class OperationSkillPlanner:
         stage: PlanningStage,
     ) -> MoveToJoints:
         try:
-            trajectory = self._motion_planners[arm].plan_joints(
+            trajectory = await self._motion_planners[arm].plan_joints(
                 start,
                 target_joint_state,
                 scene,
