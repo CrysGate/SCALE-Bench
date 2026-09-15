@@ -54,7 +54,7 @@ def add_simulation_arguments(
     )
     for name, relative_path in (
         ("scene", "scene/default.yml"),
-        ("robot", "robots/x5.yml"),
+        ("robot", "robots/piper.yml"),
         ("camera", "cameras/d435.yml"),
         ("sim", "sim/default.yml"),
         ("env", "envs/default.yml"),
