@@ -7,6 +7,7 @@ import logging
 import math
 import xml.etree.ElementTree as ET
 from collections.abc import Mapping
+from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -167,6 +168,7 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
         """Keep distinct feasible joint solutions, in the solver's ranked order."""
         planning_start = self._planning_start(start.positions, stage)
         self._sync_scene(scene)
+        self._log_planning_state(planning_start, scene, stage)
         result = self._planner.ik_solver.solve_pose(
             self._goal_from_env_pose(target_tcp_pose_env),
             current_state=self._joint_state(planning_start),
@@ -177,6 +179,19 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
         )
         # Subsequent plans reuse the backend's buffers; own the candidate pool.
         joint_positions = result.solution[result.success][:, indices].clone()
+        LOGGER.debug(
+            "%s %s IK successful=%d/%d", self._arm, stage,
+            len(joint_positions), result.success.numel(),
+            extra={"event": "IK-RESULT", "event_fields": {
+                "arm": self._arm, "stage": stage,
+                "target_tcp_pose_env": asdict(target_tcp_pose_env),
+                "successful_count": len(joint_positions),
+                "candidate_count": result.success.numel(),
+                "position_error_m": result.position_error.tolist(),
+                "orientation_error_rad": result.rotation_error.tolist(),
+                "feasible": result.feasible.tolist(),
+            }},
+        )
         if len(joint_positions) == 0:
             raise PlanningError(self._arm, stage, "IK found no feasible joint configuration")
 
@@ -223,12 +238,27 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
             )
         planning_start = self._planning_start(start.positions, stage)
         collision_cuboids_base = self._sync_scene(scene)
+        self._log_planning_state(planning_start, scene, stage)
+        LOGGER.debug(
+            "%s %s pose target", self._arm, stage,
+            extra={"event": "PLAN-TARGET", "event_fields": {
+                "arm": self._arm, "stage": stage,
+                "target_tcp_pose_env": asdict(target_tcp_pose_env),
+                "linear_axis_env": linear_axis_env,
+            }},
+        )
         self._capture_visualization(
             stage,
             planning_start,
             collision_cuboids_base,
         )
         violations = self._configuration_violations(scene, planning_start)
+        LOGGER.debug(
+            "%s %s start constraints: %s", self._arm, stage, violations,
+            extra={"event": "PLAN-CHECK", "event_fields": {
+                "arm": self._arm, "stage": stage, "violations": violations,
+            }},
+        )
         if violations:
             raise PlanningError(
                 self._arm,
@@ -249,6 +279,14 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
                     trajectory, target_tcp_pose_env, stage, linear_axis_env
                 )
             return trajectory
+        except PlanningError as error:
+            LOGGER.debug(
+                "%s %s rejected: %s", self._arm, stage, error.reason,
+                extra={"event": "PLAN-FAIL", "event_fields": {
+                    "arm": self._arm, "stage": stage, "reason": error.reason,
+                }},
+            )
+            raise
         finally:
             self._planner.update_tool_pose_criteria(
                 {
@@ -365,12 +403,26 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
     ) -> JointTrajectory:
         planning_start = self._planning_start(start.positions, stage)
         collision_cuboids_base = self._sync_scene(scene)
+        self._log_planning_state(planning_start, scene, stage)
+        LOGGER.debug(
+            "%s %s joint target", self._arm, stage,
+            extra={"event": "PLAN-TARGET", "event_fields": {
+                "arm": self._arm, "stage": stage,
+                "target_joint_state": target_joint_state.positions.tolist(),
+            }},
+        )
         self._capture_visualization(
             stage,
             planning_start,
             collision_cuboids_base,
         )
         violations = self._configuration_violations(scene, planning_start)
+        LOGGER.debug(
+            "%s %s start constraints: %s", self._arm, stage, violations,
+            extra={"event": "PLAN-CHECK", "event_fields": {
+                "arm": self._arm, "stage": stage, "violations": violations,
+            }},
+        )
         if violations:
             raise PlanningError(
                 self._arm,
@@ -382,6 +434,29 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
             self._joint_state(planning_start),
         )
         return self._trajectory(result, stage)
+
+    def _log_planning_state(
+        self, joint_positions: Tensor, scene: PlanningScene, stage: PlanningStage,
+    ) -> None:
+        LOGGER.debug(
+            "%s %s planning state", self._arm, stage,
+            extra={"event": "PLAN-STATE", "event_fields": {
+                "arm": self._arm, "stage": stage,
+                "joint_names": self._joint_names,
+                "start_joint_state": joint_positions.tolist(),
+                "gripper_joint_positions": dict(scene.gripper_joint_positions),
+                "other_arm": scene.other_arm,
+                "other_joint_state": scene.other_robot.joints.positions.tolist(),
+                "other_gripper_joint_positions": dict(
+                    scene.other_robot.gripper_joint_positions
+                ),
+                "arm_base_pose_env": asdict(self._arm_base_pose_env),
+                "table": asdict(scene.table),
+                "camera_stand": [asdict(item) for item in scene.camera_stand],
+                "objects": [asdict(item) for item in scene.objects],
+                "tool": asdict(scene.tool),
+            }},
+        )
 
     def commit_inspection_stages(
         self,
@@ -662,6 +737,22 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
         stage: str,
     ) -> JointTrajectory:
         """Convert a plan; None means planning produced no trajectory optimizer result."""
+        LOGGER.debug(
+            "%s %s trajectory result", self._arm, stage,
+            extra={"event": "TRAJ-RESULT", "event_fields": {
+                "arm": self._arm, "stage": stage,
+                "result_available": result is not None,
+                "success_available": result is not None and result.success is not None,
+                "successful_count": (
+                    int(result.success.count_nonzero().item())
+                    if result is not None and result.success is not None else 0
+                ),
+                "candidate_count": (
+                    result.success.numel()
+                    if result is not None and result.success is not None else 0
+                ),
+            }},
+        )
         if result is None:
             raise PlanningError(
                 self._arm,

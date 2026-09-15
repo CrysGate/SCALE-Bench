@@ -18,7 +18,7 @@ def pick_and_place(
     """Select one grasp, plan each stage from live state, then place it."""
 
     yield Hold(steps=1, label="observe")
-    plan = planner.plan_pick(request.object_name, request.arm, context)
+    plan = planner.plan_pick_and_place(request, context)
     yield plan.pre_grasp
     yield plan.grasp
     yield SetGripper(plan.arm, closed=True, label="grasp")

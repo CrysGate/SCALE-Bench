@@ -7,7 +7,7 @@ import math
 import xml.etree.ElementTree as ET
 from collections import Counter, deque
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -283,16 +283,24 @@ class IsaacLabSkillContext:
 
         aperture_m = self._gripper_aperture_m(arm)
         minimum_aperture_m = self._minimum_grasp_apertures_m[arm]
+        maximum_aperture_m = self._gripper_apertures_m[arm]
+        closure_margin_m = max(0.005 * maximum_aperture_m, minimum_aperture_m)
         if aperture_m < minimum_aperture_m:
             raise SkillError(
                 f"{arm} gripper does not hold {object_name!r}: "
                 f"aperture={aperture_m:.6g} m, "
                 f"minimum={minimum_aperture_m:.6g} m"
             )
+        if aperture_m >= maximum_aperture_m - closure_margin_m:
+            raise SkillError(
+                f"{arm} gripper did not contact {object_name!r}: "
+                f"aperture={aperture_m:.6g} m is near its open limit "
+                f"({maximum_aperture_m:.6g} m)"
+            )
         object_pose_env = Pose(*self._object_pose_env(object_name))
         tcp_pose_env = self._tcp_pose_env(arm)
         tcp_pose_object = relative_pose(object_pose_env, tcp_pose_env)
-        return GraspState(
+        grasp = GraspState(
             object_name,
             arm,
             aperture_m,
@@ -300,6 +308,13 @@ class IsaacLabSkillContext:
             tcp_pose_env,
             tcp_pose_object,
         )
+        LOGGER.debug(
+            "%s measured grasp aperture=%.4f m", arm, aperture_m,
+            extra={"event": "GRASP-STATE", "event_fields": {
+                "object": object_name, "arm": arm, "grasp": asdict(grasp),
+            }},
+        )
+        return grasp
 
     def _gripper_aperture_m(self, arm: Arm) -> float:
         robot = self._env.scene[f"{arm}_robot"]
@@ -568,6 +583,7 @@ class IsaacLabSkillContext:
                 approach_axis_tcp=(1.0, 0.0, 0.0),
                 approach_distance_m=config.approach_distance_m,
                 score=detection.score,
+                candidate_id=detection_index,
             )
             status = _anygrasp_candidate_status(
                 score=detection.score,
@@ -659,6 +675,7 @@ class IsaacLabSkillContext:
         candidates = tuple(item.candidate for item in valid_candidates)
         accepted_diagnostics = [
             {
+                "candidate_id": item.candidate.candidate_id,
                 "detection_index": item.detection_index,
                 "score": round(item.score, 4),
                 "width_m": round(item.width_m, 4),

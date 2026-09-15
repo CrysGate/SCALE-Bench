@@ -41,6 +41,7 @@ def load_asset_grasps(
                 approach_distance_m=grasps.approach_distance_m,
                 # Compact exports have no quality scores; equal scores preserve order.
                 score=0.0,
+                candidate_id=candidate.candidate_id,
             )
         )
     if not candidates:
