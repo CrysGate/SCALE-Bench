@@ -168,7 +168,7 @@ def configure_logging(
 
     logger = logging.getLogger("scale_bench")
     logger.handlers.clear()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.DEBUG if jsonl_path is not None else _LEVELS[console_level])
     logger.propagate = False
 
     context_filter = _EpisodeContextFilter()

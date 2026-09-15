@@ -534,15 +534,16 @@ class OperationSkillPlanner:
                 request.target_object_pose_env.position_m,
                 target_object_orientation_env_xyzw,
             )
-            LOGGER.debug(
-                "pre-place orientation #%d", orientation_index,
-                extra={"event": "PLACE-TRY", "event_fields": {
-                    "object": plan.object_name, "arm": plan.arm,
-                    "orientation_index": orientation_index,
-                    "measured_grasp": asdict(grasp),
-                    "target_object_pose_env": asdict(target_object_pose_env),
-                }},
-            )
+            if LOGGER.isEnabledFor(logging.DEBUG):
+                LOGGER.debug(
+                    "pre-place orientation #%d", orientation_index,
+                    extra={"event": "PLACE-TRY", "event_fields": {
+                        "object": plan.object_name, "arm": plan.arm,
+                        "orientation_index": orientation_index,
+                        "measured_grasp": asdict(grasp),
+                        "target_object_pose_env": asdict(target_object_pose_env),
+                    }},
+                )
             try:
                 pre_place, _, _, _ = self._plan_place_with_ik(
                     plan,

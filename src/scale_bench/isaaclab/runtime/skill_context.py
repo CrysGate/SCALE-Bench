@@ -308,12 +308,13 @@ class IsaacLabSkillContext:
             tcp_pose_env,
             tcp_pose_object,
         )
-        LOGGER.debug(
-            "%s measured grasp aperture=%.4f m", arm, aperture_m,
-            extra={"event": "GRASP-STATE", "event_fields": {
-                "object": object_name, "arm": arm, "grasp": asdict(grasp),
-            }},
-        )
+        if LOGGER.isEnabledFor(logging.DEBUG):
+            LOGGER.debug(
+                "%s measured grasp aperture=%.4f m", arm, aperture_m,
+                extra={"event": "GRASP-STATE", "event_fields": {
+                    "object": object_name, "arm": arm, "grasp": asdict(grasp),
+                }},
+            )
         return grasp
 
     def _gripper_aperture_m(self, arm: Arm) -> float:
