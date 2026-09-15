@@ -328,6 +328,20 @@ class IsaacLabSkillContext:
             (positions * multipliers).sum().item()
         )
 
+    def _gripper_positions_for_width(self, arm: Arm, width_m: float) -> dict[str, float]:
+        """Predict the commanded prismatic joints for an AnyGrasp jaw width."""
+        gripper = self._gripper_configs[arm]
+        fraction = max(0.0, min(1.0, (
+            (width_m - gripper.min_aperture_m)
+            / (gripper.max_aperture_m - gripper.min_aperture_m)
+        )))
+        return {
+            name: gripper.closed_positions[name] + fraction * (
+                gripper.open_positions[name] - gripper.closed_positions[name]
+            )
+            for name in gripper.command_joint_names
+        }
+
     def _robot_state(self, arm: Arm) -> RobotState:
         robot = self._env.scene[f"{arm}_robot"]
         joints = (
@@ -585,6 +599,7 @@ class IsaacLabSkillContext:
                 approach_distance_m=config.approach_distance_m,
                 score=detection.score,
                 candidate_id=detection_index,
+                gripper_joint_positions=self._gripper_positions_for_width(arm, detection.width_m),
             )
             status = _anygrasp_candidate_status(
                 score=detection.score,

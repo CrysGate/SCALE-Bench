@@ -286,6 +286,10 @@ class OperationSkillPlanner:
                             relative_pose(source_object.pose_env, grasp_tcp_pose_env),
                         ),
                     )
+                    held_object_scene = replace(
+                        held_object_scene,
+                        gripper_joint_positions=candidate.gripper_joint_positions,
+                    )
                     # Reject grasps that cannot lift; execution replans from live state.
                     self._lift_from_state(
                         selected_arm,
