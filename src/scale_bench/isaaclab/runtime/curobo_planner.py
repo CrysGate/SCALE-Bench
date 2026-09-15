@@ -92,10 +92,38 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
             )
         )
         self._attached_sphere_indices = set(attached_indices.cpu().tolist())
+        self._sync_gripper(robot_config.gripper.open_positions)
+        kinematics = planner.compute_kinematics(planner.default_joint_state)
+        tcp_pose_base = kinematics.tool_poses.get_link_pose(TCP_FRAME)
+        finger_indices = torch.cat([
+            planner.kinematics.config.kinematics_config.get_sphere_index_from_link_name(name)
+            for name in robot_config.gripper.finger_body_names
+        ])
+        finger_spheres_base_m = kinematics.robot_spheres.reshape(-1, 4)[finger_indices]
+        finger_centers_tcp_m = tcp_pose_base.inverse().transform_points(
+            finger_spheres_base_m[:, :3].contiguous(),
+        ).reshape(-1, 3)
+        self._open_finger_spheres_tcp_m = tuple(
+            tuple(sphere) for sphere in torch.cat(
+                (finger_centers_tcp_m, finger_spheres_base_m[:, 3:]), dim=-1,
+            ).tolist()
+        )
 
     @property
     def arm(self) -> Arm:
         return self._arm
+
+    def gripper_clearance_m(self, approach_axis_tcp: tuple[float, float, float]) -> float:
+        forward_extent_m = max(
+            sum(coordinate_tcp_m * component_tcp for coordinate_tcp_m, component_tcp in zip(
+                sphere_tcp_m[:3], approach_axis_tcp, strict=True,
+            )) + sphere_tcp_m[3]
+            for sphere_tcp_m in self._open_finger_spheres_tcp_m
+        )
+        return (
+            forward_extent_m
+            + self._planner.trajopt_solver.config.optimizer_collision_activation_distance
+        )
 
     def _initialize_gripper_transforms(self, robot_config: RobotConfig) -> None:
         """Keep zero-opening transforms for the robot's prismatic fingers."""

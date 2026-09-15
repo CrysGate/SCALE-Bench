@@ -89,6 +89,10 @@ class MotionPlanner(Protocol):
         stages: tuple[PlanningStage, ...],
     ) -> None: ...
 
+    def gripper_clearance_m(self, approach_axis_tcp: tuple[float, float, float]) -> float:
+        """Open fingers' forward extent from TCP plus planner collision clearance."""
+        ...
+
 
 @dataclass(frozen=True, slots=True)
 class PickPlan:
@@ -750,21 +754,21 @@ class OperationSkillPlanner:
                 strict=True,
             )
         )
-        retreat_distance_m = max(0.08, object_half_extent_m + 0.04)
-        retreat_position_env_m = cast(
-            tuple[float, float, float],
-            tuple(
-                coordinate_env_m - retreat_distance_m * axis_component_env
-                for coordinate_env_m, axis_component_env in zip(
-                    place_tcp_pose_env.position_m,
-                    approach_axis_env,
-                    strict=True,
-                )
-            ),
+        tcp_offset_along_approach_m = sum(
+            coordinate_object_m * axis_component_object
+            for coordinate_object_m, axis_component_object in zip(
+                tcp_pose_object.position_m, approach_axis_object, strict=True,
+            )
         )
-        retreat_tcp_pose_env = Pose(
-            retreat_position_env_m,
-            place_tcp_pose_env.orientation_xyzw,
+        gripper_clearance_m = self._motion_planners[plan.arm].gripper_clearance_m(
+            plan.candidate.approach_axis_tcp,
+        )
+        retreat_distance_m = max(
+            plan.candidate.approach_distance_m,
+            object_half_extent_m + tcp_offset_along_approach_m + gripper_clearance_m,
+        )
+        retreat_tcp_pose_env = approach_start_pose(
+            place_tcp_pose_env, plan.candidate.approach_axis_tcp, retreat_distance_m,
         )
         retreat_axis_env = cast(
             tuple[float, float, float],
