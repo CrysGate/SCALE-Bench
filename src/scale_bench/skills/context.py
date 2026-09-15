@@ -88,7 +88,7 @@ class GraspCandidate:
     approach_axis_tcp: tuple[float, float, float]
     approach_distance_m: float
     score: float
-    candidate_id: int = 0
+    candidate_id: int
 
     def __post_init__(self) -> None:
         axis_norm = math.sqrt(sum(value * value for value in self.approach_axis_tcp))

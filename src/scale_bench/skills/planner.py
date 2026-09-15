@@ -306,7 +306,8 @@ class OperationSkillPlanner:
                     failures.append(f"{error.stage}: {error.reason}")
                     failure_stage_counts[error.stage] += 1
                     LOGGER.debug(
-                        "candidate=%d score=%.4f stage=%s rejected: %s",
+                        "candidate=%d rank=%d score=%.4f stage=%s rejected: %s",
+                        candidate.candidate_id,
                         candidate_index,
                         candidate.score,
                         error.stage,
@@ -317,6 +318,7 @@ class OperationSkillPlanner:
                                 "object": object_name,
                                 "arm": selected_arm,
                                 "candidate_index": candidate_index,
+                                "candidate_id": candidate.candidate_id,
                                 "score": candidate.score,
                                 "stage": error.stage,
                                 "reason": error.reason,
@@ -339,7 +341,8 @@ class OperationSkillPlanner:
                     round(value, 4) for value in grasp_tcp_pose_env.position_m
                 )
                 LOGGER.info(
-                    "selected #%d score=%.3f tries=%d",
+                    "selected candidate=%d rank=%d score=%.3f tries=%d",
+                    candidate.candidate_id,
                     candidate_index,
                     candidate.score,
                     attempt_count,
