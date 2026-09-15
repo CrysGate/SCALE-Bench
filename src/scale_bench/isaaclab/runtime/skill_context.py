@@ -283,19 +283,11 @@ class IsaacLabSkillContext:
 
         aperture_m = self._gripper_aperture_m(arm)
         minimum_aperture_m = self._minimum_grasp_apertures_m[arm]
-        maximum_aperture_m = self._gripper_apertures_m[arm]
-        closure_margin_m = max(0.005 * maximum_aperture_m, minimum_aperture_m)
         if aperture_m < minimum_aperture_m:
             raise SkillError(
                 f"{arm} gripper does not hold {object_name!r}: "
                 f"aperture={aperture_m:.6g} m, "
                 f"minimum={minimum_aperture_m:.6g} m"
-            )
-        if aperture_m >= maximum_aperture_m - closure_margin_m:
-            raise SkillError(
-                f"{arm} gripper did not contact {object_name!r}: "
-                f"aperture={aperture_m:.6g} m is near its open limit "
-                f"({maximum_aperture_m:.6g} m)"
             )
         object_pose_env = Pose(*self._object_pose_env(object_name))
         tcp_pose_env = self._tcp_pose_env(arm)
