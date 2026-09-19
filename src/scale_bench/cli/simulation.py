@@ -130,7 +130,9 @@ def run_simulation(
         scene=scene,
         robot=robot,
         simulation=simulation,
-        environment=load_config(args.env_config, EnvironmentConfig),
+        environment=load_config(args.env_config, EnvironmentConfig).model_copy(
+            update={"enable_cameras": args.enable_cameras}
+        ),
     )
     app = AppLauncher(args).app
     exit_code = 1
