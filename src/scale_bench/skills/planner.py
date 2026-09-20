@@ -63,7 +63,7 @@ class MotionPlanner(Protocol):
         target_tcp_pose_env: Pose,
         scene: PlanningScene,
         stage: PlanningStage,
-    ) -> tuple[JointState, ...]: ...
+    ) -> None: ...
 
     async def plan_pose(
         self,

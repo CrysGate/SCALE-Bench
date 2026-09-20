@@ -189,8 +189,8 @@ class CuroboMotionPlanner:
         target_tcp_pose_env: Pose,
         scene: PlanningScene,
         stage: PlanningStage,
-    ) -> tuple[JointState, ...]:
-        """Keep distinct feasible joint solutions, in the solver's ranked order."""
+    ) -> None:
+        """Check IK reachability, raising PlanningError if no solution succeeds."""
         planning_start = self._planning_start(start.positions, stage)
         self._sync_scene(scene)
         self._log_planning_state(planning_start, scene, stage)
@@ -199,54 +199,23 @@ class CuroboMotionPlanner:
             current_state=self._joint_state(planning_start),
             return_seeds=self._planner.ik_solver.config.num_seeds,
         )
-        indices = tuple(
-            self._planner.ik_solver.joint_names.index(name) for name in self._joint_names
-        )
-        # Subsequent plans reuse the backend's buffers; own the candidate pool.
-        joint_positions = result.solution[result.success][:, indices].clone()
+        successful_count = int(result.success.count_nonzero().item())
         if LOGGER.isEnabledFor(logging.DEBUG):
             LOGGER.debug(
                 "%s %s IK successful=%d/%d", self._arm, stage,
-                len(joint_positions), result.success.numel(),
+                successful_count, result.success.numel(),
                 extra={"event": "IK-RESULT", "event_fields": {
                     "arm": self._arm, "stage": stage,
                     "target_tcp_pose_env": asdict(target_tcp_pose_env),
-                    "successful_count": len(joint_positions),
+                    "successful_count": successful_count,
                     "candidate_count": result.success.numel(),
                     "position_error_m": result.position_error.tolist(),
                     "orientation_error_rad": result.rotation_error.tolist(),
                     "feasible": result.feasible.tolist(),
                 }},
             )
-        if len(joint_positions) == 0:
+        if successful_count == 0:
             raise PlanningError(self._arm, stage, "IK found no feasible joint configuration")
-
-        # Compare bounded joint coordinates directly and retain unrounded targets.
-        duplicates = (
-            (joint_positions[:, None] - joint_positions[None, :]).abs().amax(dim=-1)
-            <= 0.01
-        ).cpu().tolist()
-        selected_indices: list[int] = []
-        for index, row in enumerate(duplicates):
-            if not any(row[selected] for selected in selected_indices):
-                selected_indices.append(index)
-        LOGGER.debug(
-            "%s %s IK: successful=%d distinct=%d",
-            self._arm,
-            stage,
-            len(joint_positions),
-            len(selected_indices),
-            extra={
-                "event": "IK",
-                "event_fields": {
-                    "arm": self._arm,
-                    "stage": stage,
-                    "successful_count": len(joint_positions),
-                    "distinct_count": len(selected_indices),
-                },
-            },
-        )
-        return tuple(JointState(joint_positions[index]) for index in selected_indices)
 
     def plan_pose(
         self,

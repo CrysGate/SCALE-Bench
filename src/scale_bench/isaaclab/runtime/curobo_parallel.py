@@ -33,8 +33,8 @@ from .skill_context import IsaacLabSkillContext
 
 LOGGER = logging.getLogger(__name__)
 PlanKind = Literal["ik", "pose", "joints"]
-# IK returns configurations; pose and joint planning return an executable path.
-PlanResult = JointTrajectory | tuple[JointState, ...]
+# IK only checks reachability and returns None; motion planning returns a path.
+PlanResult = JointTrajectory | None
 
 
 @dataclass(slots=True)
@@ -221,11 +221,11 @@ class QueuedCuroboMotionPlanner:
     async def solve_ik(
         self, start: JointState, target_tcp_pose_env: Pose,
         scene: PlanningScene, stage: PlanningStage,
-    ) -> tuple[JointState, ...]:
-        return cast(tuple[JointState, ...], await self._pool.submit(
+    ) -> None:
+        await self._pool.submit(
             self._env_id, "ik", stage,
             partial(self._planner.solve_ik, start, target_tcp_pose_env, scene, stage),
-        ))
+        )
 
     async def plan_pose(
         self, start: JointState, target_tcp_pose_env: Pose,
