@@ -26,9 +26,6 @@ class AnyGraspCandidateStatus(StrEnum):
     REJECTED_SCORE = "rejected_score"
     REJECTED_WIDTH = "rejected_width"
     REJECTED_OPEN_AXIS = "rejected_open_axis"
-    # Keep saved Open3D bundles readable; new task rejections use TASK_RULE.
-    REJECTED_TCP_HEIGHT = "rejected_tcp_height"
-    REJECTED_TASK_RULE = "rejected_task_rule"
     REJECTED_TABLE_CLEARANCE = "rejected_table_clearance"
     REJECTED_TARGET_BOX = "rejected_target_box"
 

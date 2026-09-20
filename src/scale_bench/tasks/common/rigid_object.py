@@ -19,7 +19,6 @@ from scale_bench.config.base import (
     PositiveInt,
     UnitIntervalFloat,
 )
-from scale_bench.skills.models import Pose
 
 from .evaluation import EpisodeEvaluatorSpec
 from .layout import TaskLayout
@@ -142,17 +141,6 @@ class RigidObjectTask:
         """Immutable physical metadata used by layout and adapter builders."""
 
         return MappingProxyType(self._metadata)
-
-    def allows_grasp(self, object_name: str, tcp_pose_object: Pose) -> bool:
-        """Task eligibility after source validation; rigid tasks allow all poses.
-
-        Asset and online candidates use the same object-frame TCP contract.
-        Tasks override this method when their manipulation rules restrict it.
-        """
-
-        if object_name not in self._metadata:
-            raise ValueError(f"unknown task object: {object_name!r}")
-        return True
 
     def resolve_layout(
         self,

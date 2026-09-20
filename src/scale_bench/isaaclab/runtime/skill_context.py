@@ -129,7 +129,7 @@ class IsaacLabSkillContext:
         object_name: str,
         arm: Arm,
     ) -> tuple[GraspCandidate, ...]:
-        """Return task-eligible object-frame TCP candidates for one arm."""
+        """Return score-ordered object-frame TCP candidates for one arm."""
 
         return self._grasps.candidates(object_name, arm, self._object_pose_env(object_name))
 

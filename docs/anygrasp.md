@@ -70,13 +70,13 @@ anygrasp:
 2. 从所选臂一侧的目标斜上方采集，目标点少于 `minimum_target_points` 时只从正上方重拍一次。
 3. 客户端发送同一帧 RGB-D、内参和目标像素索引。深度单位已经是米，因此请求使用 `scale: 1.0`。
 4. 服务返回相机光学坐标系中的候选；客户端将它们变换到环境局部世界系。
-5. 本地按分数、夹爪最大开度、目标包围盒、桌面净空和开合轴方向过滤，然后应用任务的 `allows_grasp(object_name, tcp_pose_object)` 规则。被任务拒绝的候选在诊断中标记为 `rejected_task_rule`，不会进入有效候选或被标记为 selected。
+5. 本地按分数、夹爪最大开度、目标包围盒、桌面净空和开合轴方向过滤。
 6. Planner 按相对所选机器人 base 的几何代价从低到高尝试候选，同代价时优先使用高分候选，同分保留来源顺序。对候选及其平行夹爪 180 度等价姿态进行相机朝上筛选、预抓取与抓取规划及抬升可行性检查，选择第一个通过的候选。
 7. 闭合后从实时物体与 TCP 位姿重测 `T_object_tcp`，再规划搬运和放置。
 
-asset 和 AnyGrasp 共用任务准入规则与上述规划排序。`single_object_pick_and_place` 在任务类中要求 `tcp_pose_object.position_m[2] >= 0`，即 TCP 位于物体坐标系的上半部（包含中面），避免瓶底附近的抓取；切换来源不会绕过这一限制。其他刚体任务默认允许所有来源有效的候选。若过滤后没有候选，技能明确失败，不回退到不符合规则的候选。
+asset 和 AnyGrasp 共用上述规划排序。asset 使用资产文件中的全部候选，AnyGrasp 使用通过来源几何过滤的候选。若没有有效候选，技能明确失败。
 
-`IsaacLabSkillContext` 读取实时状态并转发候选请求；`IsaacLabGraspCandidates` 负责 asset 数据加载、来源选择和任务规则调用；`AnyGraspSource` 负责相机采集与恢复、在线推理、来源几何过滤和诊断。AnyGrasp 适配代码不引用具体任务 ID，执行和诊断使用同一次分析流程。
+`IsaacLabSkillContext` 读取实时状态并转发候选请求；`IsaacLabGraspCandidates` 负责 asset 数据加载和来源选择；`AnyGraspSource` 负责相机采集与恢复、在线推理、来源几何过滤和诊断。AnyGrasp 适配代码不引用具体任务 ID，执行和诊断使用同一次分析流程。
 
 令 `r` 为 base 指向物体的水平单位向量，
 `g` 为 TCP `+Y` 开合轴在 env 中的单位向量，`a` 为接近轴在 env 中的单位向量，

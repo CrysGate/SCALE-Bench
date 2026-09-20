@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import math
 from collections import Counter
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -63,10 +63,7 @@ class _AnyGraspInference:
 
 
 class AnyGraspSource:
-    """Generate candidates without stepping physics or recording camera captures.
-
-    The caller supplies candidate eligibility; this adapter contains no task rules.
-    """
+    """Generate candidates without stepping physics or recording camera captures."""
 
     def __init__(
         self,
@@ -103,9 +100,8 @@ class AnyGraspSource:
         object_name: str,
         arm: Arm,
         object_pose_env: Pose,
-        allows_grasp: Callable[[Pose], bool],
     ) -> AnyGraspDiagnostics:
-        """Share one inference and eligibility pass between execution and diagnostics."""
+        """Share one inference and geometry analysis between execution and diagnostics."""
 
         object_position_env_m = object_pose_env.position_m
         object_orientation_env_xyzw = object_pose_env.orientation_xyzw
@@ -121,7 +117,6 @@ class AnyGraspSource:
             object_position_env_m,
             object_orientation_env_xyzw,
             inference,
-            allows_grasp,
         )
 
     def _infer_anygrasp(
@@ -259,7 +254,6 @@ class AnyGraspSource:
         object_position_env_m: tuple[float, float, float],
         object_orientation_env_xyzw: tuple[float, float, float, float],
         inference: _AnyGraspInference,
-        allows_grasp: Callable[[Pose], bool],
     ) -> AnyGraspDiagnostics:
         """Transform and classify one shared detection batch for an arm."""
 
@@ -343,8 +337,6 @@ class AnyGraspSource:
                     config.target_margin_m,
                 ),
             )
-            if status.is_valid and not allows_grasp(candidate.tcp_pose_object):
-                status = AnyGraspCandidateStatus.REJECTED_TASK_RULE
             diagnostics.append(
                 AnyGraspPoseDiagnostic(
                     detection_index=detection_index,

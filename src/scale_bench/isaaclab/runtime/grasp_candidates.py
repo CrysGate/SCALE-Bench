@@ -1,7 +1,6 @@
-"""Candidate source selection and task eligibility shared by skill consumers."""
+"""Candidate loading and source selection shared by skill consumers."""
 
 from collections.abc import Mapping
-from functools import partial
 from pathlib import Path
 
 from scale_bench.config.models.robot import RobotConfig
@@ -18,7 +17,7 @@ from .environment import ScaleBenchEnv
 
 
 class IsaacLabGraspCandidates:
-    """Apply the task's object-frame rule to either configured candidate source."""
+    """Resolve object-frame candidates from the configured asset or online source."""
 
     def __init__(
         self,
@@ -29,7 +28,6 @@ class IsaacLabGraspCandidates:
         *,
         env_id: int,
     ) -> None:
-        self._task = task
         # Asset runs have no online source and need neither cameras nor a service.
         self._anygrasp: AnyGraspSource | None = None
         self._asset_grasps: dict[tuple[Arm, str], tuple[GraspCandidate, ...]] = {}
@@ -59,14 +57,11 @@ class IsaacLabGraspCandidates:
                 f"target_points={len(diagnostics.target_points_env_m)}"
             )
         else:
-            candidates = tuple(
-                candidate for candidate in self._asset_grasps[arm, object_name]
-                if self._task.allows_grasp(object_name, candidate.tcp_pose_object)
-            )
-            source_summary = f"asset candidates={len(self._asset_grasps[arm, object_name])}"
+            candidates = self._asset_grasps[arm, object_name]
+            source_summary = f"asset candidates={len(candidates)}"
         if not candidates:
             raise SkillError(
-                f"no valid task-eligible {object_name!r} grasp for {arm} arm ({source_summary})"
+                f"no valid {object_name!r} grasp for {arm} arm ({source_summary})"
             )
         return tuple(sorted(candidates, key=lambda item: item.score, reverse=True))
 
@@ -76,7 +71,7 @@ class IsaacLabGraspCandidates:
         if self._anygrasp is None:
             raise ValueError("AnyGrasp diagnostics require an AnyGrasp scene source")
         return self._anygrasp.analyze(
-            object_name, arm, object_pose_env, partial(self._task.allows_grasp, object_name),
+            object_name, arm, object_pose_env,
         )
 
 
