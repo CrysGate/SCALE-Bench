@@ -4,15 +4,13 @@ from __future__ import annotations
 
 import logging
 import math
-import xml.etree.ElementTree as ET
-from collections import Counter, deque
+from collections import Counter
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 import numpy as np
 from isaaclab.sensors import Camera
-from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
 from scale_bench.config.models.robot import RobotConfig
 from scale_bench.config.models.scene import SceneConfig
@@ -25,13 +23,11 @@ from scale_bench.skills.context import (
     SceneObject,
     SceneSnapshot,
 )
-from scale_bench.skills.errors import SkillError
+from scale_bench.skills.errors import FailureCode, SegmentError, SkillError
 from scale_bench.skills.geometry import (
     compose_pose,
     inverse_pose,
-    multiply_quaternions_xyzw,
     normalize_quaternion_xyzw,
-    quaternion_xyzw_from_rpy,
     relative_pose,
     rotate_vector_xyzw,
 )
@@ -48,6 +44,11 @@ from .anygrasp_diagnostics import (
     AnyGraspPoseDiagnostic,
 )
 from .environment import ScaleBenchEnv
+from .robot_geometry import (
+    camera_position_tcp_m,
+    camera_stand_collision_objects_env,
+    fixed_urdf_frame_pose,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -102,12 +103,11 @@ class IsaacLabSkillContext:
             Pose(scene_config.table.position_m, (0.0, 0.0, 0.0, 1.0)),
             scene_config.table.size_m,
         )
-        self._camera_stand = _camera_stand_collision_objects_env(scene_config)
+        self._camera_stand = camera_stand_collision_objects_env(scene_config)
         self._scene_table_top_z_m = scene_config.table_top_z_m
         self._tcp_body_indices = {}
         self._arm_joint_indices = {}
         self._gripper_joint_indices = {}
-        self._gripper_aperture_multipliers = {}
         self._gripper_configs = {
             arm: robot_config.gripper for arm, robot_config in robot_configs.items()
         }
@@ -124,7 +124,7 @@ class IsaacLabSkillContext:
                     f"{arm} robot EE body {kinematics.ee_body!r} did not "
                     "resolve to exactly one articulation body"
                 )
-            tcp_parent_pose_ee_body = _fixed_urdf_frame_pose(
+            tcp_parent_pose_ee_body = fixed_urdf_frame_pose(
                 robot_config.urdf_path,
                 kinematics.ee_body,
                 tcp.parent_frame,
@@ -145,14 +145,11 @@ class IsaacLabSkillContext:
             if tuple(gripper_names) != gripper.joint_names:
                 raise ValueError(f"{arm} robot gripper joints do not match its profile")
             self._gripper_joint_indices[arm] = gripper_indices
-            self._gripper_aperture_multipliers[arm] = tuple(
-                gripper.aperture_joint_multipliers[name] for name in gripper.joint_names
-            )
             self._tcp_poses_ee_body[arm] = compose_pose(
                 tcp_parent_pose_ee_body,
                 Pose(tcp.position_m, tcp.orientation_xyzw),
             )
-            self._camera_positions_tcp_m[arm] = _camera_position_tcp_m(
+            self._camera_positions_tcp_m[arm] = camera_position_tcp_m(
                 robot_config,
                 inverse_pose(self._tcp_poses_ee_body[arm]),
             )
@@ -277,7 +274,8 @@ class IsaacLabSkillContext:
         aperture_m = self._gripper_aperture_m(arm)
         minimum_aperture_m = self._gripper_configs[arm].minimum_grasp_aperture_m
         if aperture_m < minimum_aperture_m:
-            raise SkillError(
+            raise SegmentError(
+                arm, "measure_grasp", FailureCode.GRASP_FAILED,
                 f"{arm} gripper does not hold {object_name!r}: "
                 f"aperture={aperture_m:.6g} m, "
                 f"minimum={minimum_aperture_m:.6g} m"
@@ -308,24 +306,18 @@ class IsaacLabSkillContext:
             self._env_id,
             self._gripper_joint_indices[arm],
         ]
-        multipliers = positions.new_tensor(self._gripper_aperture_multipliers[arm])
-        return self._gripper_configs[arm].min_aperture_m + float(
-            (positions * multipliers).sum().item()
+        joint_positions = dict(
+            zip(
+                self._gripper_configs[arm].joint_names,
+                positions.detach().cpu().tolist(),
+                strict=True,
+            )
         )
+        return self._gripper_configs[arm].aperture_m(joint_positions)
 
     def _gripper_positions_for_width(self, arm: Arm, width_m: float) -> dict[str, float]:
         """Predict the commanded prismatic joints for an AnyGrasp jaw width."""
-        gripper = self._gripper_configs[arm]
-        fraction = max(0.0, min(1.0, (
-            (width_m - gripper.min_aperture_m)
-            / (gripper.max_aperture_m - gripper.min_aperture_m)
-        )))
-        return {
-            name: gripper.closed_positions[name] + fraction * (
-                gripper.open_positions[name] - gripper.closed_positions[name]
-            )
-            for name in gripper.command_joint_names
-        }
+        return self._gripper_configs[arm].command_positions_for_width(width_m)
 
     def _robot_state(self, arm: Arm) -> RobotState:
         robot = self._env.scene[f"{arm}_robot"]
@@ -444,58 +436,59 @@ class IsaacLabSkillContext:
                 capture,
             )
             capture_view = "overhead_fallback"
-        valid_depth = capture.depth_m[
-            np.isfinite(capture.depth_m) & (capture.depth_m > 0.0)
-        ]
-        depth_range_m = (
-            "empty"
-            if not len(valid_depth)
-            else f"{float(valid_depth.min()):.4f}..{float(valid_depth.max()):.4f}"
-        )
-        object_position_env_m_rounded = tuple(
-            round(value, 4) for value in object_position_env_m
-        )
-        camera_position_env_m_rounded = tuple(
-            round(value, 4) for value in capture.camera_position_env_m
-        )
-        camera_orientation_env_xyzw_rounded = tuple(
-            round(value, 4) for value in capture.camera_orientation_env_xyzw
-        )
-        center_depth_m = float(
-            capture.depth_m[
-                capture.depth_m.shape[0] // 2,
-                capture.depth_m.shape[1] // 2,
+        if LOGGER.isEnabledFor(logging.DEBUG):
+            valid_depth = capture.depth_m[
+                np.isfinite(capture.depth_m) & (capture.depth_m > 0.0)
             ]
-        )
-        LOGGER.debug(
-            "view=%s object_position_env_m=%s camera_position_env_m=%s "
-            "camera_orientation_env_xyzw=%s center_depth_m=%.4f valid_depth=%d "
-            "depth_range_m=%s",
-            capture_view,
-            object_position_env_m_rounded,
-            camera_position_env_m_rounded,
-            camera_orientation_env_xyzw_rounded,
-            center_depth_m,
-            len(valid_depth),
-            depth_range_m,
-            extra={
-                "event": "CAMERA",
-                "event_fields": {
-                    "env_id": self._env_id,
-                    "object": object_name,
-                    "arm": arm,
-                    "view": capture_view,
-                    "object_position_env_m": object_position_env_m_rounded,
-                    "camera_position_env_m": camera_position_env_m_rounded,
-                    "camera_orientation_env_xyzw": (
-                        camera_orientation_env_xyzw_rounded
-                    ),
-                    "center_depth_m": center_depth_m,
-                    "valid_depth_count": len(valid_depth),
-                    "depth_range_m": depth_range_m,
+            depth_range_m = (
+                "empty"
+                if not len(valid_depth)
+                else f"{float(valid_depth.min()):.4f}..{float(valid_depth.max()):.4f}"
+            )
+            object_position_env_m_rounded = tuple(
+                round(value, 4) for value in object_position_env_m
+            )
+            camera_position_env_m_rounded = tuple(
+                round(value, 4) for value in capture.camera_position_env_m
+            )
+            camera_orientation_env_xyzw_rounded = tuple(
+                round(value, 4) for value in capture.camera_orientation_env_xyzw
+            )
+            center_depth_m = float(
+                capture.depth_m[
+                    capture.depth_m.shape[0] // 2,
+                    capture.depth_m.shape[1] // 2,
+                ]
+            )
+            LOGGER.debug(
+                "view=%s object_position_env_m=%s camera_position_env_m=%s "
+                "camera_orientation_env_xyzw=%s center_depth_m=%.4f valid_depth=%d "
+                "depth_range_m=%s",
+                capture_view,
+                object_position_env_m_rounded,
+                camera_position_env_m_rounded,
+                camera_orientation_env_xyzw_rounded,
+                center_depth_m,
+                len(valid_depth),
+                depth_range_m,
+                extra={
+                    "event": "CAMERA",
+                    "event_fields": {
+                        "env_id": self._env_id,
+                        "object": object_name,
+                        "arm": arm,
+                        "view": capture_view,
+                        "object_position_env_m": object_position_env_m_rounded,
+                        "camera_position_env_m": camera_position_env_m_rounded,
+                        "camera_orientation_env_xyzw": (
+                            camera_orientation_env_xyzw_rounded
+                        ),
+                        "center_depth_m": center_depth_m,
+                        "valid_depth_count": len(valid_depth),
+                        "depth_range_m": depth_range_m,
+                    },
                 },
-            },
-        )
+            )
         target_point_count = len(target_points_env_m)
         if target_point_count < config.minimum_target_points:
             raise SkillError(
@@ -674,31 +667,32 @@ class IsaacLabSkillContext:
             for diagnostic in diagnostics
         ]
         candidates = tuple(item.candidate for item in valid_candidates)
-        accepted_diagnostics = [
-            {
-                "candidate_id": item.candidate.candidate_id,
-                "detection_index": item.detection_index,
-                "score": round(item.score, 4),
-                "width_m": round(item.width_m, 4),
-                "tcp_position_object_m": tuple(
-                    round(value, 4) for value in item.tcp_position_object_m
-                ),
-            }
-            for item in valid_candidates
-        ]
-        LOGGER.debug(
-            "geometry-valid candidates=%s",
-            accepted_diagnostics,
-            extra={
-                "event": "CANDIDATE",
-                "event_fields": {
-                    "env_id": self._env_id,
-                    "object": object_name,
-                    "arm": arm,
-                    "candidates": accepted_diagnostics,
+        if LOGGER.isEnabledFor(logging.DEBUG):
+            accepted_diagnostics = [
+                {
+                    "candidate_id": item.candidate.candidate_id,
+                    "detection_index": item.detection_index,
+                    "score": round(item.score, 4),
+                    "width_m": round(item.width_m, 4),
+                    "tcp_position_object_m": tuple(
+                        round(value, 4) for value in item.tcp_position_object_m
+                    ),
+                }
+                for item in valid_candidates
+            ]
+            LOGGER.debug(
+                "geometry-valid candidates=%s",
+                accepted_diagnostics,
+                extra={
+                    "event": "CANDIDATE",
+                    "event_fields": {
+                        "env_id": self._env_id,
+                        "object": object_name,
+                        "arm": arm,
+                        "candidates": accepted_diagnostics,
+                    },
                 },
-            },
-        )
+            )
         status_counts = Counter(diagnostic.status.value for diagnostic in diagnostics)
         ordered_status_counts = dict(sorted(status_counts.items()))
         rejected_statuses = {
@@ -946,114 +940,6 @@ class IsaacLabSkillContext:
         camera.update(0.0, force_recompute=True)
 
 
-def _camera_position_tcp_m(
-    robot_config: RobotConfig,
-    ee_body_pose_tcp: Pose,
-) -> tuple[float, float, float]:
-    """Read the mounted sensor's fixed position for upright grasp filtering."""
-    camera = robot_config.camera
-    robot_stage = Usd.Stage.Open(robot_config.usd_path)
-    robot_prim = robot_stage.GetDefaultPrim()
-    camera_mount_prim = robot_stage.GetPrimAtPath(
-        robot_prim.GetPath().AppendPath(camera.parent_prim_path)
-    )
-    ee_body_prim = robot_prim.GetChild(robot_config.kinematics.ee_body)
-    camera_offset_tcp_m = rotate_vector_xyzw(
-        ee_body_pose_tcp.orientation_xyzw,
-        tuple(
-            UsdGeom.XformCache().ComputeRelativeTransform(
-                camera_mount_prim, ee_body_prim
-            )[0].Transform(Gf.Vec3d(*camera.position_m))
-        ),
-    )
-    return tuple(
-        coordinate_tcp_m + offset_tcp_m
-        for coordinate_tcp_m, offset_tcp_m in zip(
-            ee_body_pose_tcp.position_m, camera_offset_tcp_m, strict=True
-        )
-    )
-
-
-def _camera_stand_collision_objects_env(
-    scene_config: SceneConfig,
-) -> tuple[SceneObject, ...]:
-    camera_stand_usd_path = scene_config.camera.stand_usd_path
-    camera_stand_stage = Usd.Stage.Open(camera_stand_usd_path)
-    if camera_stand_stage is None:
-        raise ValueError(f"could not open camera stand USD: {camera_stand_usd_path}")
-
-    camera_stand_prim = camera_stand_stage.GetDefaultPrim()
-    if not camera_stand_prim.IsValid():
-        raise ValueError(
-            f"camera stand USD has no default prim: {camera_stand_usd_path}"
-        )
-
-    camera_stand_pose_env = Pose(
-        (
-            *scene_config.camera.stand_position_xy_m,
-            scene_config.table_top_z_m,
-        ),
-        scene_config.camera.stand_orientation_xyzw,
-    )
-    bounds_cache = UsdGeom.BBoxCache(
-        Usd.TimeCode.Default(),
-        [
-            UsdGeom.Tokens.default_,
-            UsdGeom.Tokens.render,
-            UsdGeom.Tokens.proxy,
-        ],
-    )
-    collision_objects_env = []
-    for collision_prim in camera_stand_stage.Traverse():
-        if not collision_prim.HasAPI(UsdPhysics.CollisionAPI):
-            continue
-        if (
-            UsdPhysics.CollisionAPI(collision_prim)
-            .GetCollisionEnabledAttr()
-            .Get()
-            is False
-        ):
-            continue
-
-        collision_bounds_object_m = bounds_cache.ComputeRelativeBound(
-            collision_prim,
-            camera_stand_prim,
-        ).ComputeAlignedRange()
-        if collision_bounds_object_m.IsEmpty():
-            continue
-        minimum_object_m = collision_bounds_object_m.GetMin()
-        maximum_object_m = collision_bounds_object_m.GetMax()
-        collision_prim_position_object_m = tuple(
-            float((minimum_object_m[axis] + maximum_object_m[axis]) / 2.0)
-            for axis in range(3)
-        )
-        collision_prim_size_m = tuple(
-            float(maximum_object_m[axis] - minimum_object_m[axis])
-            for axis in range(3)
-        )
-        collision_prim_pose_env = compose_pose(
-            camera_stand_pose_env,
-            Pose(
-                collision_prim_position_object_m,
-                (0.0, 0.0, 0.0, 1.0),
-            ),
-        )
-        collision_objects_env.append(
-            SceneObject(
-                name=f"camera_stand/{len(collision_objects_env):03d}",
-                pose_env=collision_prim_pose_env,
-                size_m=collision_prim_size_m,
-            )
-        )
-
-    if not collision_objects_env:
-        raise ValueError(
-            "camera stand USD has no enabled collision geometry: "
-            f"{camera_stand_usd_path}"
-        )
-    return tuple(collision_objects_env)
-
-
 def _matrix_from_quaternion_xyzw(
     value: tuple[float, float, float, float],
 ) -> np.ndarray:
@@ -1155,75 +1041,6 @@ def _anygrasp_candidate_status(
     if table_clearance_m < minimum_tcp_height_above_table_m:
         return AnyGraspCandidateStatus.REJECTED_TABLE_CLEARANCE
     return AnyGraspCandidateStatus.VALID_NOT_SELECTED
-
-
-def _fixed_urdf_frame_pose(
-    urdf_path: str | None,
-    source_frame: str,
-    target_frame: str,
-) -> Pose:
-    """Resolve a fixed-frame transform without depending on merged USD links."""
-
-    identity_pose = Pose((0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
-    if source_frame == target_frame:
-        return identity_pose
-    if urdf_path is None:
-        raise ValueError(
-            f"cannot resolve {source_frame!r} to {target_frame!r} without a URDF"
-        )
-    try:
-        root = ET.parse(Path(urdf_path)).getroot()
-    except (OSError, ET.ParseError) as error:
-        raise ValueError(f"could not parse robot URDF {urdf_path}: {error}") from error
-
-    graph: dict[str, list[tuple[str, Pose]]] = {}
-    for joint in root.findall("joint"):
-        if joint.get("type") != "fixed":
-            continue
-        parent_node = joint.find("parent")
-        child_node = joint.find("child")
-        if parent_node is None or child_node is None:
-            raise ValueError("URDF fixed joint is missing parent or child")
-        parent = parent_node.get("link")
-        child = child_node.get("link")
-        if not parent or not child:
-            raise ValueError("URDF fixed joint has an empty parent or child")
-        origin = joint.find("origin")
-        child_position_parent_m = _urdf_vector(origin, "xyz")
-        rpy = _urdf_vector(origin, "rpy")
-        child_pose_parent = Pose(
-            child_position_parent_m,
-            quaternion_xyzw_from_rpy(*rpy),
-        )
-        graph.setdefault(parent, []).append((child, child_pose_parent))
-        graph.setdefault(child, []).append((parent, inverse_pose(child_pose_parent)))
-
-    pending = deque([(source_frame, identity_pose)])
-    visited = {source_frame}
-    while pending:
-        frame, frame_pose_source = pending.popleft()
-        for neighbor, neighbor_pose_frame in graph.get(frame, ()):
-            if neighbor in visited:
-                continue
-            neighbor_pose_source = compose_pose(frame_pose_source, neighbor_pose_frame)
-            if neighbor == target_frame:
-                return neighbor_pose_source
-            visited.add(neighbor)
-            pending.append((neighbor, neighbor_pose_source))
-    raise ValueError(
-        f"URDF has no fixed-frame path from {source_frame!r} to {target_frame!r}"
-    )
-
-
-def _urdf_vector(
-    origin: ET.Element | None,
-    attribute: str,
-) -> tuple[float, float, float]:
-    text = None if origin is None else origin.get(attribute)
-    values = (0.0, 0.0, 0.0) if text is None else tuple(map(float, text.split()))
-    if len(values) != 3 or not all(math.isfinite(value) for value in values):
-        raise ValueError(f"URDF origin {attribute} must contain three finite values")
-    return values
 
 
 def _mask_depth_to_target_box(

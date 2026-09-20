@@ -11,7 +11,7 @@ import torch
 from torch import Tensor
 
 from scale_bench.tasks.common.layout import TaskLayout
-from scale_bench.tasks.common.task import BatchedEvaluatorObservation, Task
+from scale_bench.tasks.common.task import Task
 
 from .evaluator import TaskEpisodeEvaluator
 from .episodes import (
@@ -185,7 +185,7 @@ class EpisodeDriver:
             self._env.discard_episode_buffers(inactive_env_ids)
 
         success = self._evaluator.update(
-            _evaluator_observation(observation),
+            observation.get("evaluator"),
             success_verification_mask,
         )
         goal_mask = self._active_mask & success
@@ -237,7 +237,7 @@ class EpisodeDriver:
         )
         evaluations = self._evaluator.finalize(
             env_id_tensor,
-            _evaluator_observation(self._observation),
+            self._observation.get("evaluator"),
         )
         if env_ids and self._env.recording_enabled:
             self._env.export_episodes(
@@ -273,13 +273,6 @@ class EpisodeDriver:
             active_mask=self._active_mask.clone(),
             completed=completed,
         )
-
-
-def _evaluator_observation(
-    observation: object,
-) -> BatchedEvaluatorObservation:
-    evaluator_observation = observation.get("evaluator")
-    return evaluator_observation
 
 
 __all__ = [
