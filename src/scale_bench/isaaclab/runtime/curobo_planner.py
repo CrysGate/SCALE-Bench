@@ -106,10 +106,6 @@ class CuroboMotionPlanner:
             ).tolist()
         )
 
-    @property
-    def arm(self) -> Arm:
-        return self._arm
-
     def gripper_clearance_m(self, approach_axis_tcp: tuple[float, float, float]) -> float:
         forward_extent_m = max(
             sum(coordinate_tcp_m * component_tcp for coordinate_tcp_m, component_tcp in zip(
@@ -883,14 +879,6 @@ def _load_collision_robot_config(robot_config: RobotConfig) -> dict[str, Any]:
     path = Path(robot_config.curobo_config_path).resolve()
     document = yaml.safe_load(path.read_text(encoding="utf-8"))
     kinematics = document["kinematics"]
-    # required = {
-    #     "collision_spheres",
-    #     "self_collision_ignore",
-    #     "self_collision_buffer",
-    #     "cspace",
-    #     "extra_collision_spheres",
-    #     "extra_links",
-    # }
     urdf_path = Path(robot_config.urdf_path).resolve()
     asset_root = Path(kinematics.get("asset_root_path", ""))
     if not asset_root.is_absolute():

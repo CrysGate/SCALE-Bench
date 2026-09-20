@@ -37,10 +37,6 @@ class JointTrajectory:
         if not torch.isfinite(self.positions).all().item():
             raise ValueError("joint trajectory must contain finite values")
 
-    @property
-    def end(self) -> JointState:
-        return JointState(self.positions[-1])
-
 
 @dataclass(frozen=True, slots=True)
 class RobotState:

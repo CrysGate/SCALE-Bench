@@ -9,7 +9,7 @@ from .episodes import (
     EpisodeTermination,
     TerminationReason,
 )
-from .evaluator import EpisodeEvaluator, TaskEpisodeEvaluator
+from .evaluator import TaskEpisodeEvaluator
 from .policy import (
     EpisodeContext,
     PolicyController,
@@ -32,7 +32,6 @@ __all__ = [
     "DriverSnapshot",
     "EpisodeContext",
     "EpisodeDriver",
-    "EpisodeEvaluator",
     "EpisodeReplayResult",
     "EpisodeReplayRunner",
     "EpisodeResult",

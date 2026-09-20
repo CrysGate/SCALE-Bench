@@ -214,10 +214,6 @@ class QueuedCuroboMotionPlanner:
         self._pool = pool
         self._env_id = env_id
 
-    @property
-    def arm(self) -> Arm:
-        return self._planner.arm
-
     async def solve_ik(
         self, start: JointState, target_tcp_pose_env: Pose,
         scene: PlanningScene, stage: PlanningStage,
