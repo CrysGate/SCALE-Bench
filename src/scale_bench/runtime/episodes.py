@@ -59,7 +59,6 @@ class EpisodeState:
 
     env_id: int
     spec: EpisodeSpec
-    step_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)

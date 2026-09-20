@@ -107,9 +107,7 @@ class IsaacLabSkillContext:
         self._tcp_body_indices = {}
         self._arm_joint_indices = {}
         self._gripper_joint_indices = {}
-        self._gripper_joint_names = {}
         self._gripper_aperture_multipliers = {}
-        self._minimum_grasp_apertures_m = {}
         self._gripper_configs = {
             arm: robot_config.gripper for arm, robot_config in robot_configs.items()
         }
@@ -147,11 +145,9 @@ class IsaacLabSkillContext:
             if tuple(gripper_names) != gripper.joint_names:
                 raise ValueError(f"{arm} robot gripper joints do not match its profile")
             self._gripper_joint_indices[arm] = gripper_indices
-            self._gripper_joint_names[arm] = gripper.joint_names
             self._gripper_aperture_multipliers[arm] = tuple(
                 gripper.aperture_joint_multipliers[name] for name in gripper.joint_names
             )
-            self._minimum_grasp_apertures_m[arm] = gripper.minimum_grasp_aperture_m
             self._tcp_poses_ee_body[arm] = compose_pose(
                 tcp_parent_pose_ee_body,
                 Pose(tcp.position_m, tcp.orientation_xyzw),
@@ -182,9 +178,6 @@ class IsaacLabSkillContext:
             if scene_config.grasp_source == "anygrasp"
             else None
         )
-        self._gripper_apertures_m = {
-            arm: robot_configs[arm].gripper.max_aperture_m for arm in ("left", "right")
-        }
         self._asset_grasps: dict[tuple[Arm, str], tuple[GraspCandidate, ...]] = {}
         if scene_config.grasp_source == "asset":
             self._asset_grasps = {
@@ -282,7 +275,7 @@ class IsaacLabSkillContext:
         """Measure the live object-to-TCP relation after gripper settling."""
 
         aperture_m = self._gripper_aperture_m(arm)
-        minimum_aperture_m = self._minimum_grasp_apertures_m[arm]
+        minimum_aperture_m = self._gripper_configs[arm].minimum_grasp_aperture_m
         if aperture_m < minimum_aperture_m:
             raise SkillError(
                 f"{arm} gripper does not hold {object_name!r}: "
@@ -350,7 +343,7 @@ class IsaacLabSkillContext:
             self._camera_positions_tcp_m[arm],
             dict(
                 zip(
-                    self._gripper_joint_names[arm],
+                    self._gripper_configs[arm].joint_names,
                     robot.data.joint_pos.torch[
                         self._env_id, self._gripper_joint_indices[arm]
                     ].detach().cpu().tolist(),
@@ -546,7 +539,7 @@ class IsaacLabSkillContext:
             capture.camera_position_env_m,
             capture.camera_orientation_env_xyzw,
         )
-        aperture_m = self._gripper_apertures_m[arm]
+        aperture_m = self._gripper_configs[arm].max_aperture_m
         diagnostics = []
         valid_candidates = []
         for detection_index, detection in enumerate(

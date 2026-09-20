@@ -139,8 +139,6 @@ class EpisodeDriver:
             dtype=torch.long,
             device=self._env.device,
         )
-        for state in resolved_states:
-            state.step_count = 0
 
         observation, _ = self._env.reset(
             env_ids=env_ids,
@@ -258,12 +256,11 @@ class EpisodeDriver:
         completed = {}
         for env_id in env_ids:
             state = self._states[env_id]
-            state.step_count = int(self._step_counts[env_id].item())
             result = EpisodeResult(
                 spec=state.spec,
                 evaluation=evaluations[env_id],
                 termination=terminations[env_id],
-                steps=state.step_count,
+                steps=int(self._step_counts[env_id].item()),
             )
             completed[state.spec.episode_id] = result
             self._results[state.spec.episode_id] = result
