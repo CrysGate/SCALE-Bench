@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from scale_bench.skills.models import Pose
 from scale_bench.tasks.common.fixed_target import (
     FixedTargetRigidObjectTask,
     PlacementResult,
@@ -36,6 +37,18 @@ class SingleObjectPickAndPlace(FixedTargetRigidObjectTask):
         """Return the only object in its only target slot."""
 
         return (self.object_name,)
+
+    def allows_grasp(self, object_name: str, tcp_pose_object: Pose) -> bool:
+        """Keep the TCP in the bottle's upper half, including its midplane.
+
+        This object-frame rule keeps grasps away from the bottle's base during
+        upright placement and applies equally to asset and online candidates.
+        """
+
+        return (
+            super().allows_grasp(object_name, tcp_pose_object)
+            and tcp_pose_object.position_m[2] >= 0.0
+        )
 
     def evaluate(
         self,
