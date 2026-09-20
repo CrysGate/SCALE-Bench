@@ -248,7 +248,9 @@ class CuroboMotionPlanner:
             planning_start,
             collision_cuboids_base,
         )
-        violations = self._configuration_violations(scene, planning_start)
+        violations = self._configuration_violations(
+            scene, planning_start, collision_cuboids_base,
+        )
         LOGGER.debug(
             "%s %s start constraints: %s", self._arm, stage, violations,
             extra={"event": "PLAN-CHECK", "event_fields": {
@@ -413,7 +415,9 @@ class CuroboMotionPlanner:
             planning_start,
             collision_cuboids_base,
         )
-        violations = self._configuration_violations(scene, planning_start)
+        violations = self._configuration_violations(
+            scene, planning_start, collision_cuboids_base,
+        )
         LOGGER.debug(
             "%s %s start constraints: %s", self._arm, stage, violations,
             extra={"event": "PLAN-CHECK", "event_fields": {
@@ -558,10 +562,11 @@ class CuroboMotionPlanner:
         self,
         scene: PlanningScene,
         joint_positions: Tensor,
+        collision_cuboids_base: tuple[Cuboid, list[Cuboid], list[Cuboid], list[Cuboid]],
     ) -> tuple[str, ...]:
-        """Identify the constraints that reject a joint configuration."""
+        """Check the synced world, reusing its cuboids for collision diagnostics."""
 
-        table, camera_stand, objects, other_robot = self._scene_cuboids(scene)
+        table, camera_stand, objects, other_robot = collision_cuboids_base
         graph_planner = self._planner.graph_planner
         feasible = graph_planner.check_samples_feasibility(joint_positions.unsqueeze(0))
         if feasible.all().item():
