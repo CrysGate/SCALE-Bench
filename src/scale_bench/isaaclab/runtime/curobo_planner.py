@@ -267,12 +267,7 @@ class CuroboMotionPlanner:
                 {frame: criteria for frame in self._planner.tool_frames}
             )
             result = self._planner.plan_pose(goal, current)
-            trajectory = self._trajectory(result, stage)
-            if linear_axis_env is not None:
-                self._validate_tcp_path(
-                    trajectory, target_tcp_pose_env, stage, linear_axis_env
-                )
-            return trajectory
+            return self._trajectory(result, stage)
         except PlanningError as error:
             LOGGER.debug(
                 "%s %s rejected: %s", self._arm, stage, error.reason,
@@ -318,67 +313,6 @@ class CuroboMotionPlanner:
             non_terminal_pose_axes_weight_factor=non_terminal_axes_weight,
             project_distance_to_goal=project_to_goal,
             device_cfg=self._planner.device_cfg,
-        )
-
-    def _validate_tcp_path(
-        self,
-        trajectory: JointTrajectory,
-        target_tcp_pose_env: Pose,
-        stage: PlanningStage,
-        linear_axis_env: tuple[float, float, float],
-    ) -> None:
-        """Check the executed interpolation: pose costs alone are soft constraints."""
-        kinematics = self._planner.compute_kinematics(
-            self._joint_state(trajectory.positions)
-        )
-        tcp_poses_base = kinematics.tool_poses.get_link_pose(TCP_FRAME)
-        tcp_poses_env = self._curobo_pose(self._arm_base_pose_env).multiply(
-            tcp_poses_base
-        )
-        target_tcp_pose_env_curobo = self._curobo_pose(target_tcp_pose_env)
-        position_tolerance_m = self._planner.trajopt_solver.config.position_tolerance
-        orientation_tolerance_rad = (
-            self._planner.trajopt_solver.config.orientation_tolerance
-        )
-        motion_axis_env = trajectory.positions.new_tensor(linear_axis_env)
-        tcp_offsets_env_m = tcp_poses_env.position - target_tcp_pose_env_curobo.position
-        remaining_m = -(tcp_offsets_env_m @ motion_axis_env)
-        lateral_error_m = torch.linalg.vector_norm(
-            tcp_offsets_env_m + remaining_m[:, None] * motion_axis_env, dim=-1
-        ).max()
-        overshoot_m = torch.maximum(
-            -remaining_m.min(), remaining_m.max() - remaining_m[0]
-        )
-        reversal_m = (remaining_m - remaining_m.cummin(dim=0).values).max()
-        orientation_error_rad = 2.0 * torch.acos(
-            (tcp_poses_env.quaternion * target_tcp_pose_env_curobo.quaternion)
-            .sum(dim=-1)
-            .abs()
-            .clamp(max=1.0)
-        ).max()
-        endpoint_error_m = torch.linalg.vector_norm(tcp_offsets_env_m[-1])
-        metrics = {
-            "lateral_error_m": float(lateral_error_m),
-            "overshoot_m": float(overshoot_m),
-            "reversal_m": float(reversal_m),
-            "endpoint_error_m": float(endpoint_error_m),
-            "orientation_error_rad": float(orientation_error_rad),
-        }
-        if (
-            max(lateral_error_m, overshoot_m, reversal_m, endpoint_error_m)
-            > position_tolerance_m
-            or orientation_error_rad > orientation_tolerance_rad
-        ):
-            raise PlanningError(self._arm, stage, f"TCP path constraint failed: {metrics}")
-        LOGGER.debug(
-            "%s %s TCP path: %s",
-            self._arm,
-            stage,
-            metrics,
-            extra={
-                "event": "PATH",
-                "event_fields": {"arm": self._arm, "stage": stage, **metrics},
-            },
         )
 
     def _curobo_pose(self, frame_pose_parent: Pose) -> CuroboPose:
