@@ -4,55 +4,19 @@ from __future__ import annotations
 
 import math
 from typing import Literal, Self
-from urllib.parse import urlsplit
 
-from pydantic import Field, StrictBool, field_validator, model_validator
+from pydantic import Field, model_validator
 
 from scale_bench.config.base import (
     FiniteFloat,
     FrozenModel,
     Name,
-    NonNegativeFloat,
     NonNegativeInt,
     Position3,
     PositiveFloat,
-    PositiveInt,
-    UnitIntervalFloat,
     require_unit_quaternion,
 )
 from scale_bench.config.models.robot import TcpConfig
-
-
-class AnyGraspConfig(FrozenModel):
-    """Runtime AnyGrasp HTTP service and candidate-selection settings."""
-
-    service_url: Name = "http://127.0.0.1:5001"
-    request_timeout_s: PositiveFloat = 60.0
-    capture_distance_m: PositiveFloat
-    capture_elevation_deg: float
-    capture_azimuth_offset_deg: float
-    depth_trunc_m: PositiveFloat = 2.0
-    top_k: PositiveInt = 100
-    min_score: UnitIntervalFloat = 0.0
-    collision_detection: StrictBool = True
-    dense_grasp: StrictBool = False
-    approach_distance_m: PositiveFloat = 0.10
-    target_margin_m: NonNegativeFloat = 0.015
-    minimum_target_points: PositiveInt = 128
-    minimum_point_height_above_table_m: NonNegativeFloat = 0.002
-    minimum_tcp_height_above_table_m: NonNegativeFloat = 0.015
-    maximum_open_axis_vertical_dot: UnitIntervalFloat = 0.35
-
-    @field_validator("service_url")
-    @classmethod
-    def _validate_service_url(cls, value: str) -> str:
-        normalized = value.rstrip("/")
-        parsed = urlsplit(normalized)
-        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            raise ValueError("service_url must be an absolute HTTP(S) URL")
-        if parsed.query or parsed.fragment:
-            raise ValueError("service_url must not contain a query or fragment")
-        return normalized
 
 
 class AssetGraspCandidateConfig(FrozenModel):
@@ -100,4 +64,4 @@ class AssetGraspsConfig(FrozenModel):
         return self
 
 
-__all__ = ["AnyGraspConfig", "AssetGraspCandidateConfig", "AssetGraspsConfig"]
+__all__ = ["AssetGraspCandidateConfig", "AssetGraspsConfig"]

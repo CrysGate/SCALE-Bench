@@ -32,7 +32,7 @@ from scale_bench.skills.context import (
     PlanningScene,
     SceneObject,
 )
-from scale_bench.skills.errors import PlanningError
+from scale_bench.skills.errors import FailureCode, PlanningError, StartStateError
 from scale_bench.skills.geometry import (
     compose_pose,
     conjugate_quaternion_xyzw,
@@ -41,9 +41,6 @@ from scale_bench.skills.geometry import (
     rotate_vector_xyzw,
 )
 from scale_bench.skills.models import Arm, Pose
-from scale_bench.skills.planner import (
-    MotionPlanner as MotionPlannerProtocol,
-)
 from scale_bench.skills.planner import (
     PlanningStage,
 )
@@ -57,7 +54,7 @@ TCP_FRAME = "scale_bench_tcp"
 LOGGER = logging.getLogger(__name__)
 
 
-class CuroboMotionPlanner(MotionPlannerProtocol):
+class CuroboMotionPlanner:
     """Plan one environment-frame TCP target for one fixed robot mount."""
 
     def __init__(
@@ -92,10 +89,22 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
             )
         )
         self._attached_sphere_indices = set(attached_indices.cpu().tolist())
-
-    @property
-    def arm(self) -> Arm:
-        return self._arm
+        self._sync_gripper(robot_config.gripper.open_positions)
+        kinematics = planner.compute_kinematics(planner.default_joint_state)
+        tcp_pose_base = kinematics.tool_poses.get_link_pose(TCP_FRAME)
+        finger_indices = torch.cat([
+            planner.kinematics.config.kinematics_config.get_sphere_index_from_link_name(name)
+            for name in robot_config.gripper.finger_body_names
+        ])
+        finger_spheres_base_m = kinematics.robot_spheres.reshape(-1, 4)[finger_indices]
+        finger_centers_tcp_m = tcp_pose_base.inverse().transform_points(
+            finger_spheres_base_m[:, :3].contiguous(),
+        ).reshape(-1, 3)
+        self._open_finger_spheres_tcp_m = tuple(
+            tuple(sphere) for sphere in torch.cat(
+                (finger_centers_tcp_m, finger_spheres_base_m[:, 3:]), dim=-1,
+            ).tolist()
+        )
 
     def _initialize_gripper_transforms(self, robot_config: RobotConfig) -> None:
         """Keep zero-opening transforms for the robot's prismatic fingers."""
@@ -164,8 +173,8 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
         target_tcp_pose_env: Pose,
         scene: PlanningScene,
         stage: PlanningStage,
-    ) -> tuple[JointState, ...]:
-        """Keep distinct feasible joint solutions, in the solver's ranked order."""
+    ) -> None:
+        """Check IK reachability, raising PlanningError if no solution succeeds."""
         planning_start = self._planning_start(start.positions, stage)
         self._sync_scene(scene)
         self._log_planning_state(planning_start, scene, stage)
@@ -174,53 +183,23 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
             current_state=self._joint_state(planning_start),
             return_seeds=self._planner.ik_solver.config.num_seeds,
         )
-        indices = tuple(
-            self._planner.ik_solver.joint_names.index(name) for name in self._joint_names
-        )
-        # Subsequent plans reuse the backend's buffers; own the candidate pool.
-        joint_positions = result.solution[result.success][:, indices].clone()
-        LOGGER.debug(
-            "%s %s IK successful=%d/%d", self._arm, stage,
-            len(joint_positions), result.success.numel(),
-            extra={"event": "IK-RESULT", "event_fields": {
-                "arm": self._arm, "stage": stage,
-                "target_tcp_pose_env": asdict(target_tcp_pose_env),
-                "successful_count": len(joint_positions),
-                "candidate_count": result.success.numel(),
-                "position_error_m": result.position_error.tolist(),
-                "orientation_error_rad": result.rotation_error.tolist(),
-                "feasible": result.feasible.tolist(),
-            }},
-        )
-        if len(joint_positions) == 0:
-            raise PlanningError(self._arm, stage, "IK found no feasible joint configuration")
-
-        # Compare bounded joint coordinates directly and retain unrounded targets.
-        duplicates = (
-            (joint_positions[:, None] - joint_positions[None, :]).abs().amax(dim=-1)
-            <= 0.01
-        ).cpu().tolist()
-        selected_indices: list[int] = []
-        for index, row in enumerate(duplicates):
-            if not any(row[selected] for selected in selected_indices):
-                selected_indices.append(index)
-        LOGGER.debug(
-            "%s %s IK: successful=%d distinct=%d",
-            self._arm,
-            stage,
-            len(joint_positions),
-            len(selected_indices),
-            extra={
-                "event": "IK",
-                "event_fields": {
-                    "arm": self._arm,
-                    "stage": stage,
-                    "successful_count": len(joint_positions),
-                    "distinct_count": len(selected_indices),
-                },
-            },
-        )
-        return tuple(JointState(joint_positions[index]) for index in selected_indices)
+        successful_count = int(result.success.count_nonzero().item())
+        if LOGGER.isEnabledFor(logging.DEBUG):
+            LOGGER.debug(
+                "%s %s IK successful=%d/%d", self._arm, stage,
+                successful_count, result.success.numel(),
+                extra={"event": "IK-RESULT", "event_fields": {
+                    "arm": self._arm, "stage": stage,
+                    "target_tcp_pose_env": asdict(target_tcp_pose_env),
+                    "successful_count": successful_count,
+                    "candidate_count": result.success.numel(),
+                    "position_error_m": result.position_error.tolist(),
+                    "orientation_error_rad": result.rotation_error.tolist(),
+                    "feasible": result.feasible.tolist(),
+                }},
+            )
+        if successful_count == 0:
+            raise PlanningError(self._arm, stage, FailureCode.IK_FAILED, "IK found no feasible joint configuration")
 
     def plan_pose(
         self,
@@ -233,26 +212,31 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
         """Normalize contact directions; transit uses None and may reorient."""
         if linear_axis_env is not None:
             linear_axis_norm = math.hypot(*linear_axis_env)
+            if not math.isfinite(linear_axis_norm) or linear_axis_norm <= 0.0:
+                raise ValueError("linear motion axis must be finite and nonzero")
             linear_axis_env = tuple(
                 component_env / linear_axis_norm for component_env in linear_axis_env
             )
         planning_start = self._planning_start(start.positions, stage)
         collision_cuboids_base = self._sync_scene(scene)
         self._log_planning_state(planning_start, scene, stage)
-        LOGGER.debug(
-            "%s %s pose target", self._arm, stage,
-            extra={"event": "PLAN-TARGET", "event_fields": {
-                "arm": self._arm, "stage": stage,
-                "target_tcp_pose_env": asdict(target_tcp_pose_env),
-                "linear_axis_env": linear_axis_env,
-            }},
-        )
+        if LOGGER.isEnabledFor(logging.DEBUG):
+            LOGGER.debug(
+                "%s %s pose target", self._arm, stage,
+                extra={"event": "PLAN-TARGET", "event_fields": {
+                    "arm": self._arm, "stage": stage,
+                    "target_tcp_pose_env": asdict(target_tcp_pose_env),
+                    "linear_axis_env": linear_axis_env,
+                }},
+            )
         self._capture_visualization(
             stage,
             planning_start,
             collision_cuboids_base,
         )
-        violations = self._configuration_violations(scene, planning_start)
+        violations = self._configuration_violations(
+            scene, planning_start, collision_cuboids_base,
+        )
         LOGGER.debug(
             "%s %s start constraints: %s", self._arm, stage, violations,
             extra={"event": "PLAN-CHECK", "event_fields": {
@@ -260,11 +244,7 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
             }},
         )
         if violations:
-            raise PlanningError(
-                self._arm,
-                stage,
-                f"start state is infeasible: {'; '.join(violations)}",
-            )
+            raise StartStateError(self._arm, stage, violations)
         current = self._joint_state(planning_start)
         goal = self._goal_from_env_pose(target_tcp_pose_env)
         criteria = self._motion_criteria(target_tcp_pose_env, linear_axis_env)
@@ -273,12 +253,7 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
                 {frame: criteria for frame in self._planner.tool_frames}
             )
             result = self._planner.plan_pose(goal, current)
-            trajectory = self._trajectory(result, stage)
-            if linear_axis_env is not None:
-                self._validate_tcp_path(
-                    trajectory, target_tcp_pose_env, stage, linear_axis_env
-                )
-            return trajectory
+            return self._trajectory(result, stage)
         except PlanningError as error:
             LOGGER.debug(
                 "%s %s rejected: %s", self._arm, stage, error.reason,
@@ -326,67 +301,6 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
             device_cfg=self._planner.device_cfg,
         )
 
-    def _validate_tcp_path(
-        self,
-        trajectory: JointTrajectory,
-        target_tcp_pose_env: Pose,
-        stage: PlanningStage,
-        linear_axis_env: tuple[float, float, float],
-    ) -> None:
-        """Check the executed interpolation: pose costs alone are soft constraints."""
-        kinematics = self._planner.compute_kinematics(
-            self._joint_state(trajectory.positions)
-        )
-        tcp_poses_base = kinematics.tool_poses.get_link_pose(TCP_FRAME)
-        tcp_poses_env = self._curobo_pose(self._arm_base_pose_env).multiply(
-            tcp_poses_base
-        )
-        target_tcp_pose_env_curobo = self._curobo_pose(target_tcp_pose_env)
-        position_tolerance_m = self._planner.trajopt_solver.config.position_tolerance
-        orientation_tolerance_rad = (
-            self._planner.trajopt_solver.config.orientation_tolerance
-        )
-        motion_axis_env = trajectory.positions.new_tensor(linear_axis_env)
-        tcp_offsets_env_m = tcp_poses_env.position - target_tcp_pose_env_curobo.position
-        remaining_m = -(tcp_offsets_env_m @ motion_axis_env)
-        lateral_error_m = torch.linalg.vector_norm(
-            tcp_offsets_env_m + remaining_m[:, None] * motion_axis_env, dim=-1
-        ).max()
-        overshoot_m = torch.maximum(
-            -remaining_m.min(), remaining_m.max() - remaining_m[0]
-        )
-        reversal_m = (remaining_m - remaining_m.cummin(dim=0).values).max()
-        orientation_error_rad = 2.0 * torch.acos(
-            (tcp_poses_env.quaternion * target_tcp_pose_env_curobo.quaternion)
-            .sum(dim=-1)
-            .abs()
-            .clamp(max=1.0)
-        ).max()
-        endpoint_error_m = torch.linalg.vector_norm(tcp_offsets_env_m[-1])
-        metrics = {
-            "lateral_error_m": float(lateral_error_m),
-            "overshoot_m": float(overshoot_m),
-            "reversal_m": float(reversal_m),
-            "endpoint_error_m": float(endpoint_error_m),
-            "orientation_error_rad": float(orientation_error_rad),
-        }
-        if (
-            max(lateral_error_m, overshoot_m, reversal_m, endpoint_error_m)
-            > position_tolerance_m
-            or orientation_error_rad > orientation_tolerance_rad
-        ):
-            raise PlanningError(self._arm, stage, f"TCP path constraint failed: {metrics}")
-        LOGGER.debug(
-            "%s %s TCP path: %s",
-            self._arm,
-            stage,
-            metrics,
-            extra={
-                "event": "PATH",
-                "event_fields": {"arm": self._arm, "stage": stage, **metrics},
-            },
-        )
-
     def _curobo_pose(self, frame_pose_parent: Pose) -> CuroboPose:
         return CuroboPose.from_list(
             [*frame_pose_parent.position_m, *frame_pose_parent.orientation_xyzw],
@@ -404,19 +318,22 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
         planning_start = self._planning_start(start.positions, stage)
         collision_cuboids_base = self._sync_scene(scene)
         self._log_planning_state(planning_start, scene, stage)
-        LOGGER.debug(
-            "%s %s joint target", self._arm, stage,
-            extra={"event": "PLAN-TARGET", "event_fields": {
-                "arm": self._arm, "stage": stage,
-                "target_joint_state": target_joint_state.positions.tolist(),
-            }},
-        )
+        if LOGGER.isEnabledFor(logging.DEBUG):
+            LOGGER.debug(
+                "%s %s joint target", self._arm, stage,
+                extra={"event": "PLAN-TARGET", "event_fields": {
+                    "arm": self._arm, "stage": stage,
+                    "target_joint_state": target_joint_state.positions.tolist(),
+                }},
+            )
         self._capture_visualization(
             stage,
             planning_start,
             collision_cuboids_base,
         )
-        violations = self._configuration_violations(scene, planning_start)
+        violations = self._configuration_violations(
+            scene, planning_start, collision_cuboids_base,
+        )
         LOGGER.debug(
             "%s %s start constraints: %s", self._arm, stage, violations,
             extra={"event": "PLAN-CHECK", "event_fields": {
@@ -424,11 +341,7 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
             }},
         )
         if violations:
-            raise PlanningError(
-                self._arm,
-                stage,
-                f"start state is infeasible: {'; '.join(violations)}",
-            )
+            raise StartStateError(self._arm, stage, violations)
         result = self._planner.plan_cspace(
             self._joint_state(target_joint_state.positions),
             self._joint_state(planning_start),
@@ -438,25 +351,26 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
     def _log_planning_state(
         self, joint_positions: Tensor, scene: PlanningScene, stage: PlanningStage,
     ) -> None:
-        LOGGER.debug(
-            "%s %s planning state", self._arm, stage,
-            extra={"event": "PLAN-STATE", "event_fields": {
-                "arm": self._arm, "stage": stage,
-                "joint_names": self._joint_names,
-                "start_joint_state": joint_positions.tolist(),
-                "gripper_joint_positions": dict(scene.gripper_joint_positions),
-                "other_arm": scene.other_arm,
-                "other_joint_state": scene.other_robot.joints.positions.tolist(),
-                "other_gripper_joint_positions": dict(
-                    scene.other_robot.gripper_joint_positions
-                ),
-                "arm_base_pose_env": asdict(self._arm_base_pose_env),
-                "table": asdict(scene.table),
-                "camera_stand": [asdict(item) for item in scene.camera_stand],
-                "objects": [asdict(item) for item in scene.objects],
-                "tool": asdict(scene.tool),
-            }},
-        )
+        if LOGGER.isEnabledFor(logging.DEBUG):
+            LOGGER.debug(
+                "%s %s planning state", self._arm, stage,
+                extra={"event": "PLAN-STATE", "event_fields": {
+                    "arm": self._arm, "stage": stage,
+                    "joint_names": self._joint_names,
+                    "start_joint_state": joint_positions.tolist(),
+                    "gripper_joint_positions": dict(scene.gripper_joint_positions),
+                    "other_arm": scene.other_arm,
+                    "other_joint_state": scene.other_robot.joints.positions.tolist(),
+                    "other_gripper_joint_positions": dict(
+                        scene.other_robot.gripper_joint_positions
+                    ),
+                    "arm_base_pose_env": asdict(self._arm_base_pose_env),
+                    "table": asdict(scene.table),
+                    "camera_stand": [asdict(item) for item in scene.camera_stand],
+                    "objects": [asdict(item) for item in scene.objects],
+                    "tool": asdict(scene.tool),
+                }},
+            )
 
     def commit_inspection_stages(
         self,
@@ -487,6 +401,7 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
             raise PlanningError(
                 self._arm,
                 stage,
+                FailureCode.START_STATE_INFEASIBLE,
                 f"start state is outside joint limits: {details}",
             )
         return clipped
@@ -560,10 +475,11 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
         self,
         scene: PlanningScene,
         joint_positions: Tensor,
+        collision_cuboids_base: tuple[Cuboid, list[Cuboid], list[Cuboid], list[Cuboid]],
     ) -> tuple[str, ...]:
-        """Identify the constraints that reject a joint configuration."""
+        """Check the synced world, reusing its cuboids for collision diagnostics."""
 
-        table, camera_stand, objects, other_robot = self._scene_cuboids(scene)
+        table, camera_stand, objects, other_robot = collision_cuboids_base
         graph_planner = self._planner.graph_planner
         feasible = graph_planner.check_samples_feasibility(joint_positions.unsqueeze(0))
         if feasible.all().item():
@@ -737,26 +653,28 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
         stage: str,
     ) -> JointTrajectory:
         """Convert a plan; None means planning produced no trajectory optimizer result."""
-        LOGGER.debug(
-            "%s %s trajectory result", self._arm, stage,
-            extra={"event": "TRAJ-RESULT", "event_fields": {
-                "arm": self._arm, "stage": stage,
-                "result_available": result is not None,
-                "success_available": result is not None and result.success is not None,
-                "successful_count": (
-                    int(result.success.count_nonzero().item())
-                    if result is not None and result.success is not None else 0
-                ),
-                "candidate_count": (
-                    result.success.numel()
-                    if result is not None and result.success is not None else 0
-                ),
-            }},
-        )
+        if LOGGER.isEnabledFor(logging.DEBUG):
+            LOGGER.debug(
+                "%s %s trajectory result", self._arm, stage,
+                extra={"event": "TRAJ-RESULT", "event_fields": {
+                    "arm": self._arm, "stage": stage,
+                    "result_available": result is not None,
+                    "success_available": result is not None and result.success is not None,
+                    "successful_count": (
+                        int(result.success.count_nonzero().item())
+                        if result is not None and result.success is not None else 0
+                    ),
+                    "candidate_count": (
+                        result.success.numel()
+                        if result is not None and result.success is not None else 0
+                    ),
+                }},
+            )
         if result is None:
             raise PlanningError(
                 self._arm,
                 stage,
+                FailureCode.PLANNER_NO_RESULT,
                 "CUROBO_NO_RESULT: planning returned no trajectory optimization "
                 "result; failure details are unavailable",
             )
@@ -764,6 +682,7 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
             raise PlanningError(
                 self._arm,
                 stage,
+                FailureCode.PLANNER_NO_RESULT,
                 "CUROBO_MISSING_SUCCESS: the returned trajectory optimization "
                 "result has no success status",
             )
@@ -772,6 +691,7 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
             raise PlanningError(
                 self._arm,
                 stage,
+                FailureCode.PLANNER_NO_SUCCESSFUL_TRAJECTORY,
                 "CUROBO_NO_SUCCESSFUL_TRAJECTORY: the latest trajectory "
                 "optimization result contains no successful trajectory "
                 f"(successful_candidates={successful_count}/{result.success.numel()}); "
@@ -783,7 +703,7 @@ class CuroboMotionPlanner(MotionPlannerProtocol):
             interpolated.position.reshape(
                 -1,
                 interpolated.position.shape[-1],
-            )[:, indices].contiguous()
+            )[:, indices].contiguous().clone()
         )
         return JointTrajectory(positions)
 
@@ -799,7 +719,7 @@ def build_curobo_motion_planners(
     visualize: bool,
     env_origin_world_m: tuple[float, float, float],
 ) -> Mapping[Arm, CuroboMotionPlanner]:
-    """Share one statelessly synchronized backend per kinematic profile."""
+    """Build one environment; matching arms share its sequential backend."""
 
     backends: dict[tuple[Path, str, TcpConfig, tuple[str, ...]], MotionPlanner] = {}
     visualizer = None
@@ -879,14 +799,6 @@ def _load_collision_robot_config(robot_config: RobotConfig) -> dict[str, Any]:
     path = Path(robot_config.curobo_config_path).resolve()
     document = yaml.safe_load(path.read_text(encoding="utf-8"))
     kinematics = document["kinematics"]
-    # required = {
-    #     "collision_spheres",
-    #     "self_collision_ignore",
-    #     "self_collision_buffer",
-    #     "cspace",
-    #     "extra_collision_spheres",
-    #     "extra_links",
-    # }
     urdf_path = Path(robot_config.urdf_path).resolve()
     asset_root = Path(kinematics.get("asset_root_path", ""))
     if not asset_root.is_absolute():

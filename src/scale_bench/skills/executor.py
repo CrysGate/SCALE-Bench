@@ -89,7 +89,6 @@ class _HoldExecution:
 @dataclass(slots=True)
 class _GripperExecution:
     command: SetGripper
-    target: Tensor
     step_index: int = 0
 
 
@@ -131,7 +130,7 @@ class CommandExecutor:
                 self._layout.gripper_target(command.arm, closed=command.closed)
             )
             self._gripper_targets[(env_id, command.arm)] = target
-            execution = _GripperExecution(command, target)
+            execution = _GripperExecution(command)
         else:
             targets = command.trajectory.positions
             execution = _MotionExecution(command, targets)
@@ -153,10 +152,6 @@ class CommandExecutor:
                 start, stop = self._layout.arm_range(execution.command.arm)
                 action[env_id, start:stop] = execution.targets[execution.step_index]
                 step_count = execution.targets.shape[0]
-            elif isinstance(execution, _GripperExecution):
-                start, stop = self._layout.gripper_range(execution.command.arm)
-                action[env_id, start:stop] = execution.target
-                step_count = execution.command.steps
             else:
                 step_count = execution.command.steps
 

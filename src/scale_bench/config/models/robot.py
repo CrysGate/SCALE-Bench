@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Annotated, Self, TypeAlias
 
 from pydantic import Field, StrictBool, model_validator
@@ -131,6 +132,18 @@ class ParallelJawGripperConfig(FrozenModel):
                 f"{unchanged}"
             )
         return self
+
+    def aperture_m(self, joint_positions: Mapping[str, float]) -> float:
+        """Return the finger opening for one full gripper joint state.
+
+        ``joint_positions`` must cover ``joint_names`` (command joints plus
+        their mimics) because every state joint contributes to the opening.
+        """
+
+        return self.min_aperture_m + sum(
+            joint_positions[name] * self.aperture_joint_multipliers[name]
+            for name in self.joint_names
+        )
 
 
 class RobotConfig(FrozenModel):

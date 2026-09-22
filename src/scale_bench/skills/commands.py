@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TypeAlias
+from typing import Literal, TypeAlias
 
 from .context import JointState, JointTrajectory
 from .models import Arm, Pose
@@ -15,6 +15,7 @@ class MoveToPose:
     target_tcp_pose_env: Pose
     trajectory: JointTrajectory
     label: str
+    motion_type: Literal["free", "linear"]
 
 
 @dataclass(frozen=True, slots=True)

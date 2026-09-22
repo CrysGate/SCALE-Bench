@@ -32,6 +32,12 @@ robot_mounts:
 
 manipulation:
   lift_height_m: 0.10
+  place_approach_distance_m: 0.10
+  retreat_distance_m: 0.06
+  retreat_attempts: 3
+  planner_attempts: 3
+  grasp_attempts: 3
+  placement_retries: 2
 
 camera:
   profile_path: ../cameras/d435.yml
@@ -41,33 +47,6 @@ camera:
   sensor_local_position_m: [0.06376095, 0.0003435, 0.95816412]
   sensor_local_orientation_xyzw: [0.12278780, -0.12278780, -0.69636424, 0.69636424]
   convention: opengl
-
-grasp_source: asset
-
-# Used only when grasp_source is anygrasp.
-# The external model is reached through the local SSH tunnel. Isaac Lab depth
-# is already in metres; the client sends scale=1.0 to the service.
-anygrasp:
-  service_url: http://127.0.0.1:5001
-  request_timeout_s: 60.0
-  # Capture from the selected arm's side using configurable distance,
-  # elevation, and arm-relative azimuth offset.
-  # If too few target points are visible, retry once from directly overhead.
-  capture_distance_m: 0.4
-  capture_elevation_deg: 45.0
-  capture_azimuth_offset_deg: 0.0
-  depth_trunc_m: 2.0
-  # Request a wide hypothesis pool, then rank valid poses by arm-relative geometry.
-  top_k: 200
-  min_score: 0.0
-  collision_detection: true
-  dense_grasp: false
-  approach_distance_m: 0.08
-  target_margin_m: 0.015
-  minimum_target_points: 128
-  minimum_point_height_above_table_m: 0.002
-  minimum_tcp_height_above_table_m: 0.015
-  maximum_open_axis_vertical_dot: 0.35
 
 lighting:
   texture_path: Assets/Background/brown_photostudio_02_4k.hdr

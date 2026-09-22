@@ -21,6 +21,7 @@ class EnvironmentConfig(FrozenModel):
     control_decimation: PositiveInt = 4
     replicate_physics: StrictBool = True
     clone_in_fabric: StrictBool = False
+    enable_cameras: StrictBool = True
     arm_action_mode: Literal["joint_position"] = "joint_position"
     num_rerenders_on_reset: NonNegativeInt = 1
     wait_for_textures: StrictBool = True

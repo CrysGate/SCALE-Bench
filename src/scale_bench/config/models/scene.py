@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, Self
+from typing import Self
 from pydantic import field_validator, model_validator
 
 from scale_bench.config.base import (
@@ -12,17 +12,16 @@ from scale_bench.config.base import (
     FiniteFloat,
     FrozenModel,
     NonNegativeFloat,
+    NonNegativeInt,
     OptionalAssetReference,
     Position2,
     Position3,
     PositiveFloat,
+    PositiveInt,
     Quaternion,
     UnitIntervalFloat,
     require_unit_quaternion,
 )
-from scale_bench.config.models.grasp import AnyGraspConfig
-
-
 class RoomConfig(FrozenModel):
     usd_path: AssetReference
     scale: PositiveFloat = 0.5
@@ -55,6 +54,19 @@ class RobotMountsConfig(FrozenModel):
 
 class ManipulationConfig(FrozenModel):
     lift_height_m: PositiveFloat
+    place_approach_distance_m: PositiveFloat = 0.10
+    retreat_distance_m: PositiveFloat = 0.06
+    retreat_attempts: PositiveInt = 3
+    planner_attempts: PositiveInt = 3
+    grasp_attempts: PositiveInt = 3
+    placement_retries: NonNegativeInt = 2
+    tracking_position_tolerance_m: PositiveFloat = 0.015
+    tracking_orientation_tolerance_rad: PositiveFloat = 0.10
+    tracking_joint_tolerance_rad: PositiveFloat = 0.10
+    grasp_slip_tolerance_m: PositiveFloat = 0.025
+    placement_position_tolerance_m: PositiveFloat = 0.025
+    support_height_tolerance_m: PositiveFloat = 0.015
+    release_joint_tolerance_m: PositiveFloat = 0.005
 
 
 class OverheadCameraConfig(FrozenModel):
@@ -106,15 +118,7 @@ class SceneConfig(FrozenModel):
     robot_mounts: RobotMountsConfig
     manipulation: ManipulationConfig
     camera: OverheadCameraConfig
-    grasp_source: Literal["asset", "anygrasp"] = "asset"
-    anygrasp: AnyGraspConfig | None = None
     lighting: LightingConfig
-
-    @model_validator(mode="after")
-    def _validate_grasp_source(self) -> Self:
-        if self.grasp_source == "anygrasp" and self.anygrasp is None:
-            raise ValueError("anygrasp grasp source requires AnyGrasp configuration")
-        return self
 
     @property
     def table_top_z_m(self) -> float:

@@ -9,7 +9,7 @@ ScaleBench 是一个配置驱动的 Isaac Lab 双臂操作项目。它把机器�
 - `sort_dolls_by_size`：将五个套娃按尺寸排列到固定槽位。
 - `single_object_pick_and_place`：将随机位置的 bottle 直立放到固定槽位。
 
-两个任务都支持确定性 seed、layout 导入导出和最终状态评测。专家链路支持 CuRobo 规划，以及 AnyGrasp 在线抓取或物体资产目录中的 `grasps.yaml` 抓取标注。
+两个任务都支持确定性 seed、layout 导入导出和最终状态评测。专家链路使用 CuRobo 规划和物体资产目录中的 `grasps.yaml` 抓取标注。
 
 ## 环境
 
@@ -79,7 +79,7 @@ uv run python scripts/run_demo_generation.py \
   --viz none
 ```
 
-默认读取物体 USD 同目录的 `grasps.yaml`，包括 TCP 定义和接近距离。服务部署和诊断见 [AnyGrasp 文档](docs/anygrasp.md)。
+抓取候选读取自物体 USD 同目录的 `grasps.yaml`，包括 TCP 定义和接近距离。
 
 ## 主要入口
 
@@ -89,7 +89,6 @@ uv run python scripts/run_demo_generation.py \
 | `scripts/run_policy_rollout.py` | 验证 policy、fixed-batch 调度和记录链路。 |
 | `scripts/run_demo_generation.py` | 执行完整任务专家并采集 HDF5 数据。 |
 | `scripts/run_skill_debug.py` | 单步技能和 CuRobo 规划调试。 |
-| `scripts/run_grasp_diagnostics.py` | 检查 AnyGrasp 候选和 RGB-D。 |
 | `scripts/replay_episode.py` | 恢复 HDF5 初态、重放 action 并重新评测。 |
 | `scripts/view_hdf5.py` | 在浏览器中检查录制的 episode、相机和状态。 |
 | `scripts/export_hdf5_camera_videos.py` | 导出 RGB 和深度视频。 |
@@ -101,7 +100,7 @@ uv run python scripts/run_demo_generation.py \
 
 - `configs/robots/`：关节、TCP、执行器、夹爪、相机挂载、URDF。
 - `configs/cameras/`：图像尺寸、输出类型、内参和裁剪范围。
-- `configs/scene/`：静态场景、机器人安装位、推理相机、AnyGrasp 和光照。
+- `configs/scene/`：静态场景、机器人安装位、相机和光照。
 - `configs/tasks/`：任务资产、布局约束、目标槽位和成功阈值。
 - `configs/sim/`：物理步长、重力、渲染和必要的 PhysX 覆盖。
 - `configs/envs/`：环境数量、间距、控制频率、克隆和 reset 行为。
@@ -137,7 +136,6 @@ uv run python scripts/preview_scene.py \
 
 ## 进一步阅读
 
-- [AnyGrasp](docs/anygrasp.md)
 - [抓取数据生成](src/grasp_data_gen/README.zh-CN.md)
 - [OBJ 转 USD](src/assets_gen/README.zh-CN.md)
 

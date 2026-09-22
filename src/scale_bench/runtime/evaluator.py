@@ -4,31 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import replace
-from typing import Protocol
 
 import torch
 from torch import Tensor
 
 from scale_bench.tasks.common.evaluation import EvaluationResult
 from scale_bench.tasks.common.task import BatchedEvaluatorObservation, Task
-
-
-class EpisodeEvaluator(Protocol):
-    """Stateful evaluation lifecycle consumed by the episode driver."""
-
-    def reset(self, env_ids: Tensor) -> None: ...
-
-    def update(
-        self,
-        observation: BatchedEvaluatorObservation,
-        success_verification_mask: Tensor,
-    ) -> Tensor: ...
-
-    def finalize(
-        self,
-        env_ids: Tensor,
-        observation: BatchedEvaluatorObservation,
-    ) -> Mapping[int, EvaluationResult]: ...
 
 
 class TaskEpisodeEvaluator:
@@ -149,6 +130,5 @@ class TaskEpisodeEvaluator:
 
 
 __all__ = [
-    "EpisodeEvaluator",
     "TaskEpisodeEvaluator",
 ]

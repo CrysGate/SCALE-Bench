@@ -69,9 +69,15 @@ HEADLESS=1 uv run python scripts/run_demo_generation.py \
 
 seed 范围为 `[base-seed, base-seed + episodes)`，`--num-envs` 只改变并行 slot 数；最后一批可以不满。采集成功和失败的 episode 都保留，并记录 success、终止原因和技能语义。退出码为 0 表示全部 episode 成功；存在失败或运行异常时为非零。日志输出每条结果、成功率和实际数据集路径。
 
+每个环境拥有独立的 CuRobo 单场景规划器、碰撞场景和 CUDA stream，不同环境的规划请求由工作线程并发求解。规划器保留单场景求解的重试与图搜索能力，同一环境内的运动阶段和候选尝试依次执行。`--num-envs` 决定环境和规划器数量。
+
+启动时在主线程逐个预热规划器并捕获 CUDA Graph，随后才开始并发求解。相机采集和 Isaac 状态读取仍在主线程完成。规划期间暂停仿真，本轮所需命令准备完成后统一步进，避免计算等待时间变成录制中的额外物理步。
+
+`PLAN-INIT` 记录环境数量和初始化预热耗时；`PLAN-PARALLEL` 记录同轮并发请求的环境 ID、数量与耗时；`PLAN-STATS` 汇总请求数、规划成功/失败数、参与并发的请求数以及规划队列与预热耗时。规划请求失败后由技能层决定是否继续尝试候选，规划成功数不等于最终 episode 成功数。增加环境数会增加 GPU 资源需求，显存不足时应降低 `--num-envs`。
+
 省略 `--record-camera-observations` 时记录关节、动作等默认数据；传入时额外保存左腕、右腕和俯视相机的 RGB-D。无显示器采集相机时使用 `HEADLESS=1 --viz kit`，使 reset 阶段生成有效 RTX 帧；`--viz none` 适用于不录制相机的运行。
 
-默认 `--grasp-source asset` 读取物体 USD 同目录的 `grasps.yaml`；传入 `--grasp-source anygrasp` 使用在线候选。机器人通过 `--robot-config` 选择，其 TCP 和关节定义必须与抓取数据匹配。
+抓取候选固定读取自物体 USD 同目录的 `grasps.yaml`。机器人通过 `--robot-config` 选择，其 TCP 和关节定义必须与抓取数据匹配。
 
 `--log-file PATH` 追加完整 DEBUG JSONL；省略时只输出终端日志。自定义配置路径相对于当前目录解析，内置配置默认使用仓库中的绝对路径。
 
@@ -97,23 +103,6 @@ uv run python scripts/run_skill_debug.py \
 - 绿色盒体：另一机械臂。
 
 使用 `<` 和 `>` 浏览实际进入过的 `pre_grasp`、`grasp`、`lift`、`pre_place`、`place`、`retreat`、`clear` 阶段。这些是规划起点的碰撞快照，不是轨迹动画。
-
-### AnyGrasp 诊断
-
-`run_grasp_diagnostics.py` 采集单帧 RGB-D、检查返回候选，不执行机器人技能：
-
-```bash
-HEADLESS=1 uv run python scripts/run_grasp_diagnostics.py \
-  --task single_object_pick_and_place \
-  --seed 101 \
-  --diagnostics-output outputs/anygrasp-seed101.json \
-  --viz kit \
-  --open3d
-```
-
-`--grasp-arm` 支持 `auto`、`left`、`right`，auto 选择距离物体最近的机器人 base。`--open3d` 在 Isaac 退出后启动独立 Open3D 进程，显示实际请求的 RGB-D 和抓取候选。省略时仅输出诊断日志；`--diagnostics-output` 可另外保存 JSON 证据。
-
-采集入口不再接受 `--program`、`--object-name`、`--replay`、`--open3d` 或 `--visualize-curobo`。技能和诊断使用上面的独立入口，数据回放使用下面的 `replay_episode.py`。AnyGrasp 设置详见 [docs/anygrasp.md](../docs/anygrasp.md)。
 
 ## Episode 回放
 
@@ -152,19 +141,6 @@ uv run python scripts/export_hdf5_camera_videos.py \
 ```
 
 `--camera` 可选 `left_robot`、`right_robot` 或 `overhead`。默认帧率从记录元数据推导；`--depth-min-m` 和 `--depth-max-m` 只控制深度视频显示范围，不修改原始数据。
-
-## AnyGrasp 服务
-
-`run_anygrasp_service.py` 在安装了 AnyGrasp SDK 的远端环境运行协议 v3 服务：
-
-```bash
-python scripts/run_anygrasp_service.py \
-  --checkpoint_path /absolute/path/to/checkpoint.tar \
-  --host 0.0.0.0 \
-  --port 5001
-```
-
-部署后检查 `GET /health` 返回 `protocol_version: 3`。`run_grasp_diagnostics.py --open3d` 会先显示实际发送给服务的二维 RGB-D，再显示返回候选的彩色点云。`view_anygrasp_open3d.py` 是该命令启动的隔离查看进程，通常不直接调用。
 
 ## 生成 CuRobo 配置
 

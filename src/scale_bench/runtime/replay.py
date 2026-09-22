@@ -121,14 +121,14 @@ class EpisodeReplayRunner:
         for action in episode.actions:
             observation, _ = self._env.step(action.unsqueeze(0))
             self._evaluator.update(
-                _evaluator_observation(observation),
+                observation.get("evaluator"),
                 success_verification_mask,
             )
             replayed_steps += 1
 
         evaluation = self._evaluator.finalize(
             env_ids,
-            _evaluator_observation(observation),
+            observation.get("evaluator"),
         )[0]
         return EpisodeReplayResult(
             episode_name=episode.episode_name,
@@ -180,11 +180,6 @@ def initial_state_matches_layout(
         if not quaternion_matches:
             return False
     return True
-
-
-def _evaluator_observation(observation: object) -> Mapping[str, Tensor]:
-    evaluator_observation = observation.get("evaluator")
-    return evaluator_observation
 
 
 __all__ = [

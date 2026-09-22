@@ -17,7 +17,6 @@ from rich.console import Console
 from rich.text import Text
 from rich.traceback import Traceback
 
-
 LogFormat = Literal["pretty", "json"]
 LogValue = (
     str
@@ -65,6 +64,19 @@ _EPISODE_LOG_CONTEXT: ContextVar[EpisodeLogContext | None] = ContextVar(
     "scale_bench_episode_log_context",
     default=None,
 )
+_SKILL_LOG_CONTEXT: ContextVar[dict[str, str]] = ContextVar(
+    "scale_bench_skill_log_context", default={},
+)
+
+
+@contextmanager
+def skill_log_context(*, skill: str, subgoal: str) -> Iterator[None]:
+    """An active manipulation request supplies its skill name and object subgoal."""
+    token = _SKILL_LOG_CONTEXT.set({"skill": skill, "subgoal": subgoal})
+    try:
+        yield
+    finally:
+        _SKILL_LOG_CONTEXT.reset(token)
 
 
 @contextmanager
@@ -81,6 +93,7 @@ def episode_log_context(*, episode_id: str, env_id: int) -> Iterator[None]:
 class _EpisodeContextFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         fields = dict(getattr(record, "event_fields", {}))
+        fields.update(_SKILL_LOG_CONTEXT.get())
         context = _EPISODE_LOG_CONTEXT.get()
         if context is not None:
             fields.setdefault("episode_id", context.episode_id)
@@ -154,6 +167,29 @@ class _JsonEventFormatter(logging.Formatter):
         )
 
 
+@contextmanager
+def record_skill_events(path: Path) -> Iterator[None]:
+    """Persist segment plans/results and recovery events beside each dataset."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handler = logging.FileHandler(path, mode="w", encoding="utf-8")
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(_JsonEventFormatter())
+    handler.addFilter(_EpisodeContextFilter())
+    handler.addFilter(lambda record: getattr(record, "event", "") in {
+        "MOTION-PLAN", "MOTION-VERIFY", "RECOVERY", "GRASP-CANDIDATE", "SKILL-FAIL", "EPISODE",
+    })
+    logger = logging.getLogger("scale_bench")
+    previous_level = logger.level
+    logger.setLevel(min(logger.getEffectiveLevel(), logging.INFO))
+    logger.addHandler(handler)
+    try:
+        yield
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(previous_level)
+        handler.close()
+
+
 def configure_logging(
     *,
     console_level: str,
@@ -168,7 +204,7 @@ def configure_logging(
 
     logger = logging.getLogger("scale_bench")
     logger.handlers.clear()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.DEBUG if jsonl_path is not None else _LEVELS[console_level])
     logger.propagate = False
 
     context_filter = _EpisodeContextFilter()

@@ -11,7 +11,7 @@ import torch
 from torch import Tensor
 
 from scale_bench.tasks.common.layout import TaskLayout
-from scale_bench.tasks.common.task import BatchedEvaluatorObservation, Task
+from scale_bench.tasks.common.task import Task
 
 from .evaluator import TaskEpisodeEvaluator
 from .episodes import (
@@ -139,8 +139,6 @@ class EpisodeDriver:
             dtype=torch.long,
             device=self._env.device,
         )
-        for state in resolved_states:
-            state.step_count = 0
 
         observation, _ = self._env.reset(
             env_ids=env_ids,
@@ -187,7 +185,7 @@ class EpisodeDriver:
             self._env.discard_episode_buffers(inactive_env_ids)
 
         success = self._evaluator.update(
-            _evaluator_observation(observation),
+            observation.get("evaluator"),
             success_verification_mask,
         )
         goal_mask = self._active_mask & success
@@ -239,7 +237,7 @@ class EpisodeDriver:
         )
         evaluations = self._evaluator.finalize(
             env_id_tensor,
-            _evaluator_observation(self._observation),
+            self._observation.get("evaluator"),
         )
         if env_ids and self._env.recording_enabled:
             self._env.export_episodes(
@@ -258,12 +256,11 @@ class EpisodeDriver:
         completed = {}
         for env_id in env_ids:
             state = self._states[env_id]
-            state.step_count = int(self._step_counts[env_id].item())
             result = EpisodeResult(
                 spec=state.spec,
                 evaluation=evaluations[env_id],
                 termination=terminations[env_id],
-                steps=state.step_count,
+                steps=int(self._step_counts[env_id].item()),
             )
             completed[state.spec.episode_id] = result
             self._results[state.spec.episode_id] = result
@@ -276,13 +273,6 @@ class EpisodeDriver:
             active_mask=self._active_mask.clone(),
             completed=completed,
         )
-
-
-def _evaluator_observation(
-    observation: object,
-) -> BatchedEvaluatorObservation:
-    evaluator_observation = observation.get("evaluator")
-    return evaluator_observation
 
 
 __all__ = [

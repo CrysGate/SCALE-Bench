@@ -37,10 +37,6 @@ class JointTrajectory:
         if not torch.isfinite(self.positions).all().item():
             raise ValueError("joint trajectory must contain finite values")
 
-    @property
-    def end(self) -> JointState:
-        return JointState(self.positions[-1])
-
 
 @dataclass(frozen=True, slots=True)
 class RobotState:
@@ -88,7 +84,8 @@ class GraspCandidate:
     approach_axis_tcp: tuple[float, float, float]
     approach_distance_m: float
     score: float
-    candidate_id: int = 0
+    candidate_id: int
+    gripper_joint_positions: Mapping[str, float]
 
     def __post_init__(self) -> None:
         axis_norm = math.sqrt(sum(value * value for value in self.approach_axis_tcp))
@@ -144,7 +141,7 @@ class SkillContext(Protocol):
 
     def snapshot(self) -> SceneSnapshot: ...
 
-    def grasp_candidates(
+    async def grasp_candidates(
         self,
         object_name: str,
         arm: Arm,

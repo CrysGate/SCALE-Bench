@@ -23,6 +23,7 @@ LOGGER = logging.getLogger("scale_bench.cli.demo_generation")
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     add_simulation_arguments(parser, PROJECT_ROOT)
+    parser.set_defaults(enable_cameras=False)
     parser.add_argument("--num-envs", type=positive_int, default=1)
     parser.add_argument("--episodes", type=positive_int, default=1)
     parser.add_argument("--base-seed", type=nonnegative_int, default=100)
@@ -37,6 +38,7 @@ def main() -> int:
         help="Include wrist and overhead RGB-D; omit for joint/action data only.",
     )
     args = parser.parse_args()
+    args.enable_cameras = args.enable_cameras or args.record_camera_observations
     recording = RecordingConfig(
         output_dir=args.record_output.resolve(),
         dataset_name=args.dataset_name,
@@ -58,10 +60,11 @@ def main() -> int:
         episode_count = len(result.benchmark.episodes)
         LOGGER.log(
             logging.INFO if result.success_count == episode_count else logging.WARNING,
-            "success=%d/%d dataset=%s",
+            "success=%d/%d dataset=%s segments=%s",
             result.success_count,
             episode_count,
             result.dataset_path,
+            result.segments_path,
             extra={
                 "event": "SUMMARY",
                 "event_fields": {
@@ -71,6 +74,7 @@ def main() -> int:
                     "success_rate": result.success_count / episode_count,
                     "batch_count": result.benchmark.batch_count,
                     "dataset_path": str(result.dataset_path),
+                    "segments_path": str(result.segments_path),
                 },
             },
         )

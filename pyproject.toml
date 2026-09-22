@@ -12,7 +12,6 @@ dependencies = [
     "modelscope",
     "pymeshlab",
     "nvidia-curobo[cu12]",
-    "open3d-cpu==0.19.0",
     "isaaclab",
     "isaaclab-assets",
     "isaaclab-contrib",
@@ -31,6 +30,7 @@ dependencies = [
     "pyyaml",
     "rich",
     "nicegui",
+    "rerun-sdk",
 ]
 
 [build-system]

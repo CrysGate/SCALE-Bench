@@ -42,6 +42,7 @@ def load_asset_grasps(
                 # Compact exports have no quality scores; equal scores preserve order.
                 score=0.0,
                 candidate_id=candidate.candidate_id,
+                gripper_joint_positions=dict(candidate.closed_joint_positions_m),
             )
         )
     if not candidates:
