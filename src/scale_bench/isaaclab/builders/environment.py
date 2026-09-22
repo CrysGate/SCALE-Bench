@@ -73,11 +73,12 @@ def build_environment_cfg(
 
     if not isinstance(task, RigidObjectTask):
         raise TypeError("task must be a RigidObjectTask")
-    if not environment_config.enable_cameras and (
-        scene_config.grasp_source == "anygrasp"
-        or (recording_config is not None and recording_config.record_camera_observations)
+    if (
+        not environment_config.enable_cameras
+        and recording_config is not None
+        and recording_config.record_camera_observations
     ):
-        raise ValueError("AnyGrasp and RGB-D recording require enable_cameras=True")
+        raise ValueError("RGB-D recording requires enable_cameras=True")
     if (task_layout_seed is None) == (task_layouts is None):
         raise ValueError("task requires exactly one of task_layout_seed or task_layouts")
     scene_cfg = build_scene_cfg(

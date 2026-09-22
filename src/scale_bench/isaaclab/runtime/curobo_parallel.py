@@ -113,7 +113,7 @@ class CuroboPlanningPool:
         object_name: str,
         arm: Arm,
     ) -> tuple[GraspCandidate, ...]:
-        """AnyGrasp capture must pump Kit on the main thread outside our loop."""
+        """Read live Isaac state on the main thread outside the planning loop."""
         future: asyncio.Future[tuple[GraspCandidate, ...]] = (
             asyncio.get_running_loop().create_future()
         )

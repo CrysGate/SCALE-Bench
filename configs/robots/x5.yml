@@ -22,7 +22,7 @@ kinematics:
   ee_body: link6
   tcp:
     parent_frame: link6
-    # Grasp reference point calibrated for the AnyGrasp pick-and-place workflow.
+    # Grasp reference point used by the pick-and-place workflow.
     # +X approaches the object; +Y is the finger-opening axis, both in link6.
     position_m: [0.118, 0.0, 0.0]
     orientation_xyzw: [0.0, 0.0, 0.0, 1.0]

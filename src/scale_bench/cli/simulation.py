@@ -65,9 +65,6 @@ def add_simulation_arguments(
             default=project_root / "configs" / relative_path,
         )
     parser.add_argument(
-        "--grasp-source", choices=("asset", "anygrasp"), default="asset"
-    )
-    parser.add_argument(
         "--log-level", choices=("DEBUG", "INFO", "WARNING", "ERROR"), default="DEBUG"
     )
     parser.add_argument("--log-format", choices=("pretty", "json"), default="pretty")
@@ -96,9 +93,6 @@ def run_simulation(
         args.rendering_mode = simulation.render.rendering_mode
     simulation = simulation.model_copy(update={"device": args.device})
     scene = load_config(args.scene_config, SceneConfig, asset_root=project_root)
-    scene = SceneConfig.model_validate(
-        {**scene.model_dump(), "grasp_source": args.grasp_source}
-    )
     robot = load_config(args.robot_config, RobotConfig, asset_root=project_root)
     camera_profile_path = str(args.camera_config.resolve())
     scene = scene.model_copy(

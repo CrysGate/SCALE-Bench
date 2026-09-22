@@ -38,11 +38,7 @@ def main() -> int:
         help="Include wrist and overhead RGB-D; omit for joint/action data only.",
     )
     args = parser.parse_args()
-    args.enable_cameras = (
-        args.enable_cameras
-        or args.record_camera_observations
-        or args.grasp_source == "anygrasp"
-    )
+    args.enable_cameras = args.enable_cameras or args.record_camera_observations
     recording = RecordingConfig(
         output_dir=args.record_output.resolve(),
         dataset_name=args.dataset_name,

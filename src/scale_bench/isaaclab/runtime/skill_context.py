@@ -21,7 +21,6 @@ from scale_bench.skills.geometry import compose_pose, inverse_pose, relative_pos
 from scale_bench.skills.models import Arm, Pose
 from scale_bench.tasks.common.rigid_object import RigidObjectTask
 
-from .anygrasp_diagnostics import AnyGraspDiagnostics
 from .environment import ScaleBenchEnv
 from .grasp_candidates import IsaacLabGraspCandidates
 from .robot_geometry import (
@@ -106,9 +105,7 @@ class IsaacLabSkillContext:
                 robot_config,
                 inverse_pose(self._tcp_poses_ee_body[arm]),
             )
-        self._grasps = IsaacLabGraspCandidates(
-            env, task, scene_config, robot_configs, env_id=env_id,
-        )
+        self._grasps = IsaacLabGraspCandidates(task, robot_configs)
 
     def snapshot(self) -> SceneSnapshot:
         """Read current robot, static-scene, and task-object geometry."""
@@ -131,14 +128,7 @@ class IsaacLabSkillContext:
     ) -> tuple[GraspCandidate, ...]:
         """Return score-ordered object-frame TCP candidates for one arm."""
 
-        return self._grasps.candidates(object_name, arm, self._object_pose_env(object_name))
-
-    def analyze_anygrasp(self, object_name: str, arm: Arm) -> AnyGraspDiagnostics:
-        """Use the same candidate service for execution and diagnostics."""
-
-        return self._grasps.analyze_anygrasp(
-            object_name, arm, self._object_pose_env(object_name),
-        )
+        return self._grasps.candidates(object_name, arm)
 
     def measure_grasp(self, object_name: str, arm: Arm) -> GraspState:
         """Measure the live object-to-TCP relation after gripper settling."""
