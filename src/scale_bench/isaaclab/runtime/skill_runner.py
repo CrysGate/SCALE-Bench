@@ -12,7 +12,7 @@ from scale_bench.runtime import (
 from scale_bench.runtime.demo_generation import ExpertFactory
 from scale_bench.runtime.scheduler import BenchmarkRunResult
 from scale_bench.runtime.task_run import TaskRun
-from scale_bench.skills import CommandExecutor, OperationSkillPlanner, SkillContext
+from scale_bench.skills import CommandExecutor, SkillMotionPlanner, SkillContext, SkillSettings
 from scale_bench.skills.models import Arm
 
 from .command_adapter import build_command_action_layout
@@ -70,14 +70,10 @@ def run_skill_episodes(
             for env_id, planners in enumerate(pool.planners)
         ]
 
-        def planner_factory(state: EpisodeState) -> OperationSkillPlanner:
-            return OperationSkillPlanner(
+        def planner_factory(state: EpisodeState) -> SkillMotionPlanner:
+            return SkillMotionPlanner(
                 queued_planners[state.env_id],
-                arm_base_positions_env_m,
-                run.scene.manipulation.lift_height_m,
-                gripper_open_positions={
-                    arm: run.robot.gripper.open_positions for arm in ("left", "right")
-                },
+                max_attempts=run.scene.manipulation.planner_attempts,
             )
 
         def context_factory(state: EpisodeState) -> SkillContext:
@@ -95,6 +91,18 @@ def run_skill_episodes(
             CommandExecutor(env, action_layout),
             expert_factory=expert_factory,
             planner_factory=planner_factory,
+            skill_settings=SkillSettings(
+                manipulation=run.scene.manipulation,
+                arm_base_positions_env_m=arm_base_positions_env_m,
+                safe_joint_positions={
+                    arm: tuple(run.robot.initial_joint_positions[name]
+                               for name in run.robot.kinematics.arm_joint_names)
+                    for arm in ("left", "right")
+                },
+                gripper_open_positions={
+                    arm: run.robot.gripper.open_positions for arm in ("left", "right")
+                },
+            ),
             context_factory=context_factory,
             flush_planning=pool.flush,
         )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 
@@ -17,7 +18,10 @@ from scale_bench.skills import (
     SkillCommand,
     SkillContext,
     SkillError,
-    SkillPlanner,
+    SegmentError,
+    SkillMotionPlanner,
+    SkillSession,
+    SkillSettings,
     SkillRequest,
     pick,
     pick_and_place,
@@ -25,20 +29,20 @@ from scale_bench.skills import (
 
 from .driver import DriverEnvironment, EpisodeDriver
 from .episodes import EpisodeResult, EpisodeState, EpisodeTermination, TerminationReason
-from .logging import episode_log_context
+from .logging import episode_log_context, skill_log_context
 from .recording import StepSemantics
 
 ExpertFactory = Callable[[EpisodeState], Iterator[SkillRequest]]
 SkillContextFactory = Callable[[EpisodeState], SkillContext]
-SkillPlannerFactory = Callable[[EpisodeState], SkillPlanner]
+SkillPlannerFactory = Callable[[EpisodeState], SkillMotionPlanner]
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
 class _ProgramState:
     episode_id: str
     expert: Iterator[SkillRequest]
-    context: SkillContext
-    planner: SkillPlanner
+    session: SkillSession
     commands: AsyncIterator[SkillCommand] | None = None
     skill_name: str | None = None
     subgoal: str | None = None
@@ -57,6 +61,7 @@ class DemoGenerationRunner:
         expert_factory: ExpertFactory,
         context_factory: SkillContextFactory,
         planner_factory: SkillPlannerFactory,
+        skill_settings: SkillSettings,
         flush_planning: Callable[[], None],
     ) -> None:
         self._env = env
@@ -64,6 +69,7 @@ class DemoGenerationRunner:
         self._expert_factory = expert_factory
         self._context_factory = context_factory
         self._planner_factory = planner_factory
+        self._skill_settings = skill_settings
         self._flush_planning = flush_planning
         self._driver = EpisodeDriver(env)
         self._programs: dict[int, _ProgramState] = {}
@@ -94,8 +100,11 @@ class DemoGenerationRunner:
             env_id: _ProgramState(
                 episode_id=state_by_env_id[env_id].spec.episode_id,
                 expert=self._expert_factory(state_by_env_id[env_id]),
-                context=self._context_factory(state_by_env_id[env_id]),
-                planner=self._planner_factory(state_by_env_id[env_id]),
+                session=SkillSession(
+                    self._context_factory(state_by_env_id[env_id]),
+                    self._planner_factory(state_by_env_id[env_id]),
+                    self._skill_settings,
+                ),
             )
             for env_id in active_env_ids
         }
@@ -205,6 +214,16 @@ class DemoGenerationRunner:
                 self._executor.begin(env_id, command)
                 program.command_running = True
             except SkillError as error:
+                LOGGER.warning(
+                    "%s", error,
+                    extra={"event": "SKILL-FAIL", "event_fields": {
+                        "episode_id": program.episode_id, "env_id": env_id,
+                        "skill": program.skill_name, "subgoal": program.subgoal,
+                        "result": error.code if isinstance(error, SegmentError) else "SKILL_FAILED",
+                        "stage": error.stage if isinstance(error, SegmentError) else "observe",
+                        "reason": str(error),
+                    }},
+                )
                 terminations[env_id] = EpisodeTermination(
                     TerminationReason.SKILL_FAILED,
                     retryable=False,
@@ -233,7 +252,9 @@ async def _next_command(program: _ProgramState) -> SkillCommand | None:
     while True:
         if program.commands is not None:
             try:
-                return await anext(program.commands)
+                assert program.skill_name is not None and program.subgoal is not None
+                with skill_log_context(skill=program.skill_name, subgoal=program.subgoal):
+                    return await anext(program.commands)
             except StopAsyncIteration:
                 program.commands = None
                 program.skill_name = None
@@ -243,13 +264,12 @@ async def _next_command(program: _ProgramState) -> SkillCommand | None:
         except StopIteration:
             return None
         if isinstance(request, Pick):
-            program.commands = pick(program.context, program.planner, request)
+            program.commands = pick(program.session, request)
             program.skill_name = "pick"
             program.subgoal = request.object_name
         elif isinstance(request, PickAndPlace):
             program.commands = pick_and_place(
-                program.context,
-                program.planner,
+                program.session,
                 request,
             )
             program.skill_name = "pick_and_place"

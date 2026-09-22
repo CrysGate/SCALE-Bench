@@ -12,7 +12,7 @@ from contextvars import Context, copy_context
 from dataclasses import dataclass
 from functools import partial
 from time import perf_counter
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 import torch
 
@@ -29,11 +29,12 @@ from scale_bench.skills.models import Arm, Pose
 from scale_bench.skills.planner import PlanningStage
 
 from .curobo_planner import CuroboMotionPlanner
-from .skill_context import IsaacLabSkillContext
+
+if TYPE_CHECKING:
+    from .skill_context import IsaacLabSkillContext
 
 LOGGER = logging.getLogger(__name__)
 PlanKind = Literal["ik", "pose", "joints"]
-# IK only checks reachability and returns None; motion planning returns a path.
 PlanResult = JointTrajectory | None
 
 
@@ -248,9 +249,6 @@ class QueuedCuroboMotionPlanner:
 
     def commit_inspection_stages(self, stages: tuple[PlanningStage, ...]) -> None:
         self._planner.commit_inspection_stages(stages)
-
-    def gripper_clearance_m(self, approach_axis_tcp: tuple[float, float, float]) -> float:
-        return self._planner.gripper_clearance_m(approach_axis_tcp)
 
 
 class QueuedSkillContext:

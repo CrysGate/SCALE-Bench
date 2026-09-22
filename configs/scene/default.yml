@@ -32,6 +32,12 @@ robot_mounts:
 
 manipulation:
   lift_height_m: 0.10
+  place_approach_distance_m: 0.10
+  retreat_distance_m: 0.06
+  retreat_attempts: 3
+  planner_attempts: 3
+  grasp_attempts: 3
+  placement_retries: 2
 
 camera:
   profile_path: ../cameras/d435.yml

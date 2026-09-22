@@ -18,16 +18,6 @@ if TYPE_CHECKING:
     from isaaclab.markers import VisualizationMarkers
 
 LOGGER = logging.getLogger(__name__)
-STAGE_ORDER: tuple[PlanningStage, ...] = (
-    "pre_grasp",
-    "grasp",
-    "lift",
-    "pre_place",
-    "adjust",
-    "place",
-    "retreat",
-    "clear",
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,11 +236,7 @@ class CuroboPlanningVisualizer:
         import omni.kit.app
         import omni.timeline
 
-        self._stage_order = tuple(
-            stage
-            for stage in STAGE_ORDER
-            if stage in self._captured_snapshots or stage in self._pending_snapshots
-        )
+        self._stage_order = tuple(self._pending_snapshots)
         self._current_stage_index = 0
         self._sphere_markers.set_visibility(True)
         self._cuboid_markers.set_visibility(True)

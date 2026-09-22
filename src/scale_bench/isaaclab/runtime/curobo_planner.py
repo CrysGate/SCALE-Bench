@@ -32,7 +32,7 @@ from scale_bench.skills.context import (
     PlanningScene,
     SceneObject,
 )
-from scale_bench.skills.errors import PlanningError
+from scale_bench.skills.errors import FailureCode, PlanningError, StartStateError
 from scale_bench.skills.geometry import (
     compose_pose,
     conjugate_quaternion_xyzw,
@@ -104,18 +104,6 @@ class CuroboMotionPlanner:
             tuple(sphere) for sphere in torch.cat(
                 (finger_centers_tcp_m, finger_spheres_base_m[:, 3:]), dim=-1,
             ).tolist()
-        )
-
-    def gripper_clearance_m(self, approach_axis_tcp: tuple[float, float, float]) -> float:
-        forward_extent_m = max(
-            sum(coordinate_tcp_m * component_tcp for coordinate_tcp_m, component_tcp in zip(
-                sphere_tcp_m[:3], approach_axis_tcp, strict=True,
-            )) + sphere_tcp_m[3]
-            for sphere_tcp_m in self._open_finger_spheres_tcp_m
-        )
-        return (
-            forward_extent_m
-            + self._planner.trajopt_solver.config.optimizer_collision_activation_distance
         )
 
     def _initialize_gripper_transforms(self, robot_config: RobotConfig) -> None:
@@ -211,7 +199,7 @@ class CuroboMotionPlanner:
                 }},
             )
         if successful_count == 0:
-            raise PlanningError(self._arm, stage, "IK found no feasible joint configuration")
+            raise PlanningError(self._arm, stage, FailureCode.IK_FAILED, "IK found no feasible joint configuration")
 
     def plan_pose(
         self,
@@ -224,6 +212,8 @@ class CuroboMotionPlanner:
         """Normalize contact directions; transit uses None and may reorient."""
         if linear_axis_env is not None:
             linear_axis_norm = math.hypot(*linear_axis_env)
+            if not math.isfinite(linear_axis_norm) or linear_axis_norm <= 0.0:
+                raise ValueError("linear motion axis must be finite and nonzero")
             linear_axis_env = tuple(
                 component_env / linear_axis_norm for component_env in linear_axis_env
             )
@@ -254,11 +244,7 @@ class CuroboMotionPlanner:
             }},
         )
         if violations:
-            raise PlanningError(
-                self._arm,
-                stage,
-                f"start state is infeasible: {'; '.join(violations)}",
-            )
+            raise StartStateError(self._arm, stage, violations)
         current = self._joint_state(planning_start)
         goal = self._goal_from_env_pose(target_tcp_pose_env)
         criteria = self._motion_criteria(target_tcp_pose_env, linear_axis_env)
@@ -355,11 +341,7 @@ class CuroboMotionPlanner:
             }},
         )
         if violations:
-            raise PlanningError(
-                self._arm,
-                stage,
-                f"start state is infeasible: {'; '.join(violations)}",
-            )
+            raise StartStateError(self._arm, stage, violations)
         result = self._planner.plan_cspace(
             self._joint_state(target_joint_state.positions),
             self._joint_state(planning_start),
@@ -419,6 +401,7 @@ class CuroboMotionPlanner:
             raise PlanningError(
                 self._arm,
                 stage,
+                FailureCode.START_STATE_INFEASIBLE,
                 f"start state is outside joint limits: {details}",
             )
         return clipped
@@ -691,6 +674,7 @@ class CuroboMotionPlanner:
             raise PlanningError(
                 self._arm,
                 stage,
+                FailureCode.PLANNER_NO_RESULT,
                 "CUROBO_NO_RESULT: planning returned no trajectory optimization "
                 "result; failure details are unavailable",
             )
@@ -698,6 +682,7 @@ class CuroboMotionPlanner:
             raise PlanningError(
                 self._arm,
                 stage,
+                FailureCode.PLANNER_NO_RESULT,
                 "CUROBO_MISSING_SUCCESS: the returned trajectory optimization "
                 "result has no success status",
             )
@@ -706,6 +691,7 @@ class CuroboMotionPlanner:
             raise PlanningError(
                 self._arm,
                 stage,
+                FailureCode.PLANNER_NO_SUCCESSFUL_TRAJECTORY,
                 "CUROBO_NO_SUCCESSFUL_TRAJECTORY: the latest trajectory "
                 "optimization result contains no successful trajectory "
                 f"(successful_candidates={successful_count}/{result.success.numel()}); "
@@ -717,7 +703,7 @@ class CuroboMotionPlanner:
             interpolated.position.reshape(
                 -1,
                 interpolated.position.shape[-1],
-            )[:, indices].contiguous()
+            )[:, indices].contiguous().clone()
         )
         return JointTrajectory(positions)
 
