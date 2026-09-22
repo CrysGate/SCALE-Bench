@@ -68,7 +68,7 @@ def add_simulation_arguments(
         "--grasp-source", choices=("asset", "anygrasp"), default="asset"
     )
     parser.add_argument(
-        "--log-level", choices=("DEBUG", "INFO", "WARNING", "ERROR"), default="INFO"
+        "--log-level", choices=("DEBUG", "INFO", "WARNING", "ERROR"), default="DEBUG"
     )
     parser.add_argument("--log-format", choices=("pretty", "json"), default="pretty")
     parser.add_argument(
