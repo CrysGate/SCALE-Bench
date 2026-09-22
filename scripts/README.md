@@ -75,11 +75,24 @@ seed 范围为 `[base-seed, base-seed + episodes)`，`--num-envs` 只改变并�
 
 `PLAN-INIT` 记录环境数量和初始化预热耗时；`PLAN-PARALLEL` 记录同轮并发请求的环境 ID、数量与耗时；`PLAN-STATS` 汇总请求数、规划成功/失败数、参与并发的请求数以及规划队列与预热耗时。规划请求失败后由技能层决定是否继续尝试候选，规划成功数不等于最终 episode 成功数。增加环境数会增加 GPU 资源需求，显存不足时应降低 `--num-envs`。
 
-省略 `--record-camera-observations` 时记录关节、动作等默认数据；传入时额外保存左腕、右腕和俯视相机的 RGB-D。无显示器采集相机时使用 `HEADLESS=1 --viz kit`，使 reset 阶段生成有效 RTX 帧；`--viz none` 适用于不录制相机的运行。
+省略 `--record-camera-observations` 时记录关节、动作等默认数据，并且默认不创建相机传感器、不计算图像观测；传入该选项或显式传入 `--enable_cameras` 时额外启用并保存左腕、右腕和俯视相机的 RGB-D。机器人相机实体及其碰撞几何保留。无显示器采集相机时使用 `HEADLESS=1 --viz kit`，使 reset 阶段生成有效 RTX 帧；`--viz none` 适用于不录制相机的运行。
 
 抓取候选固定读取自物体 USD 同目录的 `grasps.yaml`。机器人通过 `--robot-config` 选择，其 TCP 和关节定义必须与抓取数据匹配。
 
-`--log-file PATH` 追加完整 DEBUG JSONL；省略时只输出终端日志。自定义配置路径相对于当前目录解析，内置配置默认使用仓库中的绝对路径。
+每次采集还会在 HDF5 旁保存同名 `.segments.jsonl`，记录每段运动的目标、真实起点、场景、约束、规划重试、真实终态和验证结果，以及恢复动作和 episode 结果。按环境、`episode_id`、`skill` 和 `stage` 查看规划与验证日志，同一阶段的重复执行按日志顺序和恢复事件区分。失败轨迹不会执行，恢复动作照常写入 HDF5。
+
+`--log-file PATH` 额外追加完整 DEBUG JSONL，包含 IK 和后端诊断。自定义配置路径相对于当前目录解析，内置配置默认使用仓库中的绝对路径。
+
+### 失败 seed 重跑
+
+```bash
+.venv/bin/python scripts/rerun_failed_episodes.py \
+  --source-log run-no-tcp-validate.log \
+  --output-dir outputs/diagnostics/failed-seeds \
+  --num-envs 10 --max-steps 1200 --viz none
+```
+
+脚本通过 `rg` 读取失败 `EPISODE` 及原因续行，保存 `source_failures.json`，在一个仿真进程中运行这些非连续 seed，并输出 `rerun_summary.json`、完整 DEBUG JSONL、HDF5 和 segments 文件。`--collect-only` 仅提取清单，不启动仿真；`--seeds 104 108` 仅重跑指定失败 seed。每轮使用新的输出目录。默认任务为 `single_object_pick_and_place`，GPU 重跑需在沙箱外执行；有失败 episode 时退出码为 1。
 
 ### 单步技能与 CuRobo 调试
 
@@ -102,7 +115,7 @@ uv run python scripts/run_skill_debug.py \
 - 灰色盒体：相机支架。
 - 绿色盒体：另一机械臂。
 
-使用 `<` 和 `>` 浏览实际进入过的 `pre_grasp`、`grasp`、`lift`、`pre_place`、`place`、`retreat`、`clear` 阶段。这些是规划起点的碰撞快照，不是轨迹动画。
+使用 `<` 和 `>` 按进入顺序浏览 `pregrasp`、`grasp`、`lift`、`transport`、`place`、`retreat`、`clear` 及恢复阶段。这些是规划起点的碰撞快照，不是轨迹动画。
 
 ## Episode 回放
 
