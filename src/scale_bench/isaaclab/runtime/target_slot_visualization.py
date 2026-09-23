@@ -33,36 +33,40 @@ def target_slot_line_groups(
         slot_lines: list[Line] = []
         for origin in env_origins_m:
             center = (origin[0] + x_m, origin[1] + y_m, origin[2] + z_m)
-            ring = [
-                (
-                    center[0]
-                    + radius_m * math.cos(2.0 * math.pi * i / segment_count),
-                    center[1]
-                    + radius_m * math.sin(2.0 * math.pi * i / segment_count),
-                    center[2],
+            ring: list[Point] = []
+            for index in range(segment_count):
+                angle = 2.0 * math.pi * index / segment_count
+                ring.append(
+                    (
+                        center[0] + radius_m * math.cos(angle),
+                        center[1] + radius_m * math.sin(angle),
+                        center[2],
+                    )
                 )
-                for i in range(segment_count)
-            ]
             slot_lines.extend(
-                (ring[i], ring[(i + 1) % segment_count])
-                for i in range(segment_count)
+                (ring[index], ring[(index + 1) % segment_count])
+                for index in range(segment_count)
             )
             slot_lines.extend(
                 (
-                    ((center[0] - radius_m, center[1], center[2]),
-                     (center[0] + radius_m, center[1], center[2])),
-                    ((center[0], center[1] - radius_m, center[2]),
-                     (center[0], center[1] + radius_m, center[2])),
+                    (
+                        (center[0] - radius_m, center[1], center[2]),
+                        (center[0] + radius_m, center[1], center[2]),
+                    ),
+                    (
+                        (center[0], center[1] - radius_m, center[2]),
+                        (center[0], center[1] + radius_m, center[2]),
+                    ),
                 )
             )
-        groups.append(
-            (
-                slot_lines,
-                TARGET_SLOT_COLORS[slot_index % len(TARGET_SLOT_COLORS)],
-                5.0,
-            )
-        )
+        color = TARGET_SLOT_COLORS[slot_index % len(TARGET_SLOT_COLORS)]
+        groups.append((slot_lines, color, 5.0))
     return groups
 
 
-__all__ = ["Color", "Line", "Point", "target_slot_line_groups"]
+__all__ = [
+    "Color",
+    "Line",
+    "Point",
+    "target_slot_line_groups",
+]

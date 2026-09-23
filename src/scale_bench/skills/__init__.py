@@ -15,7 +15,7 @@ from .context import (
     SkillContext,
     ToolState,
 )
-from .errors import PlanningError, SkillError
+from .errors import FailureCode, PlanningError, SegmentError, SkillError, StartStateError
 from .executor import (
     CommandActionLayout,
     CommandBatch,
@@ -32,7 +32,8 @@ from .models import (
 )
 from .pick import pick
 from .pick_and_place import pick_and_place
-from .planner import MotionPlanner, OperationSkillPlanner, PickPlan, PlacePlan, SkillPlanner
+from .planner import SkillMotionPlanner
+from .session import SkillSession, SkillSettings
 
 __all__ = [
     "Arm",
@@ -42,20 +43,17 @@ __all__ = [
     "CommandEnvironment",
     "CommandExecutor",
     "EmptyTool",
+    "FailureCode",
     "GraspCandidate",
     "GraspState",
     "HeldObject",
     "Hold",
     "JointState",
     "JointTrajectory",
-    "MotionPlanner",
     "MoveToJoints",
     "MoveToPose",
-    "OperationSkillPlanner",
     "Pick",
     "PickAndPlace",
-    "PickPlan",
-    "PlacePlan",
     "PlanningError",
     "PlanningScene",
     "Pose",
@@ -63,11 +61,15 @@ __all__ = [
     "SceneObject",
     "SceneSnapshot",
     "SetGripper",
+    "SegmentError",
     "SkillCommand",
     "SkillContext",
     "SkillError",
-    "SkillPlanner",
+    "SkillMotionPlanner",
+    "SkillSession",
+    "SkillSettings",
     "SkillRequest",
+    "StartStateError",
     "ToolState",
     "pick",
     "pick_and_place",

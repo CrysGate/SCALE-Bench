@@ -17,7 +17,8 @@ uv run python src/assets_gen/convert_obj_to_usd.py \
   --assets-root ./assets \
   --folders ./assets/vase ./assets/mug \
   --metadata-xlsx ./assets/sample.xlsx \
-  --output-root ./converted-obj
+  --output-root ./converted-obj \
+  --usd-output-root ./converted-usd
 ```
 
 如果不传 `--folders`，默认扫描 `<assets-root>/vase`；如果不传
@@ -36,16 +37,29 @@ uv run python src/assets_gen/convert_obj_to_usd.py \
    `/root` 原点，使刚体 root 表示几何中心。
 5. 在 `/root` 写入刚体、质量和 `scale_x/scale_y/scale_z`；在 collision 网格上设置
    PhysX 凸分解碰撞体；在 `/root` 写入 `real_x/real_y/real_z`。
-6. 保存 `Aligned.usd`，并导出对应的 `Aligned.obj`。
+6. 碰撞网格最多保留 500000 个三角面，凸分解使用 `maxConvexHulls=128`、
+   `errorPercentage=0.01`；视觉网格不做简化。
+7. 保存 `Aligned.usd`，生成 `metadata.json`，将引用的材质资源复制到 `textures/`
+   并改写为相对路径；转换临时文件自动清理。对应的 `Aligned.obj` 导出到独立目录。
 
 单个输入目录中的 USD 输出文件名固定为 `Aligned.usd`。导出的 OBJ 保持相对于
 `--assets-root` 的目录结构，例如：
 
 ```text
 assets/vase/001/model.obj
-assets/vase/001/Aligned.usd
+converted-usd/vase/001/Aligned.usd
+converted-usd/vase/001/metadata.json
+converted-usd/vase/001/textures/
 converted-obj/vase/001/Aligned.obj
 ```
+
+指定 `--usd-output-root` 后，每个资产目录与 Geniesim 示例一致，包含
+`Aligned.usd`、`metadata.json` 和 `textures/`。未指定时仍在源 OBJ 目录输出，
+保留源文件。已有 USD 默认跳过，重新生成包需要 `--force`。
+
+生成的 JSON 使用 `physics.size`（最终 x/y/z 尺寸，单位米）、`physics.mass`
+（实际采用的质量，单位 kg）和 `physics.friction`（与 USD 一致，当前为 1.0）。
+这些值来自当前资产，不复制示例资产的数值。
 
 ## 元数据格式
 
@@ -72,6 +86,7 @@ converted-obj/vase/001/Aligned.obj
 | `--folders PATH ...` | 要扫描的目录 |
 | `--metadata-xlsx PATH` | 元数据工作簿 |
 | `--output-root PATH` | 导出 OBJ 的根目录 |
+| `--usd-output-root PATH` | USD 资产包根目录，保留源目录相对结构 |
 | `--mass KG` | 缺少质量元数据时的回退质量 |
 | `--scale VALUE` | 缺少尺寸元数据时的回退缩放 |
 | `--force` | 覆盖已有 `Aligned.usd` |

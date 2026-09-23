@@ -14,6 +14,18 @@ uv run python scripts/preview_scene.py \
 
 支持的 task 为 `sort_dolls_by_size`、`single_object_pick_and_place` 和 `bubble_tea_cup_800g_pick_and_place`。奶茶杯任务包含一个 800g 目标杯、两个 300g 干扰杯和两个 500g 干扰杯；`--seed` 与 `--layout` 互斥；`--export-layout` 保存本次布局。
 
+使用 Physics Inspector 手动检查机械臂关节：
+
+```bash
+uv run python scripts/preview_scene.py \
+  --task single_object_pick_and_place \
+  --physics-inspector
+```
+
+此模式固定使用 CPU 物理（覆盖 `--device` 和仿真配置中的设备，渲染仍使用 GPU），以兼容 Inspector 的关节驱动接口。加载场景后停止主仿真并打开 Inspector，不再下发环境动作。在 Inspector 中使用 `Select Articulation` 选择机械臂，通过关节滑块检查运动。Inspector 使用局部关节调试仿真，不代表完整任务执行或与整个场景的碰撞验证；无需点击主时间轴的 Play。该模式要求 Kit 图形界面，`--max-steps` 限制界面更新次数。
+
+Inspector 模式同时关闭 Fabric，启用物理状态到 USD 的同步，并在场景初始化完成后启用 authoring。选择机械臂或修改场景后若出现 `Re-Enable authoring`，点击它重新解析场景。调整关节位置请使用 `Joint States Position`（直接改变关节位置）或 `Joint Drives Target Position`（通过驱动运动到目标）；修改 Limits/Gains 只改变约束或驱动参数，不会直接指定新位置。
+
 无界面检查：
 
 ```bash
@@ -38,60 +50,59 @@ uv run python scripts/run_policy_rollout.py \
 
 默认 policy 保持 reset 关节位置，并按 seed 在不同 step 结束。传入 `--left-joint4-offset-rad` 时会执行一次真实 `MoveToJoints` command，用于检查 action adapter。
 
-## 专家数据生成
+## 专家数据采集
 
-`run_demo_generation.py` 支持四种 program：
-
-- `pick`：抓取一个物体。
-- `pick-and-place`：抓取并放置一个物体。
-- `expert`：执行 Task 提供的完整专家程序。
-- `grasp-diagnostics`：只检查 AnyGrasp 候选，不执行运动。
-
-完整 bottle task：
+`run_demo_generation.py` 是专家数据采集客户端：始终执行 Task 提供的完整专家程序并保存 HDF5。默认任务为 `single_object_pick_and_place`，默认步数上限为 1200，默认输出为 `outputs/demonstrations/demo_generation.hdf5`。同名数据集存在时自动增加后缀，结束日志给出实际文件路径。
 
 ```bash
 HEADLESS=1 uv run python scripts/run_demo_generation.py \
   --task single_object_pick_and_place \
-  --program expert \
   --base-seed 101 \
   --num-envs 2 \
-  --episodes 2 \
+  --episodes 3 \
   --max-steps 1200 \
   --viz kit \
   --record-output outputs/bottle-pick-place \
   --dataset-name bottle_pick_place \
-  --record-camera-observations \
-  --replay
+  --record-camera-observations
 ```
 
-seed 范围固定为 `[base-seed, base-seed + episodes)`，增加 `--num-envs` 只改变并行 slot 数。末尾输出成功数量、总数和成功率。
+seed 范围为 `[base-seed, base-seed + episodes)`，`--num-envs` 只改变并行 slot 数；最后一批可以不满。采集成功和失败的 episode 都保留，并记录 success、终止原因和技能语义。退出码为 0 表示全部 episode 成功；存在失败或运行异常时为非零。日志输出每条结果、成功率和实际数据集路径。
 
-需要保存 episode 时增加：
+每个环境拥有独立的 CuRobo 单场景规划器、碰撞场景和 CUDA stream，不同环境的规划请求由工作线程并发求解。规划器保留单场景求解的重试与图搜索能力，同一环境内的运动阶段和候选尝试依次执行。`--num-envs` 决定环境和规划器数量。
+
+启动时在主线程逐个预热规划器并捕获 CUDA Graph，随后才开始并发求解。相机采集和 Isaac 状态读取仍在主线程完成。规划期间暂停仿真，本轮所需命令准备完成后统一步进，避免计算等待时间变成录制中的额外物理步。
+
+`PLAN-INIT` 记录环境数量和初始化预热耗时；`PLAN-PARALLEL` 记录同轮并发请求的环境 ID、数量与耗时；`PLAN-STATS` 汇总请求数、规划成功/失败数、参与并发的请求数以及规划队列与预热耗时。规划请求失败后由技能层决定是否继续尝试候选，规划成功数不等于最终 episode 成功数。增加环境数会增加 GPU 资源需求，显存不足时应降低 `--num-envs`。
+
+省略 `--record-camera-observations` 时记录关节、动作等默认数据；传入时额外保存左腕、右腕和俯视相机的 RGB-D。无显示器采集相机时使用 `HEADLESS=1 --viz kit`，使 reset 阶段生成有效 RTX 帧；`--viz none` 适用于不录制相机的运行。
+
+抓取候选固定读取自物体 USD 同目录的 `grasps.yaml`。机器人通过 `--robot-config` 选择，其 TCP 和关节定义必须与抓取数据匹配。
+
+`--log-file PATH` 追加完整 DEBUG JSONL；省略时只输出终端日志。自定义配置路径相对于当前目录解析，内置配置默认使用仓库中的绝对路径。
+
+### 单步技能与 CuRobo 调试
+
+`run_skill_debug.py` 执行一次 `pick` 或 `pick-and-place`，不写入演示数据集。`--object-name` 省略时使用任务的第一个目标物体。
 
 ```bash
-  --record-output outputs/bottle-pick-place \
-  --dataset-name bottle_pick_place
+uv run python scripts/run_skill_debug.py \
+  --task single_object_pick_and_place \
+  --program pick-and-place \
+  --seed 101 \
+  --visualize-curobo
 ```
 
-需要同时记录左腕、右腕和俯视相机的 RGB-D 时，再增加
-`--record-camera-observations`。不传该开关时只记录关节等默认观测，避免产生大量图像数据；该开关要求同时传入 `--record-output`。无显示器采集相机时必须使用 `HEADLESS=1 --viz kit`，使 reset 阶段的 rerender 生成有效 RTX 帧；`--viz none` 不适用于相机数据采集。
+`--visualize-curobo` 启用 Kit，在执行后浏览实际规划阶段；关闭浏览器后退出。该入口固定使用一个环境、一个 episode，不能将该开关与 `--headless` 或不包含 Kit 的显式 visualizer 配置组合。
 
-`run_demo_generation.py` 使用 CuRobo 规划真实轨迹。默认 `--grasp-source scene` 使用 Scene 中的 AnyGrasp；套娃任务可以传 `--grasp-source catalog` 使用离线候选。
+- 蓝色球：求解机械臂的 collision spheres。
+- 橙色球：夹持物的 collision spheres。
+- 黄色盒体：桌面。
+- 红色盒体：场景物体。
+- 灰色盒体：相机支架。
+- 绿色盒体：另一机械臂。
 
-采集后逐条打开 Kit 回放：
-
-```bash
-uv run python scripts/run_demo_generation.py \
-  --program expert \
-  --record-output outputs/curobo-expert \
-  --dataset-name curobo_expert \
-  --replay \
-  --viz none
-```
-
-`--replay` 要求 `--record-output`。采集与每个 GUI replay 分别运行在独立进程；关闭当前 Kit 窗口后才会启动下一个 episode。
-
-AnyGrasp 设置和诊断命令见 [`docs/anygrasp.md`](../docs/anygrasp.md)。
+使用 `<` 和 `>` 浏览实际进入过的 `pre_grasp`、`grasp`、`lift`、`pre_place`、`place`、`retreat`、`clear` 阶段。这些是规划起点的碰撞快照，不是轨迹动画。
 
 ## Episode 回放
 
@@ -109,14 +120,14 @@ uv run python scripts/replay_episode.py \
 
 ## 浏览 HDF5 录制
 
-`view_hdf5.py` 在本机浏览器中展示多个 episode、三路 RGB-D 相机、录制属性和逐帧状态，并提供同步视频播放：
+`view_hdf5.py` 使用 NiceGUI 在本机浏览器中展示多个 episode、可选的 RGB-D 相机、录制属性和逐帧状态。每个关节都有独立的连续轨迹图，并与视频或纯数据播放同步：
 
 ```bash
 uv run python scripts/view_hdf5.py \
   outputs/bottle-pick-place/bottle_pick_place.hdf5
 ```
 
-打开命令输出的 `http://127.0.0.1:8765`；端口占用时传入 `--port`。浏览器只监听本机回环地址，生成播放视频需要系统已安装 `ffmpeg`，输入数据必须包含成对的 RGB 和 depth 观测。
+打开命令输出的 `http://127.0.0.1:8765`；端口占用时传入 `--port`。浏览器只监听本机回环地址。无相机观测的录制可直接播放关节和逐帧数据；存在相机观测时必须成对包含 RGB 和 depth，且系统需要安装 `ffmpeg` 才能生成播放视频。
 
 ## 导出相机视频
 
@@ -130,19 +141,6 @@ uv run python scripts/export_hdf5_camera_videos.py \
 ```
 
 `--camera` 可选 `left_robot`、`right_robot` 或 `overhead`。默认帧率从记录元数据推导；`--depth-min-m` 和 `--depth-max-m` 只控制深度视频显示范围，不修改原始数据。
-
-## AnyGrasp 服务
-
-`run_anygrasp_service.py` 在安装了 AnyGrasp SDK 的远端环境运行协议 v3 服务：
-
-```bash
-python scripts/run_anygrasp_service.py \
-  --checkpoint_path /absolute/path/to/checkpoint.tar \
-  --host 0.0.0.0 \
-  --port 5001
-```
-
-部署后检查 `GET /health` 返回 `protocol_version: 3`。`run_demo_generation.py --program grasp-diagnostics --open3d` 会先显示实际发送给服务的二维 RGB-D，再显示返回候选的彩色点云。`view_anygrasp_open3d.py` 是该命令启动的隔离查看进程，通常不直接调用。
 
 ## 生成 CuRobo 配置
 

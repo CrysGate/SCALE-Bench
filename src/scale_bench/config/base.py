@@ -17,7 +17,6 @@ Name = Annotated[str, Field(min_length=1)]
 AssetReference = Annotated[str, Field(min_length=1, json_schema_extra={"path_kind": "asset"})]
 OptionalAssetReference = Annotated[str | None, Field(json_schema_extra={"path_kind": "asset"})]
 ConfigReference = Annotated[str, Field(min_length=1, json_schema_extra={"path_kind": "config"})]
-OptionalConfigReference = Annotated[str | None, Field(json_schema_extra={"path_kind": "config"})]
 CameraConvention: TypeAlias = Literal["opengl", "ros", "world"]
 
 Position2: TypeAlias = tuple[FiniteFloat, FiniteFloat]

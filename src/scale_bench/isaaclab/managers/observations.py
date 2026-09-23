@@ -31,8 +31,8 @@ class ObservationsCfg:
         left_robot_camera_depth: ObservationTermCfg | None = None
         right_robot_camera_rgb: ObservationTermCfg | None = None
         right_robot_camera_depth: ObservationTermCfg | None = None
-        overhead_camera_rgb: ObservationTermCfg = MISSING
-        overhead_camera_depth: ObservationTermCfg = MISSING
+        overhead_camera_rgb: ObservationTermCfg | None = None
+        overhead_camera_depth: ObservationTermCfg | None = None
 
         def __post_init__(self) -> None:
             self.concatenate_terms = False
@@ -64,12 +64,9 @@ def build_observations_cfg(
         **_robot_observation_terms("left", left_robot_config),
         **_robot_observation_terms("right", right_robot_config),
     }
-    camera_names = []
-    if left_robot_config.camera is not None:
-        camera_names.append("left_robot_camera")
-    if right_robot_config.camera is not None:
-        camera_names.append("right_robot_camera")
-    camera_names.append("overhead_camera")
+    camera_names = [
+        name for name, cfg in vars(scene_cfg).items() if isinstance(cfg, CameraCfg)
+    ]
     terms.update(_camera_observation_terms(scene_cfg, camera_names))
     return ObservationsCfg(
         policy=ObservationsCfg.PolicyCfg(**terms),

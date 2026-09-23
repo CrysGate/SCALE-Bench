@@ -89,7 +89,6 @@ class _HoldExecution:
 @dataclass(slots=True)
 class _GripperExecution:
     command: SetGripper
-    target: Tensor
     step_index: int = 0
 
 
@@ -104,7 +103,7 @@ _Execution: TypeAlias = _HoldExecution | _GripperExecution | _MotionExecution
 
 
 class CommandExecutor:
-    """Play trajectories and preserve latched gripper targets."""
+    """Play trajectories and preserve latched arm and gripper targets."""
 
     def __init__(self, env: CommandEnvironment, layout: CommandActionLayout) -> None:
         self._env = env
@@ -119,6 +118,11 @@ class CommandExecutor:
 
     def begin(self, env_id: int, command: SkillCommand) -> None:
         hold = self._env.hold_action()
+        # The first command runs after the environment has reset its joints.
+        for arm in ("left", "right"):
+            if (env_id, arm) not in self._arm_targets:
+                start, stop = self._layout.arm_range(arm)
+                self._arm_targets[(env_id, arm)] = hold[env_id, start:stop].clone()
         if isinstance(command, Hold):
             execution: _Execution = _HoldExecution(command)
         elif isinstance(command, SetGripper):
@@ -126,7 +130,7 @@ class CommandExecutor:
                 self._layout.gripper_target(command.arm, closed=command.closed)
             )
             self._gripper_targets[(env_id, command.arm)] = target
-            execution = _GripperExecution(command, target)
+            execution = _GripperExecution(command)
         else:
             targets = command.trajectory.positions
             execution = _MotionExecution(command, targets)
@@ -148,10 +152,6 @@ class CommandExecutor:
                 start, stop = self._layout.arm_range(execution.command.arm)
                 action[env_id, start:stop] = execution.targets[execution.step_index]
                 step_count = execution.targets.shape[0]
-            elif isinstance(execution, _GripperExecution):
-                start, stop = self._layout.gripper_range(execution.command.arm)
-                action[env_id, start:stop] = execution.target
-                step_count = execution.command.steps
             else:
                 step_count = execution.command.steps
 

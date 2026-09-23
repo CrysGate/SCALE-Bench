@@ -19,9 +19,9 @@ from scale_bench.config.models.recording import RecordingConfig
 from scale_bench.config.models.robot import RobotConfig
 from scale_bench.config.models.scene import SceneConfig
 from scale_bench.config.models.simulation import SimulationConfig
+from scale_bench.isaaclab.builders.rigid_object_task import build_rigid_object_assets
 from scale_bench.isaaclab.builders.scene import build_scene_cfg
 from scale_bench.isaaclab.builders.simulation import build_simulation_cfg
-from scale_bench.isaaclab.builders.task import TaskBuilder, resolve_task_builder
 from scale_bench.isaaclab.managers.actions import (
     ActionsCfg,
     ArmActionMode,
@@ -36,6 +36,7 @@ from scale_bench.isaaclab.managers.recorders import build_recorders_cfg
 from scale_bench.isaaclab.mdp.events import ResetTaskLayout
 from scale_bench.tasks.common.layout import TaskLayout
 from scale_bench.tasks.common.placement import PlacementContext
+from scale_bench.tasks.common.rigid_object import RigidObjectTask
 from scale_bench.tasks.common.task import Task
 
 
@@ -64,15 +65,20 @@ def build_environment_cfg(
     task: Task,
     task_layout_seed: int | None = None,
     task_layouts: Sequence[TaskLayout] | None = None,
-    task_builder: TaskBuilder | None = None,
     device: str | None = None,
     num_envs: int | None = None,
     env_spacing_m: float | None = None,
 ) -> ScaleBenchEnvCfg:
     """Build a complete native environment cfg from resolved inputs."""
 
-    if task is None:
-        raise TypeError("task must be a concrete Task")
+    if not isinstance(task, RigidObjectTask):
+        raise TypeError("task must be a RigidObjectTask")
+    if (
+        not environment_config.enable_cameras
+        and recording_config is not None
+        and recording_config.record_camera_observations
+    ):
+        raise ValueError("RGB-D recording requires enable_cameras=True")
     if (task_layout_seed is None) == (task_layouts is None):
         raise ValueError("task requires exactly one of task_layout_seed or task_layouts")
     scene_cfg = build_scene_cfg(
@@ -91,9 +97,7 @@ def build_environment_cfg(
         base_seed=task_layout_seed,
         task_layouts=task_layouts,
     )
-    builder = resolve_task_builder(task, task_builder)
-    asset_cfgs = builder.build_assets(task, layouts[0])
-    _validate_task_asset_names(layouts[0], asset_cfgs)
+    asset_cfgs = build_rigid_object_assets(task, layouts[0])
     _add_task_assets(scene_cfg, asset_cfgs)
     events = EventsCfg(
         task_layout=EventTerm(
@@ -148,21 +152,6 @@ def _add_task_assets(
         )
     for name, asset_cfg in asset_cfgs.items():
         setattr(scene_cfg, name, asset_cfg)
-
-
-def _validate_task_asset_names(
-    layout: TaskLayout,
-    asset_cfgs: Mapping[str, RigidObjectCfg],
-) -> None:
-    expected_names = set(layout.assets)
-    actual_names = set(asset_cfgs)
-    if actual_names != expected_names:
-        missing = sorted(expected_names - actual_names)
-        unexpected = sorted(actual_names - expected_names)
-        raise ValueError(
-            "TaskBuilder assets do not match the task layout; "
-            f"missing={missing}, unexpected={unexpected}"
-        )
 
 
 def _prepare_task_layouts(

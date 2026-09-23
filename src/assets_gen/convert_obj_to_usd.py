@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
+import json
 import math
 import os
 import posixpath
 import re
+import shutil
 import sys
+import tempfile
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,13 +44,15 @@ DEFAULT_OBJ_FILENAME = "Aligned.obj"
 IGNORED_PRIM_NAMES = {"Looks", "PhysicsMaterial", "_materials", "visual", "collision", "root"}
 STAGE_OPEN_MAX_UPDATES = 240
 STAGE_CLOSE_MAX_UPDATES = 60
-COLLISION_TARGET_FACE_COUNT = 300000
+COLLISION_TARGET_FACE_COUNT = 500000
 COLLISION_APPROXIMATION = "convexDecomposition"
-COLLISION_MAX_CONVEX_HULLS = 64
+COLLISION_MAX_CONVEX_HULLS = 128
 COLLISION_HULL_VERTEX_LIMIT = 64
 COLLISION_MIN_THICKNESS = 0.001
 COLLISION_SHRINK_WRAP = True
-COLLISION_ERROR_PERCENTAGE = 0.1
+# USD stores this as float32: 0.01 becomes 0.009999999776, below the
+# convex decomposer's lower bound. Leave a small margin above that bound.
+COLLISION_ERROR_PERCENTAGE = 0.010001
 PHYSICS_FRICTION = 1.0
 DEFAULT_MASS_KG = 0.1
 DEFAULT_SCALE = 1.0
@@ -1253,6 +1259,106 @@ def _remove_partial_outputs(paths: Sequence[Optional[Path]]) -> None:
             print(f"Warning: failed to remove partial output {path}: {exc}")
 
 
+def copy_mdl_module(source: Path, destination: Path) -> None:
+    """Copy an MDL module and its transitive relative module imports.
+
+    Absolute imports (e.g. ::df and ::nvidia) use the runtime's MDL library.
+    Relative imports must retain their module names and directory structure.
+    """
+    visited: set[Tuple[Path, Path]] = set()
+    package_root = destination.parent.resolve()
+
+    def copy_module(module: Path, target: Path) -> None:
+        module, target = module.resolve(), target.resolve()
+        if not target.is_relative_to(package_root):
+            raise ValueError(f"MDL import escapes the material package: {module}")
+        if (module, target) in visited:
+            return
+        visited.add((module, target))
+        text = module.read_text(encoding="utf-8")
+        if target != module:
+            if target.exists() and target.read_bytes() != module.read_bytes():
+                raise ValueError(f"Conflicting MDL dependency: {target}")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(module, target)
+        # Ignore comments before finding import statements. An import may name
+        # a module wildcard or an individual exported symbol.
+        text = re.sub(r"/\*.*?\*/|//[^\n]*", "", text, flags=re.DOTALL)
+        for statement in re.findall(r"\bimport\s+([^;]+);", text):
+            for imported in statement.split(","):
+                imported = imported.strip()
+                if imported.startswith("::"):
+                    continue
+                parts = imported.split("::")[:-1]
+                if not parts:
+                    raise ValueError(f"Unsupported MDL import in {module}: {imported}")
+                relative = Path(*parts).with_suffix(".mdl")
+                dependency = module.parent / relative
+                if not dependency.is_file():
+                    raise FileNotFoundError(f"Missing MDL dependency of {module}: {dependency}")
+                copy_module(dependency, target.parent / relative)
+
+    copy_module(source, destination)
+
+
+def organize_material_resources(stage: Usd.Stage, output_dir: Path) -> None:
+    """Copy material assets into textures/ and author portable relative paths."""
+    texture_dir = output_dir / "textures"
+    texture_dir.mkdir(parents=True, exist_ok=True)
+    copied: Dict[Path, str] = {}
+
+    def localize(value: Sdf.AssetPath) -> Sdf.AssetPath:
+        if not value.path:
+            return value
+        anchored = Sdf.ComputeAssetPathRelativeToLayer(stage.GetRootLayer(), value.path)
+        source = Path(value.resolvedPath or anchored)
+        if not source.is_file():
+            # Built-in MDL modules are resolved by Kit's shader search path.
+            if value.path.endswith(".mdl") and "/" not in value.path:
+                return value
+            raise FileNotFoundError(f"Cannot package material resource: {value.path}")
+        source = source.resolve()
+        if source not in copied:
+            destination = texture_dir / source.name
+            if destination.exists() and destination.resolve() != source:
+                if destination.read_bytes() != source.read_bytes():
+                    digest = hashlib.sha256(source.read_bytes()).hexdigest()[:12]
+                    destination = texture_dir / f"{source.stem}_{digest}{source.suffix}"
+            if source.suffix.lower() == ".mdl":
+                copy_mdl_module(source, destination)
+            elif destination.resolve() != source:
+                shutil.copy2(source, destination)
+            copied[source] = f"./textures/{destination.name}"
+        return Sdf.AssetPath(copied[source])
+
+    for prim in Usd.PrimRange(stage.GetPrimAtPath(MATERIALS_PATH)):
+        for attr in prim.GetAttributes():
+            if attr.GetTypeName() not in (Sdf.ValueTypeNames.Asset, Sdf.ValueTypeNames.AssetArray):
+                continue
+            for time in [Usd.TimeCode.Default(), *attr.GetTimeSamples()]:
+                value = attr.Get(time)
+                if value is None:
+                    continue
+                if attr.GetTypeName() == Sdf.ValueTypeNames.AssetArray:
+                    attr.Set([localize(item) for item in value], time)
+                else:
+                    attr.Set(localize(value), time)
+
+
+def write_asset_metadata(
+    output_dir: Path, dimensions: Dict[str, float], mass_kg: float,
+) -> None:
+    """Write the Geniesim physics schema (size in meters, mass in kg)."""
+    payload = {"physics": {
+        "size": [dimensions[axis] for axis in AXES],
+        "mass": mass_kg,
+        "friction": PHYSICS_FRICTION,
+    }}
+    (output_dir / "metadata.json").write_text(
+        json.dumps(payload, indent=2, allow_nan=False) + "\n", encoding="utf-8",
+    )
+
+
 def _convert_one_asset(
     input_path: Path,
     config: ConversionConfig,
@@ -1265,12 +1371,15 @@ def _convert_one_asset(
 
     export_obj: Optional[Path] = None
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    # Keep converter sidecars and intermediate files out of the final package.
+    temporary = tempfile.TemporaryDirectory(prefix=".obj-to-usd-", dir=output_path.parent)
+    working_usd = Path(temporary.name) / DEFAULT_USD_FILENAME
     try:
-        if not _run_async(loop, convert_asset_to_usd(str(input_path), str(output_path))):
+        if not _run_async(loop, convert_asset_to_usd(str(input_path), str(working_usd))):
             raise RuntimeError("OBJ to USD conversion failed")
 
         metadata = match_metadata(input_path, metadata_records, config.assets_root)
-        stage = open_current_stage(output_path)
+        stage = open_current_stage(working_usd)
         try:
             source_aabb = compute_stage_aabb(stage)
             scale_values, scale_source = resolve_axis_scales(
@@ -1292,9 +1401,13 @@ def _convert_one_asset(
             export_obj.parent.mkdir(parents=True, exist_ok=True)
             if not _run_async(
                 loop,
-                convert_usd_to_obj(str(output_path), str(export_obj)),
+                convert_usd_to_obj(str(working_usd), str(export_obj)),
             ):
                 raise RuntimeError("USD to OBJ conversion failed")
+            organize_material_resources(stage, output_path.parent)
+            if not stage.GetRootLayer().Export(str(output_path)):
+                raise RuntimeError("Failed to export packaged USD")
+            write_asset_metadata(output_path.parent, real_dimensions, mass_kg)
         finally:
             _pump_app_updates(POST_STAGE_UPDATE_COUNT)
             close_current_stage()
@@ -1309,6 +1422,8 @@ def _convert_one_asset(
     except Exception:
         _remove_partial_outputs((output_path, export_obj))
         raise
+    finally:
+        temporary.cleanup()
 
 
 def _print_conversion_result(
@@ -1427,7 +1542,7 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--usd-output-root", type=str, default=None,
-        help="Directory for USD files; defaults to each source OBJ directory.",
+        help="Root for Aligned.usd + metadata.json + textures packages; defaults to each source OBJ directory.",
     )
     parser.add_argument("--mass", type=float, default=None)
     parser.add_argument("--scale", type=float, default=None)

@@ -12,16 +12,16 @@ from scale_bench.config.base import (
     FiniteFloat,
     FrozenModel,
     NonNegativeFloat,
+    NonNegativeInt,
     OptionalAssetReference,
     Position2,
     Position3,
     PositiveFloat,
+    PositiveInt,
     Quaternion,
     UnitIntervalFloat,
     require_unit_quaternion,
 )
-
-
 class RoomConfig(FrozenModel):
     usd_path: AssetReference
     scale: PositiveFloat = 0.5
@@ -50,6 +50,23 @@ class RobotMountConfig(FrozenModel):
 class RobotMountsConfig(FrozenModel):
     left: RobotMountConfig
     right: RobotMountConfig
+
+
+class ManipulationConfig(FrozenModel):
+    lift_height_m: PositiveFloat
+    place_approach_distance_m: PositiveFloat = 0.10
+    retreat_distance_m: PositiveFloat = 0.06
+    retreat_attempts: PositiveInt = 3
+    planner_attempts: PositiveInt = 3
+    grasp_attempts: PositiveInt = 3
+    placement_retries: NonNegativeInt = 2
+    tracking_position_tolerance_m: PositiveFloat = 0.015
+    tracking_orientation_tolerance_rad: PositiveFloat = 0.10
+    tracking_joint_tolerance_rad: PositiveFloat = 0.10
+    grasp_slip_tolerance_m: PositiveFloat = 0.025
+    placement_position_tolerance_m: PositiveFloat = 0.025
+    support_height_tolerance_m: PositiveFloat = 0.015
+    release_joint_tolerance_m: PositiveFloat = 0.005
 
 
 class OverheadCameraConfig(FrozenModel):
@@ -99,6 +116,7 @@ class SceneConfig(FrozenModel):
     table: SurfaceConfig
     task_object_placement_area: TaskObjectPlacementArea
     robot_mounts: RobotMountsConfig
+    manipulation: ManipulationConfig
     camera: OverheadCameraConfig
     lighting: LightingConfig
 

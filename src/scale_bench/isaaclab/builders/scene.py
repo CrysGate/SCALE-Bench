@@ -43,7 +43,7 @@ class DualArmTabletopSceneCfg(InteractiveSceneCfg):
     right_robot: ArticulationCfg = MISSING
     left_robot_camera: CameraCfg | None = MISSING
     right_robot_camera: CameraCfg | None = MISSING
-    overhead_camera: CameraCfg = MISSING
+    overhead_camera: CameraCfg | None = MISSING
     environment_light: AssetBaseCfg = MISSING
 
 
@@ -85,15 +85,27 @@ def build_scene_cfg(
             scene_config.robot_mounts.right,
             table_top_z_m,
         ),
-        left_robot_camera=build_mounted_camera_cfg(
-            left_robot_config,
-            robot_prim_path="{ENV_REGEX_NS}/LeftRobot",
+        left_robot_camera=(
+            build_mounted_camera_cfg(
+                left_robot_config,
+                robot_prim_path="{ENV_REGEX_NS}/LeftRobot",
+            )
+            if environment_config.enable_cameras
+            else None
         ),
-        right_robot_camera=build_mounted_camera_cfg(
-            right_robot_config,
-            robot_prim_path="{ENV_REGEX_NS}/RightRobot",
+        right_robot_camera=(
+            build_mounted_camera_cfg(
+                right_robot_config,
+                robot_prim_path="{ENV_REGEX_NS}/RightRobot",
+            )
+            if environment_config.enable_cameras
+            else None
         ),
-        overhead_camera=_overhead_camera_cfg(scene_config.camera),
+        overhead_camera=(
+            _overhead_camera_cfg(scene_config.camera)
+            if environment_config.enable_cameras
+            else None
+        ),
         environment_light=_light_cfg(scene_config.lighting),
     )
     return scene_cfg

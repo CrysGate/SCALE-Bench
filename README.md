@@ -73,14 +73,15 @@ Run the complete expert path:
 ```bash
 uv run python scripts/run_demo_generation.py \
   --task single_object_pick_and_place \
-  --program expert \
+  --robot-config configs/robots/piper.yml \
   --num-envs 1 \
   --episodes 1 \
   --max-steps 1200 \
+  --record-output outputs/demonstrations \
   --viz none
 ```
 
-The default scene uses an AnyGrasp service. See [the AnyGrasp guide](docs/anygrasp.md) for deployment and diagnostics. Add `--grasp-source catalog` to use the offline nesting-doll catalog.
+Grasp candidates are read from `grasps.yaml` beside each object USD, including its TCP definition and approach distance.
 
 ## Entry Points
 
@@ -88,7 +89,8 @@ The default scene uses an AnyGrasp service. See [the AnyGrasp guide](docs/anygra
 |---|---|
 | `scripts/preview_scene.py` | Preview scenes, inspect layouts, and run bounded checks. |
 | `scripts/run_policy_rollout.py` | Exercise policy rollout, fixed-batch scheduling, and recording. |
-| `scripts/run_demo_generation.py` | Run task skills, CuRobo, and data recording. |
+| `scripts/run_demo_generation.py` | Collect complete task experts into HDF5 datasets. |
+| `scripts/run_skill_debug.py` | Run one skill and inspect CuRobo planning. |
 | `scripts/replay_episode.py` | Restore HDF5 state, replay actions, and re-evaluate. |
 | `scripts/view_hdf5.py` | Inspect recorded episodes, cameras, and state in a browser. |
 | `scripts/export_hdf5_camera_videos.py` | Export RGB and depth videos. |
@@ -98,9 +100,9 @@ See [scripts/README.md](scripts/README.md) for command examples. Run scripts thr
 
 ## Configuration Boundaries
 
-- `configs/robots/`: joints, TCP, actuators, gripper, camera mount, URDF, and grasp catalog.
+- `configs/robots/`: joints, TCP, actuators, gripper, camera mount, and URDF.
 - `configs/cameras/`: image dimensions, outputs, intrinsics, and clipping range.
-- `configs/scene/`: static assets, robot mounts, inference camera, AnyGrasp, and lighting.
+- `configs/scene/`: static assets, robot mounts, cameras, and lighting.
 - `configs/tasks/`: task assets, layout constraints, target slots, and success thresholds.
 - `configs/sim/`: physics timing, gravity, rendering, and justified PhysX overrides.
 - `configs/envs/`: environment count, spacing, control rate, cloning, and reset behavior.
@@ -136,7 +138,6 @@ Planner, grasping, or recorder changes should also run the matching demo-generat
 
 ## Documentation
 
-- [AnyGrasp](docs/anygrasp.md)
 - [Grasp-data generation](src/grasp_data_gen/README.md)
 - [OBJ-to-USD conversion](src/assets_gen/README.md)
 
