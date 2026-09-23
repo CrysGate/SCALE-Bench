@@ -8,8 +8,7 @@ ScaleBench 是一个配置驱动的 Isaac Lab 双臂操作项目。它把机器�
 
 - `sort_dolls_by_size`：将五个套娃按尺寸排列到固定槽位。
 - `single_object_pick_and_place`：将随机位置的 bottle 直立放到固定槽位。
-
-- bubble_tea_cup_800g_pick_and_place：将大号 800g 奶茶杯放入目标槽，同时保留两个 300g 和两个 500g 奶茶杯作为干扰物。
+- `bubble_tea_cup_800g_pick_and_place`：将大号 800g 奶茶杯放入目标槽，同时保留两个 300g 和两个 500g 奶茶杯作为干扰物。
 
 三个任务都支持确定性 seed、layout 导入导出和最终状态评测。专家链路支持 CuRobo 规划，以及 AnyGrasp 在线抓取或机器人配置中的离线抓取 catalog。
 
@@ -83,6 +82,32 @@ uv run python scripts/run_demo_generation.py \
 
 抓取候选读取自物体 USD 同目录的 `grasps.yaml`，包括 TCP 定义和接近距离。
 
+## 复现成功的奶茶杯抓放
+
+以下命令在仓库根目录运行，需要可用的 NVIDIA GPU、上述依赖和本地资产。奶茶杯资产路径位于 `configs/tasks/bubble_tea_cup_800g_pick_and_place.yml`；请根据本机位置修改 USD/metadata 路径。旧抓取文件 `outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml` 也是外部输入，不随 Git 仓库分发。
+
+```bash
+# 无需启动仿真，检查 seed 31 的配置、布局和抓取数据。
+uv run python scripts/run_bubble_tea_demo.py --check-config --seeds 31
+
+# 已验证成功的单次采集；已有同名数据集会自动增加后缀。
+uv run python scripts/run_bubble_tea_demo.py \
+  --viz none --seeds 31 --success-count 1 --max-steps 1200 \
+  --grasp-file outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml \
+  --record-dir outputs/demos/bubble_tea_cup_800g \
+  --dataset-name bubble_tea_seed31
+
+# 把下面的路径替换为采集日志输出的实际 dataset 路径。
+HEADLESS=1 uv run python scripts/replay_episode.py \
+  --task bubble_tea_cup_800g_pick_and_place --viz kit \
+  --camera-config configs/cameras/d435.yml \
+  outputs/demos/bubble_tea_cup_800g/bubble_tea_seed31.hdf5
+```
+
+2026-09-23 的实测结果：320 步后 `success=True`、`termination=goal_reached`，平面位置误差约 4.8 mm、直立角误差约 0.064 rad；原始动作回放也通过成功判定。奶茶杯在松爪后先向上撤离 0.12 m，再回位，成功阈值和碰撞检查未放宽。不同资产、配置或仿真版本可能改变结果，其他 seed 不保证成功。
+
+采集默认保存初态、动作和关节数据，不保存相机图像。如需 RGB-D，将 `--viz none` 换成 `--viz kit --record-cameras` 并设置 `HEADLESS=1`。多 seed 重试与视频导出说明见 [scripts/README.md](scripts/README.md)。
+
 ## 主要入口
 
 | 入口 | 用途 |
@@ -90,6 +115,7 @@ uv run python scripts/run_demo_generation.py \
 | `scripts/preview_scene.py` | 预览场景、检查布局、执行有界运行。 |
 | `scripts/run_policy_rollout.py` | 验证 policy、fixed-batch 调度和记录链路。 |
 | `scripts/run_demo_generation.py` | 执行完整任务专家并采集 HDF5 数据。 |
+| `scripts/run_bubble_tea_demo.py` | 奶茶杯采集、旧抓取文件适配及成功次数控制。 |
 | `scripts/run_skill_debug.py` | 单步技能和 CuRobo 规划调试。 |
 | `scripts/replay_episode.py` | 恢复 HDF5 初态、重放 action 并重新评测。 |
 | `scripts/view_hdf5.py` | 在浏览器中检查录制的 episode、相机和状态。 |
@@ -122,7 +148,13 @@ Episode 运行时分为两条链路：
 
 ## 验证改动
 
-项目不编写单元测试；改动后运行对应的真实链路。最低限度先加载配置，再执行有界环境运行：
+奶茶杯兼容性回归检查不启动仿真：
+
+```bash
+PYTHONPATH=src uv run --with pytest python -m pytest -q tests/test_bubble_tea_compatibility.py
+```
+
+改动后还应运行对应的真实链路。最低限度先加载配置，再执行有界环境运行：
 
 ```bash
 uv run python -c \

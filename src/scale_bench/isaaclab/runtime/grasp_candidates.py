@@ -18,19 +18,27 @@ class IsaacLabGraspCandidates:
         self,
         task: RigidObjectTask,
         robot_configs: Mapping[Arm, RobotConfig],
+        *,
+        grasp_files: Mapping[str, Path] | None = None,
     ) -> None:
-        self._asset_grasps = {
-            (arm, object_name): load_asset_grasps(
-                Path(asset.usd_path), robot_configs[arm]
-            )
-            for arm in ("left", "right")
-            for object_name, asset in task.assets.items()
-        }
+        self._task = task
+        self._robot_configs = dict(robot_configs)
+        self._grasp_files = dict(grasp_files or {})
+        self._asset_grasps: dict[tuple[Arm, str], tuple[GraspCandidate, ...]] = {}
 
     def candidates(
         self, object_name: str, arm: Arm,
     ) -> tuple[GraspCandidate, ...]:
-        candidates = self._asset_grasps[arm, object_name]
+        if object_name not in self._task.assets:
+            raise SkillError(f"unknown task object: {object_name!r}")
+        key = (arm, object_name)
+        if key not in self._asset_grasps:
+            self._asset_grasps[key] = load_asset_grasps(
+                Path(self._task.assets[object_name].usd_path),
+                self._robot_configs[arm],
+                grasp_file=self._grasp_files.get(object_name),
+            )
+        candidates = self._asset_grasps[key]
         if not candidates:
             raise SkillError(
                 f"no valid {object_name!r} grasp for {arm} arm "

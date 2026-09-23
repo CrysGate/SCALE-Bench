@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import model_validator
 
-from scale_bench.config.base import FiniteFloat, Name, Position2
+from scale_bench.config.base import FiniteFloat, Name, Position2, PositiveFloat
 from scale_bench.tasks.common.rigid_object import (
     RigidObjectAssetConfig,
     RigidObjectTaskConfig,
@@ -38,6 +38,7 @@ class BubbleTeaCupPickAndPlaceConfig(RigidObjectTaskConfig):
     ]
     target_slot: BubbleTeaCupTargetSlotConfig
     target_source_y_max_m: FiniteFloat = 0.04
+    release_retreat_height_m: PositiveFloat = 0.12
 
     @model_validator(mode="after")
     def _validate_asset_names(self) -> "BubbleTeaCupPickAndPlaceConfig":

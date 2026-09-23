@@ -66,14 +66,21 @@ class BubbleTeaCup800gPickAndPlace(FixedTargetRigidObjectTask):
         """
 
         max_target_y_m = self.config.target_source_y_max_m
+        last_sampling_error: RuntimeError | None = None
         for retry in range(32):
-            layout = super().generate_layout(context, seed + retry)
+            try:
+                layout = super().generate_layout(context, seed + retry)
+            except RuntimeError as error:
+                # Five cups can exhaust the sampler in the narrower shared
+                # scene. Retry the whole layout, not just the reach-zone test.
+                last_sampling_error = error
+                continue
             if layout.assets[self.target_name].position_m[1] <= max_target_y_m:
                 return layout.model_copy(update={"seed": seed})
         raise RuntimeError(
             "could not sample a reachable target-cup layout after 32 retries; "
             f"requested seed={seed}, target_source_y_max_m={max_target_y_m}"
-        )
+        ) from last_sampling_error
 
     def evaluate(self, observation: EvaluatorObservation) -> PlacementResult:
         """Evaluate only the 800g target cup; distractors are ignored."""
@@ -131,6 +138,8 @@ class BubbleTeaCup800gPickAndPlace(FixedTargetRigidObjectTask):
             # vertical retreat starts; this prevents release impulses from
             # becoming lateral drift on the tabletop.
             release_settle_steps=10,
+            retreat_axis_env=(0.0, 0.0, 1.0),
+            retreat_distance_m=self.config.release_retreat_height_m,
         )
 
 

@@ -42,9 +42,10 @@ portable relative paths rather than machine-specific user paths.
    `/root`; apply PhysX convex-decomposition colliders to the collision mesh;
    then author `real_x/real_y/real_z` on `/root`.
 6. Limit collision geometry to 500000 triangles and use `maxConvexHulls=128`
-   and `errorPercentage=0.01`. Visual geometry is not simplified.
+   and `errorPercentage=0.010001`. Visual geometry is not simplified. The small margin above 0.01
+   avoids float32 rounding below the convex decomposer’s minimum.
 7. Save `Aligned.usd`, generate `metadata.json`, and copy material resources into
-   `textures/` with relative USD references. Converter temporary files are cleaned
+   `textures/` with relative USD references, including transitive relative MDL imports. Converter temporary files are cleaned
    up. Export `Aligned.obj` into the separate OBJ output directory.
 
 Each source directory receives an `Aligned.usd`. Exported OBJ files preserve

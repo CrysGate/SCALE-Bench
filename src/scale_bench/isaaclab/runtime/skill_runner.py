@@ -1,7 +1,10 @@
 """Assemble the real CuRobo/Isaac skill execution path."""
 
-from collections.abc import Mapping, Sequence
-from contextlib import closing
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import closing, contextmanager
+from pathlib import Path
+
+from scale_bench.config.models.robot import RobotConfig
 
 from scale_bench.runtime import (
     BenchmarkScheduler,
@@ -34,10 +37,30 @@ def run_skill_episodes(
     expert_factory: ExpertFactory,
     visualize_curobo: bool,
 ) -> BenchmarkRunResult:
+    with open_skill_runner(
+        env, run, expert_factory=expert_factory, visualize_curobo=visualize_curobo,
+    ) as runner:
+        return BenchmarkScheduler(specs).run(runner)
+
+
+@contextmanager
+def open_skill_runner(
+    env: ScaleBenchEnv,
+    run: TaskRun,
+    *,
+    expert_factory: ExpertFactory,
+    visualize_curobo: bool = False,
+    robot_configs: Mapping[Arm, RobotConfig] | None = None,
+    grasp_files: Mapping[str, Path] | None = None,
+) -> Iterator[DemoGenerationRunner]:
+    """Keep the planning pool alive across successive batches and seed retries."""
+    robots = dict(robot_configs) if robot_configs is not None else {
+        "left": run.robot, "right": run.robot,
+    }
     action_layout = build_command_action_layout(
         env,
-        left_robot_config=run.robot,
-        right_robot_config=run.robot,
+        left_robot_config=robots["left"],
+        right_robot_config=robots["right"],
     )
     arm_base_positions_env_m = {
         arm: (*mount.position_xy_m, run.scene.table_top_z_m)
@@ -49,8 +72,8 @@ def run_skill_episodes(
 
     def build_env_planners(env_id: int) -> Mapping[Arm, CuroboMotionPlanner]:
         return build_curobo_motion_planners(
-            left_robot_config=run.robot,
-            right_robot_config=run.robot,
+            left_robot_config=robots["left"],
+            right_robot_config=robots["right"],
             scene_config=run.scene,
             device=env.device,
             dtype=env.hold_action().dtype,
@@ -81,8 +104,9 @@ def run_skill_episodes(
                 env,
                 run.task,
                 run.scene,
-                {"left": run.robot, "right": run.robot},
+                robots,
                 env_id=state.env_id,
+                grasp_files=grasp_files,
             )
             return QueuedSkillContext(context, pool)
 
@@ -95,18 +119,17 @@ def run_skill_episodes(
                 manipulation=run.scene.manipulation,
                 arm_base_positions_env_m=arm_base_positions_env_m,
                 safe_joint_positions={
-                    arm: tuple(run.robot.initial_joint_positions[name]
-                               for name in run.robot.kinematics.arm_joint_names)
+                    arm: tuple(robots[arm].initial_joint_positions[name]
+                               for name in robots[arm].kinematics.arm_joint_names)
                     for arm in ("left", "right")
                 },
                 gripper_open_positions={
-                    arm: run.robot.gripper.open_positions for arm in ("left", "right")
+                    arm: robots[arm].gripper.open_positions for arm in ("left", "right")
                 },
             ),
             context_factory=context_factory,
             flush_planning=pool.flush,
         )
-        result = BenchmarkScheduler(specs).run(runner)
+        yield runner
         if visualize_curobo:
             pool.planners[0]["left"].browse_captured_stages()
-        return result

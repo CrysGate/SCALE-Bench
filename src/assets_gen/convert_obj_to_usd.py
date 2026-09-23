@@ -1410,6 +1410,7 @@ def _convert_one_asset(
             write_asset_metadata(output_path.parent, real_dimensions, mass_kg)
         finally:
             _pump_app_updates(POST_STAGE_UPDATE_COUNT)
+            stage = None
             close_current_stage()
 
         return ConvertedAsset(

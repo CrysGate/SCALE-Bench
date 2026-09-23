@@ -8,8 +8,7 @@ Three tasks are currently implemented:
 
 - `sort_dolls_by_size`: arrange five nesting dolls in size order at fixed slots.
 - `single_object_pick_and_place`: place a randomly positioned bottle upright at a fixed slot.
-
-- bubble_tea_cup_800g_pick_and_place: place the large 800g cup while leaving two 300g and two 500g cups as distractors.
+- `bubble_tea_cup_800g_pick_and_place`: place the large 800g cup while leaving two 300g and two 500g cups as distractors.
 
 The tasks support deterministic seeds, layout import/export, and final-state evaluation. The expert path supports CuRobo planning with either live AnyGrasp detections or an offline grasp catalog from the robot configuration.
 
@@ -83,6 +82,32 @@ uv run python scripts/run_demo_generation.py \
 
 Grasp candidates are read from `grasps.yaml` beside each object USD, including its TCP definition and approach distance.
 
+## Reproduce the successful bubble-tea demonstration
+
+Run these commands from the repository root with a working NVIDIA GPU, the dependencies above, and the local assets. Update the USD/metadata paths in `configs/tasks/bubble_tea_cup_800g_pick_and_place.yml` for your machine. The legacy grasp file at `outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml` is also an external input and is not distributed in Git.
+
+```bash
+# Validate seed 31, configuration and grasps without starting Isaac.
+uv run python scripts/run_bubble_tea_demo.py --check-config --seeds 31
+
+# Verified successful collection; an existing dataset name receives a suffix.
+uv run python scripts/run_bubble_tea_demo.py \
+  --viz none --seeds 31 --success-count 1 --max-steps 1200 \
+  --grasp-file outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml \
+  --record-dir outputs/demos/bubble_tea_cup_800g \
+  --dataset-name bubble_tea_seed31
+
+# Replace this path with the actual dataset path printed by collection.
+HEADLESS=1 uv run python scripts/replay_episode.py \
+  --task bubble_tea_cup_800g_pick_and_place --viz kit \
+  --camera-config configs/cameras/d435.yml \
+  outputs/demos/bubble_tea_cup_800g/bubble_tea_seed31.hdf5
+```
+
+Verified on 2026-09-23: `success=True`, `termination=goal_reached` after 320 steps, with approximately 4.8 mm planar error and 0.064 rad upright error. Replaying the recorded actions also passed evaluation. The cup task retreats vertically by 0.12 m after release before returning home; success thresholds and collision checks are unchanged. Different assets, configurations or simulator versions can change the result, and other seeds are not guaranteed to succeed.
+
+Collection records initial state, actions and joints by default. For RGB-D, replace `--viz none` with `--viz kit --record-cameras` and set `HEADLESS=1`. See [scripts/README.md](scripts/README.md) for seed retries and video export.
+
 ## Entry Points
 
 | Entry point | Purpose |
@@ -90,6 +115,7 @@ Grasp candidates are read from `grasps.yaml` beside each object USD, including i
 | `scripts/preview_scene.py` | Preview scenes, inspect layouts, and run bounded checks. |
 | `scripts/run_policy_rollout.py` | Exercise policy rollout, fixed-batch scheduling, and recording. |
 | `scripts/run_demo_generation.py` | Collect complete task experts into HDF5 datasets. |
+| `scripts/run_bubble_tea_demo.py` | Collect cup demonstrations with legacy grasps and a success-count goal. |
 | `scripts/run_skill_debug.py` | Run one skill and inspect CuRobo planning. |
 | `scripts/replay_episode.py` | Restore HDF5 state, replay actions, and re-evaluate. |
 | `scripts/view_hdf5.py` | Inspect recorded episodes, cameras, and state in a browser. |
@@ -122,7 +148,13 @@ They share scheduling, evaluation, termination, and recording. HDF5 output conta
 
 ## Validation
 
-The project does not add unit tests; changes are validated through the corresponding real execution path. At minimum, load the configuration and run a bounded environment:
+Run the bubble-tea compatibility regressions without starting the simulator:
+
+```bash
+PYTHONPATH=src uv run --with pytest python -m pytest -q tests/test_bubble_tea_compatibility.py
+```
+
+Also validate changes through the corresponding real execution path. At minimum, load the configuration and run a bounded environment:
 
 ```bash
 uv run python -c \

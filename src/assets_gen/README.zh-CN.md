@@ -38,9 +38,10 @@ uv run python src/assets_gen/convert_obj_to_usd.py \
 5. 在 `/root` 写入刚体、质量和 `scale_x/scale_y/scale_z`；在 collision 网格上设置
    PhysX 凸分解碰撞体；在 `/root` 写入 `real_x/real_y/real_z`。
 6. 碰撞网格最多保留 500000 个三角面，凸分解使用 `maxConvexHulls=128`、
-   `errorPercentage=0.01`；视觉网格不做简化。
+   `errorPercentage=0.010001`；略高于 0.01，避免 float32 舍入后低于凸分解
+   下限。视觉网格不做简化。
 7. 保存 `Aligned.usd`，生成 `metadata.json`，将引用的材质资源复制到 `textures/`
-   并改写为相对路径；转换临时文件自动清理。对应的 `Aligned.obj` 导出到独立目录。
+   并改写为相对路径，同时递归复制 MDL 的相对模块依赖；转换临时文件自动清理。对应的 `Aligned.obj` 导出到独立目录。
 
 单个输入目录中的 USD 输出文件名固定为 `Aligned.usd`。导出的 OBJ 保持相对于
 `--assets-root` 的目录结构，例如：

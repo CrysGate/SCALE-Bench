@@ -17,6 +17,9 @@ target_slot:
 # Piper arms; distractors may still occupy the rest of the tabletop area.
 target_source_y_max_m: 0.04
 
+# Clear the tall cup vertically after release before returning the arm home.
+release_retreat_height_m: 0.12
+
 physics:
   restitution: 0.0
   linear_damping: 0.10
