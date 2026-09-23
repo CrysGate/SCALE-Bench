@@ -235,6 +235,3 @@ docs/plan.md
 /Assets
 /Data
 GraspDataGen/
-# Local asset conversion script
-/src/assets_gen/convert_usd_to_standard_usd.py
-/src/assets_gen/convert_robotwin_to_standard_usd.py
