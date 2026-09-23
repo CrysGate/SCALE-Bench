@@ -56,7 +56,7 @@ class SingleObjectPickAndPlace(FixedTargetRigidObjectTask):
             failure_reason=(
                 None
                 if status.placed
-                else "bottle is outside the fixed target slot"
+                else f"{self.object_name} is outside the fixed target slot"
             ),
             statuses=statuses,
         )

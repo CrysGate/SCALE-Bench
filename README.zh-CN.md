@@ -4,12 +4,14 @@
 
 ScaleBench 是一个配置驱动的 Isaac Lab 双臂操作项目。它把机器人、相机、场景、任务、仿真和环境参数保存在 YAML 中，并提供场景预览、任务评测、专家数据生成、策略运行和 episode 回放入口。
 
-当前包含两个任务：
+当前包含三个任务：
 
 - `sort_dolls_by_size`：将五个套娃按尺寸排列到固定槽位。
 - `single_object_pick_and_place`：将随机位置的 bottle 直立放到固定槽位。
 
-两个任务都支持确定性 seed、layout 导入导出和最终状态评测。专家链路支持 CuRobo 规划，以及 AnyGrasp 在线抓取或机器人配置中的离线抓取 catalog。
+- bubble_tea_cup_800g_pick_and_place：将大号 800g 奶茶杯放入目标槽，同时保留两个 300g 和两个 500g 奶茶杯作为干扰物。
+
+三个任务都支持确定性 seed、layout 导入导出和最终状态评测。专家链路支持 CuRobo 规划，以及 AnyGrasp 在线抓取或机器人配置中的离线抓取 catalog。
 
 ## 环境
 

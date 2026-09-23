@@ -9,8 +9,8 @@
 ## 运行环境
 
 脚本需要 Isaac Sim 6.0.1 及项目依赖。运行时会以 headless 模式启动
-`SimulationApp`，因此不能在 Isaac Sim 运行时初始化之前导入 `pxr`、`omni` 或
-`pymeshlab`。
+`SimulationApp`，因此不能在 Isaac Sim 运行时初始化之前导入 `pxr` 或
+`omni`。
 
 ```bash
 uv run python src/assets_gen/convert_obj_to_usd.py \
@@ -30,14 +30,13 @@ uv run python src/assets_gen/convert_obj_to_usd.py \
 1. 可选地在扫描目录中解压 ZIP。Git LFS pointer 会被识别并跳过，ZIP 成员路径
    会经过目录穿越检查。
 2. 递归查找 OBJ，并按真实路径去重。
-3. 使用 MeshLab 将超过 `--target-faces` 的网格简化。
-4. 使用 Asset Converter 生成 USD，测量源 AABB，并读取匹配的元数据。
-5. 创建固定拓扑：`/root/{_materials,visual,collision}`。源层级变换、物理尺寸缩放
+3. 使用 Asset Converter 直接从原始 OBJ 生成 USD，测量源 AABB，并读取匹配的元数据。
+4. 创建固定拓扑：`/root/{_materials,visual,collision}`。源层级变换、物理尺寸缩放
    和 up-axis 对齐会烘焙进 visual/collision 网格；随后将网格 AABB 中心平移到
    `/root` 原点，使刚体 root 表示几何中心。
-6. 在 `/root` 写入刚体、质量和 `scale_x/scale_y/scale_z`；在 collision 网格上设置
+5. 在 `/root` 写入刚体、质量和 `scale_x/scale_y/scale_z`；在 collision 网格上设置
    PhysX 凸分解碰撞体；在 `/root` 写入 `real_x/real_y/real_z`。
-7. 保存 `Aligned.usd`，并导出对应的 `Aligned.obj`。
+6. 保存 `Aligned.usd`，并导出对应的 `Aligned.obj`。
 
 单个输入目录中的 USD 输出文件名固定为 `Aligned.usd`。导出的 OBJ 保持相对于
 `--assets-root` 的目录结构，例如：
@@ -73,7 +72,6 @@ converted-obj/vase/001/Aligned.obj
 | `--folders PATH ...` | 要扫描的目录 |
 | `--metadata-xlsx PATH` | 元数据工作簿 |
 | `--output-root PATH` | 导出 OBJ 的根目录 |
-| `--target-faces N` | MeshLab 简化的最大面数，默认 `1000` |
 | `--mass KG` | 缺少质量元数据时的回退质量 |
 | `--scale VALUE` | 缺少尺寸元数据时的回退缩放 |
 | `--force` | 覆盖已有 `Aligned.usd` |

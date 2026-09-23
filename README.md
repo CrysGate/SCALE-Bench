@@ -4,12 +4,14 @@
 
 ScaleBench is a configuration-driven Isaac Lab project for dual-arm manipulation. Robot, camera, scene, task, simulation, and environment settings live in validated YAML files. The repository provides scene preview, task evaluation, expert-data generation, policy rollout, and episode replay entry points.
 
-Two tasks are currently implemented:
+Three tasks are currently implemented:
 
 - `sort_dolls_by_size`: arrange five nesting dolls in size order at fixed slots.
 - `single_object_pick_and_place`: place a randomly positioned bottle upright at a fixed slot.
 
-Both tasks support deterministic seeds, layout import/export, and final-state evaluation. The expert path supports CuRobo planning with either live AnyGrasp detections or an offline grasp catalog from the robot configuration.
+- bubble_tea_cup_800g_pick_and_place: place the large 800g cup while leaving two 300g and two 500g cups as distractors.
+
+The tasks support deterministic seeds, layout import/export, and final-state evaluation. The expert path supports CuRobo planning with either live AnyGrasp detections or an offline grasp catalog from the robot configuration.
 
 ## Environment
 

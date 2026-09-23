@@ -1,6 +1,7 @@
 """Preview a task-bound YAML scene in Isaac Sim."""
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 
@@ -11,12 +12,29 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 SUPPORTED_TASK_IDS = (
     "sort_dolls_by_size",
     "single_object_pick_and_place",
+    "bubble_tea_cup_800g_pick_and_place",
 )
 
 from scale_bench.config.loader import load_config
 from scale_bench.config.models.simulation import SimulationConfig
 
 from isaaclab.app import AppLauncher
+
+
+def _cuda_available() -> bool:
+    """Check CUDA in a child process before Kit imports PyTorch."""
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import torch; raise SystemExit(not torch.cuda.is_available())",
+        ],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result.returncode == 0
 
 
 parser = argparse.ArgumentParser()
@@ -104,6 +122,16 @@ if args.device is None:
 if args.rendering_mode is None:
     args.rendering_mode = sim_config.render.rendering_mode
 
+# Keep headless scene checks usable on CPU-only hosts.  AppLauncher sets the
+# requested CUDA device during startup, so the fallback must happen before it
+# is constructed; otherwise a missing driver aborts before the scene loads.
+if args.device.startswith("cuda") and not _cuda_available():
+    print(
+        f"CUDA device '{args.device}' is unavailable; falling back to CPU.",
+        file=sys.stderr,
+    )
+    args.device = "cpu"
+
 preview_overlays_enabled = not args.headless and "kit" in (args.visualizer or ())
 camera_frustum_length_m = args.camera_frustum_length_m
 
@@ -137,6 +165,12 @@ from scale_bench.tasks.single_object_pick_and_place.config import (
 )
 from scale_bench.tasks.single_object_pick_and_place.task import (
     SingleObjectPickAndPlace,
+)
+from scale_bench.tasks.bubble_tea_cup_800g_pick_and_place.task import (
+    BubbleTeaCup800gPickAndPlace,
+)
+from scale_bench.tasks.bubble_tea_cup_800g_pick_and_place.config import (
+    BubbleTeaCupPickAndPlaceConfig,
 )
 from scale_bench.tasks.sort_dolls_by_size.config import SortDollsBySizeConfig
 from scale_bench.tasks.sort_dolls_by_size.task import SortDollsBySize
@@ -300,6 +334,15 @@ def main() -> None:
                 PROJECT_ROOT
                 / "configs/tasks/single_object_pick_and_place.yml",
                 SingleObjectPickAndPlaceConfig,
+                asset_root=args.asset_root,
+            )
+        )
+    elif args.task == "bubble_tea_cup_800g_pick_and_place":
+        task = BubbleTeaCup800gPickAndPlace(
+            load_config(
+                PROJECT_ROOT
+                / "configs/tasks/bubble_tea_cup_800g_pick_and_place.yml",
+                BubbleTeaCupPickAndPlaceConfig,
                 asset_root=args.asset_root,
             )
         )

@@ -10,8 +10,8 @@ independently, and export the aligned geometry as OBJ files.
 ## Requirements
 
 The script requires Isaac Sim 6.0.1 and the project dependencies. It starts
-`SimulationApp` in headless mode. The `pxr`, `omni`, and `pymeshlab` modules
-must therefore be imported only after the Isaac Sim runtime is initialized.
+`SimulationApp` in headless mode. The `pxr` and `omni` modules must therefore
+be imported only after the Isaac Sim runtime is initialized.
 
 ```bash
 uv run python src/assets_gen/convert_obj_to_usd.py \
@@ -31,17 +31,16 @@ portable relative paths rather than machine-specific user paths.
 1. Optionally extract ZIP archives under the input folders. Git LFS pointers
    are skipped, and archive members are checked for path traversal.
 2. Recursively discover OBJ files and deduplicate them by resolved path.
-3. Use MeshLab to simplify meshes that exceed `--target-faces`.
-4. Generate USD with Asset Converter, measure the source AABB, and match the
-   corresponding metadata record.
-5. Create `/root/{_materials,visual,collision}`. Source hierarchy transforms,
+3. Generate USD directly from the original OBJ with Asset Converter, measure
+   the source AABB, and match the corresponding metadata record.
+4. Create `/root/{_materials,visual,collision}`. Source hierarchy transforms,
    physical dimension scaling, and up-axis alignment are baked into the visual
    and collision meshes. The baked mesh AABB is then centered on `/root`, so
    the rigid-body root represents the geometry center.
-6. Author rigid-body properties, mass, and `scale_x/scale_y/scale_z` on
+5. Author rigid-body properties, mass, and `scale_x/scale_y/scale_z` on
    `/root`; apply PhysX convex-decomposition colliders to the collision mesh;
    then author `real_x/real_y/real_z` on `/root`.
-7. Save `Aligned.usd` and export its aligned geometry as `Aligned.obj`.
+6. Save `Aligned.usd` and export its aligned geometry as `Aligned.obj`.
 
 Each source directory receives an `Aligned.usd`. Exported OBJ files preserve
 the directory layout relative to `--assets-root`, for example:
@@ -78,7 +77,6 @@ dimension falls back only for that axis.
 | `--folders PATH ...` | Directories to scan |
 | `--metadata-xlsx PATH` | Metadata workbook |
 | `--output-root PATH` | Root directory for exported OBJ files |
-| `--target-faces N` | MeshLab face limit; defaults to `1000` |
 | `--mass KG` | Fallback mass when metadata is unavailable |
 | `--scale VALUE` | Fallback scale when dimension metadata is unavailable |
 | `--force` | Replace an existing `Aligned.usd` |

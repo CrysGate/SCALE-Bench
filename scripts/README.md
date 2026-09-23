@@ -12,7 +12,7 @@ uv run python scripts/preview_scene.py \
   --seed 42
 ```
 
-支持的 task 为 `sort_dolls_by_size` 和 `single_object_pick_and_place`。`--seed` 与 `--layout` 互斥；`--export-layout` 保存本次布局。
+支持的 task 为 `sort_dolls_by_size`、`single_object_pick_and_place` 和 `bubble_tea_cup_800g_pick_and_place`。奶茶杯任务包含一个 800g 目标杯、两个 300g 干扰杯和两个 500g 干扰杯；`--seed` 与 `--layout` 互斥；`--export-layout` 保存本次布局。
 
 无界面检查：
 

@@ -20,7 +20,7 @@ table:
 
 task_object_placement_area:
   x_range_m: [-0.35, 0.35]
-  y_range_m: [-0.10, 0.10]
+  y_range_m: [-0.20, 0.20]
 
 robot_mounts:
   left:

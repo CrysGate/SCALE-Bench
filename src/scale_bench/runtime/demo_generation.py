@@ -12,13 +12,14 @@ from scale_bench.skills import (
     CommandExecutor,
     Hold,
     Pick,
-    Place,
+    PickAndPlace,
     SkillCommand,
     SkillContext,
     SkillError,
+    SkillPlanner,
     SkillRequest,
     pick,
-    place,
+    pick_and_place,
 )
 
 from .driver import DriverEnvironment, EpisodeDriver
@@ -29,6 +30,7 @@ from .recording import StepSemantics
 
 ExpertFactory = Callable[[EpisodeState], Iterator[SkillRequest]]
 SkillContextFactory = Callable[[EpisodeState], SkillContext]
+SkillPlannerFactory = Callable[[EpisodeState], SkillPlanner]
 
 
 @dataclass(slots=True)
@@ -36,6 +38,7 @@ class _ProgramState:
     episode_id: str
     expert: Iterator[SkillRequest]
     context: SkillContext
+    planner: SkillPlanner
     commands: Iterator[SkillCommand] | None = None
     skill_name: str | None = None
     subgoal: str | None = None
@@ -53,11 +56,13 @@ class DemoGenerationRunner:
         *,
         expert_factory: ExpertFactory,
         context_factory: SkillContextFactory,
+        planner_factory: SkillPlannerFactory,
     ) -> None:
         self._env = env
         self._executor = executor
         self._expert_factory = expert_factory
         self._context_factory = context_factory
+        self._planner_factory = planner_factory
         self._driver = EpisodeDriver(env)
         self._programs: dict[int, _ProgramState] = {}
 
@@ -80,6 +85,7 @@ class DemoGenerationRunner:
                 episode_id=state_by_env_id[env_id].spec.episode_id,
                 expert=self._expert_factory(state_by_env_id[env_id]),
                 context=self._context_factory(state_by_env_id[env_id]),
+                planner=self._planner_factory(state_by_env_id[env_id]),
             )
             for env_id in active_env_ids
         }
@@ -210,12 +216,16 @@ def _next_command(program: _ProgramState) -> SkillCommand | None:
         except StopIteration:
             return None
         if isinstance(request, Pick):
-            program.commands = pick(program.context, request)
+            program.commands = pick(program.context, program.planner, request)
             program.skill_name = "pick"
             program.subgoal = request.object_name
-        elif isinstance(request, Place):
-            program.commands = place(program.context, request)
-            program.skill_name = "place"
+        elif isinstance(request, PickAndPlace):
+            program.commands = pick_and_place(
+                program.context,
+                program.planner,
+                request,
+            )
+            program.skill_name = "pick_and_place"
             program.subgoal = request.object_name
         else:
             raise SkillError(
@@ -227,4 +237,5 @@ __all__ = [
     "DemoGenerationRunner",
     "ExpertFactory",
     "SkillContextFactory",
+    "SkillPlannerFactory",
 ]

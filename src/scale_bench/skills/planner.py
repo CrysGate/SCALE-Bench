@@ -110,10 +110,17 @@ class OperationSkillPlanner:
         motion_planners: Mapping[Arm, MotionPlanner],
         arm_base_positions_env_m: Mapping[Arm, tuple[float, float, float]],
         lift_height_m: float,
+        release_retreat_height_m: float = 0.12,
     ) -> None:
         self._motion_planners = dict(motion_planners)
         self._arm_base_positions_env_m = dict(arm_base_positions_env_m)
         self._lift_height_m = lift_height_m
+        if (
+            not math.isfinite(release_retreat_height_m)
+            or release_retreat_height_m <= 0.0
+        ):
+            raise ValueError("release_retreat_height_m must be positive")
+        self._release_retreat_height_m = release_retreat_height_m
 
     def plan_pick(
         self,
@@ -123,6 +130,37 @@ class OperationSkillPlanner:
     ) -> PickPlan:
         snapshot = context.snapshot()
         source_object = snapshot.object(object_name)
+
+        # Distance is a useful ordering heuristic, but the two Piper mounts
+        # have asymmetric joint-limit and obstacle constraints.  Try the
+        # alternate arm when the nearest one cannot produce a valid plan.
+        if arm == "auto":
+            ordered_arms = tuple(
+                sorted(
+                    ("left", "right"),
+                    key=lambda candidate_arm: sum(
+                        (
+                            object_coordinate_env_m - base_coordinate_env_m
+                        )
+                        ** 2
+                        for object_coordinate_env_m, base_coordinate_env_m in zip(
+                            source_object.pose_env.position_m,
+                            self._arm_base_positions_env_m[candidate_arm],
+                            strict=True,
+                        )
+                    ),
+                )
+            )
+            failures: list[str] = []
+            for candidate_arm in ordered_arms:
+                try:
+                    return self.plan_pick(object_name, candidate_arm, context)
+                except SkillError as error:
+                    failures.append(f"{candidate_arm}: {error}")
+            raise SkillError(
+                f"no arm could reach {object_name!r}; " + "; ".join(failures)
+            )
+
         selected_arm = self._select_arm(arm, source_object)
         try:
             candidates = context.grasp_candidates(object_name, selected_arm)
@@ -142,9 +180,9 @@ class OperationSkillPlanner:
         pick_transit_scene = _planning_scene(
             snapshot,
             selected_arm,
-            snapshot.objects,
+            unmanipulated_objects,
             EmptyTool(),
-        )  # include the object in the current to pre_grasp stage
+        )  # the active object is approached during the pre-grasp segment
         grasp_contact_scene = _planning_scene(
             snapshot,
             selected_arm,
@@ -319,26 +357,29 @@ class OperationSkillPlanner:
     ) -> PlacePlan:
         snapshot = context.snapshot()
         source_object = snapshot.object(request.object_name)
-        target_object_orientations_env_xyzw = _target_object_orientations_env_xyzw(
-            request,
-            grasp.tcp_pose_object,
-            grasp.tcp_pose_env.orientation_xyzw,
-        )
         failures: list[str] = []
-        for target_object_orientation_env_xyzw in target_object_orientations_env_xyzw:
-            try:
-                return self._plan_measured_place(
-                    plan.arm,
-                    source_object,
-                    grasp,
-                    plan.candidate.approach_axis_tcp,
-                    plan.candidate.approach_distance_m,
-                    target_object_orientation_env_xyzw,
-                    request.target_object_pose_env.position_m,
-                    snapshot,
-                )
-            except PlanningError as error:
-                failures.append(f"{error.stage}: {error.reason}")
+        planning_relations = (plan.candidate.tcp_pose_object, grasp.tcp_pose_object)
+        for stable_tcp_pose_object in planning_relations:
+            target_object_orientations_env_xyzw = _target_object_orientations_env_xyzw(
+                request,
+                stable_tcp_pose_object,
+                grasp.tcp_pose_env.orientation_xyzw,
+            )
+            for target_object_orientation_env_xyzw in target_object_orientations_env_xyzw:
+                try:
+                    return self._plan_measured_place(
+                        plan.arm,
+                        source_object,
+                        grasp,
+                        plan.candidate.approach_axis_tcp,
+                        plan.candidate.approach_distance_m,
+                        target_object_orientation_env_xyzw,
+                        request.target_object_pose_env.position_m,
+                        snapshot,
+                        stable_tcp_pose_object,
+                    )
+                except PlanningError as error:
+                    failures.append(f"{error.stage}: {error.reason}")
         raise SkillError(
             f"actual-grasp place planning failed for {request.object_name!r}: "
             + "; ".join(failures)
@@ -354,6 +395,7 @@ class OperationSkillPlanner:
         target_object_orientation_env_xyzw: tuple[float, float, float, float],
         target_object_position_env_m: tuple[float, float, float],
         snapshot: SceneSnapshot,
+        stable_tcp_pose_object: Pose,
     ) -> PlacePlan:
         target_object_pose_env = Pose(
             target_object_position_env_m,
@@ -361,7 +403,7 @@ class OperationSkillPlanner:
         )
         place_tcp_pose_env = compose_pose(
             target_object_pose_env,
-            grasp.tcp_pose_object,
+            stable_tcp_pose_object,
         )
         pre_place_tcp_pose_env = approach_start_pose(
             place_tcp_pose_env,
@@ -384,6 +426,7 @@ class OperationSkillPlanner:
             pre_place_tcp_pose_env,
             held_object_scene,
             "pre_place",
+            tcp_pose_object=stable_tcp_pose_object,
         )
         place = self._move(
             arm,
@@ -391,17 +434,7 @@ class OperationSkillPlanner:
             place_tcp_pose_env,
             held_object_scene,
             "place",
-        )
-        placed_object = SceneObject(
-            source_object.name,
-            target_object_pose_env,
-            source_object.size_m,
-        )
-        released_object_scene = _planning_scene(
-            snapshot,
-            arm,
-            (*unmanipulated_objects, placed_object),
-            EmptyTool(),
+            tcp_pose_object=stable_tcp_pose_object,
         )
         release_contact_scene = _planning_scene(
             snapshot,
@@ -409,23 +442,39 @@ class OperationSkillPlanner:
             unmanipulated_objects,
             EmptyTool(),
         )
+        # Move straight up after opening.  The grasp approach axis is usually
+        # horizontal for this cup, so returning to ``pre_place`` immediately
+        # can drag the still-opening fingers across the cup and tip it.
+        retreat_tcp_pose_env = Pose(
+            offset_z_env(
+                place_tcp_pose_env.position_m,
+                self._release_retreat_height_m,
+            ),
+            place_tcp_pose_env.orientation_xyzw,
+        )
         retreat = self._move(
             arm,
             place.trajectory.end,
-            pre_place_tcp_pose_env,
+            retreat_tcp_pose_env,
             release_contact_scene,
             "retreat",
+            tcp_pose_object=stable_tcp_pose_object,
         )
-        clear_target_joint_state = JointState(
-            retreat.trajectory.end.positions.new_zeros(
-                retreat.trajectory.end.positions.shape
-            )
-        )
+        # Returning all joints to zero can sweep the released cup.  Preserve
+        # the shoulder direction and fold the elbow into a raised, local
+        # clearance pose; the episode does not require a home configuration.
+        clear_positions = retreat.trajectory.end.positions.clone()
+        if clear_positions.numel() >= 3:
+            clear_positions[1] = 0.6
+            clear_positions[2] = -0.6
+        clear_target_joint_state = JointState(clear_positions)
         clear = self._move_joints(
             arm,
             retreat.trajectory.end,
             clear_target_joint_state,
-            released_object_scene,
+            # The cup is released and must not block its own withdrawal;
+            # distractors and the other robot remain in this point-check.
+            release_contact_scene,
             "clear",
         )
         return PlacePlan(arm, pre_place, place, retreat, clear)
@@ -437,13 +486,20 @@ class OperationSkillPlanner:
         target_tcp_pose_env: Pose,
         scene: PlanningScene,
         stage: str,
+        tcp_pose_object: Pose | None = None,
     ) -> MoveToPose:
         try:
-            trajectory = self._motion_planners[arm].plan_pose(
-                start,
-                target_tcp_pose_env,
-                scene,
-            )
+            planner = self._motion_planners[arm]
+            plan_upright = getattr(planner, "plan_upright", None)
+            if tcp_pose_object is not None and plan_upright is not None:
+                trajectory = plan_upright(
+                    start,
+                    target_tcp_pose_env,
+                    tcp_pose_object,
+                    scene,
+                )
+            else:
+                trajectory = planner.plan_pose(start, target_tcp_pose_env, scene)
         except PlanningError as error:
             raise PlanningError(arm, stage, error.reason) from error
         return MoveToPose(arm, target_tcp_pose_env, trajectory, stage)

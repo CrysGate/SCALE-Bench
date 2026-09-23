@@ -6,9 +6,7 @@ import math
 import os
 import posixpath
 import re
-import shutil
 import sys
-import tempfile
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,7 +21,6 @@ asset_converter: Any = None
 carb: Any = None
 omni_usd: Any = None
 PhysxSchema: Any = None
-pymeshlab: Any = None
 Gf: Any = None
 Sdf: Any = None
 Usd: Any = None
@@ -43,6 +40,7 @@ DEFAULT_OBJ_FILENAME = "Aligned.obj"
 IGNORED_PRIM_NAMES = {"Looks", "PhysicsMaterial", "_materials", "visual", "collision", "root"}
 STAGE_OPEN_MAX_UPDATES = 240
 STAGE_CLOSE_MAX_UPDATES = 60
+COLLISION_TARGET_FACE_COUNT = 300000
 COLLISION_APPROXIMATION = "convexDecomposition"
 COLLISION_MAX_CONVEX_HULLS = 64
 COLLISION_HULL_VERTEX_LIMIT = 64
@@ -52,7 +50,6 @@ COLLISION_ERROR_PERCENTAGE = 0.1
 PHYSICS_FRICTION = 1.0
 DEFAULT_MASS_KG = 0.1
 DEFAULT_SCALE = 1.0
-DEFAULT_TARGET_FACES = 1000
 MASS_GRAMS_PER_KILOGRAM = 1000.0
 POST_STAGE_UPDATE_COUNT = 3
 # USD topology and authored custom attributes.
@@ -78,7 +75,7 @@ MERGE_MESHES = True
 
 
 def initialize_isaac_runtime() -> None:
-    global simulation_app, asset_converter, carb, omni_usd, PhysxSchema, pymeshlab
+    global simulation_app, asset_converter, carb, omni_usd, PhysxSchema
     global Gf, Sdf, Usd, UsdGeom, UsdPhysics, UsdShade
     if simulation_app is not None:
         return
@@ -92,7 +89,6 @@ def initialize_isaac_runtime() -> None:
         import carb as carb_module
         import omni.kit.asset_converter as asset_converter_module
         import omni.usd as omni_usd_module
-        import pymeshlab as pymeshlab_module
         from pxr import (
             Gf as gf_module,
             PhysxSchema as physx_schema_module,
@@ -114,7 +110,6 @@ def initialize_isaac_runtime() -> None:
     asset_converter = asset_converter_module
     omni_usd = omni_usd_module
     PhysxSchema = physx_schema_module
-    pymeshlab = pymeshlab_module
     Gf = gf_module
     Sdf = sdf_module
     Usd = usd_module
@@ -132,7 +127,6 @@ def require_isaac_runtime() -> None:
             carb,
             omni_usd,
             PhysxSchema,
-            pymeshlab,
             Gf,
             Sdf,
             Usd,
@@ -188,7 +182,7 @@ class ConversionConfig:
     max_models: int
     force: bool
     extract_zips: bool
-    target_faces: int
+    usd_output_root: Optional[Path] = None
 
 
 @dataclass(frozen=True)
@@ -218,7 +212,7 @@ async def _run_asset_converter(
     if not success:
         carb.log_error(
             "Asset Converter task failed: "
-            f"{task.get_status()} - {task.get_detailed_error()}"
+            f"{task.get_status()} - {task.get_error_message()}"
         )
     return success
 
@@ -549,9 +543,19 @@ def match_metadata(
     candidates: List[AssetMetadata] = []
     if lower_parts and lower_parts[0] in by_name:
         candidates = by_name[lower_parts[0]]
+    elif (
+        lower_parts
+        and lower_parts[0].endswith("_3d")
+        and lower_parts[0][:-3] in by_name
+    ):
+        candidates = by_name[lower_parts[0][:-3]]
     else:
         for name, name_records in by_name.items():
-            if name in lower_parts or obj_path.stem.lower() == name:
+            if (
+                name in lower_parts
+                or f"{name}_3d" in lower_parts
+                or obj_path.stem.lower() == name
+            ):
                 candidates.extend(name_records)
 
     if not candidates:
@@ -798,7 +802,7 @@ def _set_identity_transform(prim: Usd.Prim) -> None:
 
 def _z_up_rotation(source_up_axis: str) -> Gf.Rotation:
     if source_up_axis == UsdGeom.Tokens.z:
-        return Gf.Rotation()
+        return Gf.Rotation(Gf.Vec3d(0.0, 0.0, 1.0), 0.0)
     if source_up_axis == UsdGeom.Tokens.y:
         return Gf.Rotation(Gf.Vec3d(1.0, 0.0, 0.0), 90.0)
     if source_up_axis == UsdGeom.Tokens.x:
@@ -864,6 +868,18 @@ def _bake_mesh_transform(
     _center_mesh_points(mesh, transformed_points)
 
     normals = mesh.GetNormalsAttr().Get(Usd.TimeCode.Default())
+    if normals:
+        import numpy as np
+
+        normal_values = np.asarray(normals, dtype=np.float64)
+        if not np.isfinite(normal_values).all():
+            raise ValueError("Mesh contains non-finite normals")
+        if np.all(np.linalg.norm(normal_values, axis=1) <= 1.0e-12):
+            # Some OBJ exporters author a single zero normal for every face.
+            # Omit these unusable normals so USD consumers generate them.
+            mesh.GetNormalsAttr().Clear()
+            normals = None
+            print(f"Warning: discarded all-zero normals on {mesh_prim.GetPath()}")
     if normals:
         source_normal_matrix = source_to_world.GetInverse().GetTranspose()
         mesh.GetNormalsAttr().Set(
@@ -954,6 +970,71 @@ def _top_level_path(path: Sdf.Path) -> Sdf.Path:
     return prefixes[0]
 
 
+def _create_collision_mesh(stage: Usd.Stage, visual_mesh: UsdGeom.Mesh) -> None:
+    """Simplify a geometry-only copy in the visual mesh's baked coordinates."""
+    import numpy as np
+    import pymeshlab
+
+    points = np.asarray(visual_mesh.GetPointsAttr().Get(), dtype=np.float64)
+    counts = np.asarray(visual_mesh.GetFaceVertexCountsAttr().Get(), dtype=np.int64)
+    indices = np.asarray(visual_mesh.GetFaceVertexIndicesAttr().Get(), dtype=np.int64)
+    if (
+        points.ndim != 2 or points.shape[1] != 3 or not np.isfinite(points).all()
+        or not len(counts) or np.any(counts < 3)
+        or int(counts.sum()) != len(indices)
+        or np.any(indices < 0) or np.any(indices >= len(points))
+    ):
+        raise RuntimeError(f"Invalid collision source geometry: {visual_mesh.GetPath()}")
+
+    holes = set(visual_mesh.GetHoleIndicesAttr().Get() or [])
+    faces = []
+    offset = 0
+    for face_index, count in enumerate(counts):
+        if face_index not in holes:
+            faces.append(indices[offset:offset + count].astype(np.uint32))
+        offset += count
+    if not faces:
+        raise RuntimeError("Collision source has no non-hole faces")
+
+    meshes = pymeshlab.MeshSet()
+    # The polygon constructor triangulates n-gons, including concave faces.
+    meshes.add_mesh(pymeshlab.Mesh(vertex_matrix=points, face_list_of_indices=faces))
+    original_count = meshes.current_mesh().face_number()
+    if original_count > COLLISION_TARGET_FACE_COUNT:
+        # OBJ material/UV seams can duplicate positions. Weld only this copy
+        # before decimation so they do not fragment the collision surface.
+        meshes.meshing_remove_duplicate_vertices()
+        meshes.meshing_decimation_quadric_edge_collapse(
+            targetfacenum=COLLISION_TARGET_FACE_COUNT,
+            preservenormal=True,
+            optimalplacement=True,
+            autoclean=True,
+        )
+    simplified = meshes.current_mesh()
+    face_count = simplified.face_number()
+    if not 0 < face_count <= COLLISION_TARGET_FACE_COUNT:
+        raise RuntimeError(
+            f"Collision simplification produced {face_count} faces; "
+            f"expected 1..{COLLISION_TARGET_FACE_COUNT}"
+        )
+
+    vertices = simplified.vertex_matrix()
+    collision_mesh = UsdGeom.Mesh.Define(stage, f"{COLLISION_PATH}/{MODEL_NAME}")
+    collision_mesh.CreatePointsAttr().Set(vertices.tolist())
+    collision_mesh.CreateFaceVertexCountsAttr().Set([3] * face_count)
+    collision_mesh.CreateFaceVertexIndicesAttr().Set(
+        simplified.face_matrix().reshape(-1).tolist()
+    )
+    collision_mesh.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
+    collision_mesh.CreateOrientationAttr().Set(visual_mesh.GetOrientationAttr().Get())
+    # Never re-center after simplification: both meshes must share one frame.
+    collision_mesh.CreateExtentAttr().Set(
+        [vertices.min(axis=0).tolist(), vertices.max(axis=0).tolist()]
+    )
+    collision_mesh.CreateVisibilityAttr().Set(UsdGeom.Tokens.invisible)
+    print(f"Collision mesh: {original_count} -> {face_count} triangles")
+
+
 def create_standard_structure_and_move_mesh(
     stage: Usd.Stage,
     scale_values: Dict[str, float],
@@ -988,34 +1069,21 @@ def create_standard_structure_and_move_mesh(
         _set_identity_transform(prim)
 
     visual_mesh_path = Sdf.Path(f"{VISUAL_PATH}/{MODEL_NAME}")
-    collision_mesh_path = Sdf.Path(f"{COLLISION_PATH}/{MODEL_NAME}")
-    for destination in (visual_mesh_path, collision_mesh_path):
-        if not Sdf.CopySpec(
-            root_layer,
-            source_mesh.GetPath(),
-            root_layer,
-            destination,
-        ):
-            raise RuntimeError(
-                f"Failed to copy mesh {source_mesh.GetPath()} to {destination}"
-            )
+    if not Sdf.CopySpec(
+        root_layer, source_mesh.GetPath(), root_layer, visual_mesh_path
+    ):
+        raise RuntimeError(f"Failed to copy visual mesh: {source_mesh.GetPath()}")
 
     material_path_map = _copy_materials(stage, materials_prim, source_materials)
-    for destination in (visual_mesh_path, collision_mesh_path):
-        destination_prim = stage.GetPrimAtPath(destination)
-        _remap_property_paths(
-            destination_prim,
-            {
-                source_mesh.GetPath(): destination,
-                **material_path_map,
-            },
-        )
-        _bake_mesh_transform(
-            destination_prim,
-            source_to_world,
-            scale_values,
-            z_up_rotation,
-        )
+    visual_mesh_prim = stage.GetPrimAtPath(visual_mesh_path)
+    _remap_property_paths(
+        visual_mesh_prim,
+        {source_mesh.GetPath(): visual_mesh_path, **material_path_map},
+    )
+    _bake_mesh_transform(
+        visual_mesh_prim, source_to_world, scale_values, z_up_rotation
+    )
+    _create_collision_mesh(stage, UsdGeom.Mesh(visual_mesh_prim))
 
     source_roots = {
         _top_level_path(source_mesh.GetPath()),
@@ -1100,47 +1168,6 @@ def write_real_dimensions(
         stage.GetRootLayer().Save()
 
 
-def simplify_mesh_with_pymeshlab(
-    input_obj: Path,
-    target_faces: int = DEFAULT_TARGET_FACES,
-) -> Optional[Path]:
-    if target_faces <= 0:
-        raise ValueError("target_faces must be greater than zero")
-    try:
-        ms = pymeshlab.MeshSet()
-        ms.load_new_mesh(str(input_obj))
-
-        current_mesh = ms.current_mesh()
-        num_faces = current_mesh.face_number()
-
-        if num_faces <= target_faces:
-            return input_obj
-
-        print(
-            f"  [MeshLab] reducing faces: {input_obj.name} "
-            f"({num_faces} -> {target_faces})"
-        )
-        ms.meshing_decimation_quadric_edge_collapse(
-            targetfacenum=target_faces,
-            preservenormal=True,
-            preserveboundary=True,
-            preservetopology=True,
-            autoclean=True,
-        )
-        temp_dir = Path(tempfile.mkdtemp(prefix="obj-simplify-"))
-        temp_obj = temp_dir / input_obj.name
-        try:
-            ms.save_current_mesh(str(temp_obj))
-        except Exception:
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            raise
-        return temp_obj
-
-    except Exception as exc:
-        print(f"  [MeshLab] process failed {input_obj}: {exc}")
-        return None
-
-
 def build_conversion_config(args: argparse.Namespace) -> ConversionConfig:
     """Convert CLI values into normalized, validated pipeline settings."""
     assets_root = Path(args.assets_root).expanduser().resolve()
@@ -1169,13 +1196,10 @@ def build_conversion_config(args: argparse.Namespace) -> ConversionConfig:
 
     fallback_mass_kg = DEFAULT_MASS_KG if args.mass is None else args.mass
     fallback_scale = DEFAULT_SCALE if args.scale is None else args.scale
-    target_faces = getattr(args, "target_faces", DEFAULT_TARGET_FACES)
     if fallback_mass_kg <= 0:
         raise ValueError("--mass must be greater than zero")
     if fallback_scale <= 0:
         raise ValueError("--scale must be greater than zero")
-    if target_faces <= 0:
-        raise ValueError("--target-faces must be greater than zero")
     if args.max_models < 0:
         raise ValueError("--max-models cannot be negative")
 
@@ -1191,12 +1215,15 @@ def build_conversion_config(args: argparse.Namespace) -> ConversionConfig:
         max_models=args.max_models,
         force=args.force,
         extract_zips=args.extract_zips,
-        target_faces=target_faces,
+        usd_output_root=(
+            Path(args.usd_output_root).expanduser().resolve()
+            if getattr(args, "usd_output_root", None) else None
+        ),
     )
 
 
 def _run_async(loop: asyncio.AbstractEventLoop, coroutine: Any) -> Any:
-    """Run one converter coroutine on the pipeline's dedicated event loop."""
+    """Run one converter coroutine on Kit's event loop."""
     return loop.run_until_complete(coroutine)
 
 
@@ -1209,16 +1236,11 @@ def _export_path(input_path: Path, config: ConversionConfig) -> Path:
     return config.output_root / relative_parent / DEFAULT_OBJ_FILENAME
 
 
-def _cleanup_temporary_mesh(mesh_path: Optional[Path], source_path: Path) -> None:
-    if mesh_path is None or mesh_path == source_path:
-        return
-    try:
-        if mesh_path.exists():
-            mesh_path.unlink()
-        if mesh_path.parent.exists() and mesh_path.parent != source_path.parent:
-            shutil.rmtree(mesh_path.parent)
-    except OSError as exc:
-        print(f"Warning: failed to clean temporary mesh {mesh_path}: {exc}")
+def _usd_output_path(input_path: Path, config: ConversionConfig) -> Path:
+    if config.usd_output_root is None:
+        return input_path.with_name(DEFAULT_USD_FILENAME)
+    relative_parent = _export_path(input_path, config).relative_to(config.output_root).parent
+    return config.usd_output_root / relative_parent / DEFAULT_USD_FILENAME
 
 
 def _remove_partial_outputs(paths: Sequence[Optional[Path]]) -> None:
@@ -1237,17 +1259,14 @@ def _convert_one_asset(
     metadata_records: Sequence[AssetMetadata],
     loop: asyncio.AbstractEventLoop,
 ) -> ConvertedAsset:
-    output_path = input_path.with_name(DEFAULT_USD_FILENAME)
+    output_path = _usd_output_path(input_path, config)
     if output_path.exists() and config.force:
         output_path.unlink()
 
-    mesh_path = simplify_mesh_with_pymeshlab(input_path, config.target_faces)
-    if mesh_path is None:
-        raise RuntimeError("Mesh simplification failed")
-
     export_obj: Optional[Path] = None
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        if not _run_async(loop, convert_asset_to_usd(str(mesh_path), str(output_path))):
+        if not _run_async(loop, convert_asset_to_usd(str(input_path), str(output_path))):
             raise RuntimeError("OBJ to USD conversion failed")
 
         metadata = match_metadata(input_path, metadata_records, config.assets_root)
@@ -1290,8 +1309,6 @@ def _convert_one_asset(
     except Exception:
         _remove_partial_outputs((output_path, export_obj))
         raise
-    finally:
-        _cleanup_temporary_mesh(mesh_path, input_path)
 
 
 def _print_conversion_result(
@@ -1348,33 +1365,31 @@ def asset_convert_pipeline(args: argparse.Namespace) -> None:
     obj_paths = sorted(iter_obj_files(existing_folders))
     print(f"\nFound {len(obj_paths)} OBJ files.")
     converted = skipped_existing = failed = 0
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        for input_path in obj_paths:
-            if config.max_models > 0 and converted >= config.max_models:
-                print(f"Reached max models limit ({config.max_models})")
-                break
+    # AssetConverter schedules file operations on the event loop installed by
+    # Kit. Replacing it here deadlocks conversions that copy textures or write
+    # output through omni.client.
+    loop = asyncio.get_event_loop()
+    for input_path in obj_paths:
+        if config.max_models > 0 and converted >= config.max_models:
+            print(f"Reached max models limit ({config.max_models})")
+            break
 
-            output_path = input_path.with_name(DEFAULT_USD_FILENAME)
-            if output_path.exists() and not config.force:
-                print(f"Skipping existing USD: {output_path}")
-                skipped_existing += 1
-                continue
+        output_path = _usd_output_path(input_path, config)
+        if output_path.exists() and not config.force:
+            print(f"Skipping existing USD: {output_path}")
+            skipped_existing += 1
+            continue
 
-            print(f"\nConverting: {input_path}")
-            try:
-                result = _convert_one_asset(input_path, config, metadata_records, loop)
-                _print_conversion_result(input_path, output_path, result)
-                converted += 1
-            except Exception as exc:
-                failed += 1
-                print(f"--- Failed: {input_path}: {exc}")
-            finally:
-                simulation_app.update()
-    finally:
-        loop.close()
-        asyncio.set_event_loop(None)
+        print(f"\nConverting: {input_path}")
+        try:
+            result = _convert_one_asset(input_path, config, metadata_records, loop)
+            _print_conversion_result(input_path, output_path, result)
+            converted += 1
+        except Exception as exc:
+            failed += 1
+            print(f"--- Failed: {input_path}: {exc}")
+        finally:
+            simulation_app.update()
 
     print(
         "\nSummary: "
@@ -1410,18 +1425,16 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         default=None,
         help=f"Directory for exported OBJ files; defaults to ../{DEFAULT_OUTPUT_DIRECTORY}.",
     )
+    parser.add_argument(
+        "--usd-output-root", type=str, default=None,
+        help="Directory for USD files; defaults to each source OBJ directory.",
+    )
     parser.add_argument("--mass", type=float, default=None)
     parser.add_argument("--scale", type=float, default=None)
     parser.add_argument("--metadata-mass-unit", type=str, default="auto")
     parser.add_argument("--dimension-unit", type=str, default="cm")
     parser.add_argument("--scale-axis", type=str, default="auto")
     parser.add_argument("--max-models", type=int, default=0)
-    parser.add_argument(
-        "--target-faces",
-        type=int,
-        default=DEFAULT_TARGET_FACES,
-        help="Maximum faces passed to MeshLab simplification.",
-    )
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--extract-zips", action="store_true")
     return parser.parse_args(argv)
