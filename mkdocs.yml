@@ -1,0 +1,19 @@
+site_name: ScaleBench
+site_url: https://crysgate.github.io/learn-isaac/
+repo_url: https://github.com/CrysGate/learn-isaac
+repo_name: CrysGate/learn-isaac
+
+theme:
+  name: material
+  language: zh
+  features:
+    - navigation.sections
+    - content.code.copy
+    - search.highlight
+
+nav:
+  - 首页: index.md
+  - 任务:
+      - 套娃排序: tasks/sort_dolls_by_size.md
+      - 单物体抓取与放置: tasks/single_object_pick_and_place.md
+      - 最大物体抓取与放置: tasks/largest_pick_and_place.md
