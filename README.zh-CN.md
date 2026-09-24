@@ -82,29 +82,6 @@ uv run python scripts/run_demo_generation.py \
 
 抓取候选读取自物体 USD 同目录的 `grasps-<机器人name>.yaml`，包括 TCP 定义和接近距离。
 
-## 采集奶茶杯抓放演示
-
-以下命令在仓库根目录运行，需要可用的 NVIDIA GPU、上述依赖和本地资产。奶茶杯资产放在 `Assets/Object/Rigid/bubble_tea_cup/{300g,500g,800g}/` 下。任务配置通过 `objects` 列表声明所有资产，任务根据资产 metadata 中的高度选择最大的杯子。待抓取资产的 USD 同目录需要有 `grasps-<机器人name>.yaml`，例如 `grasps-piper.yaml` 或 `grasps-arx-x5.yaml`；这些文件是外部输入，不随 Git 仓库分发。
-
-```bash
-# 采集 seed 31；已有同名数据集会自动增加后缀。
-uv run python scripts/run_demo_generation.py \
-  --task largest_pick_and_place \
-  --viz none --base-seed 31 --episodes 1 --max-steps 1200 \
-  --record-output outputs/demos/bubble_tea_cup_800g \
-  --dataset-name bubble_tea_seed31
-
-# 把下面的路径替换为采集日志输出的实际 dataset 路径。
-HEADLESS=1 uv run python scripts/replay_episode.py \
-  --task largest_pick_and_place --viz kit \
-  --camera-config configs/cameras/d435.yml \
-  outputs/demos/bubble_tea_cup_800g/bubble_tea_seed31.hdf5
-```
-
-松爪后，公共技能按抓取接近方向反向计算撤离目标，使用 `manipulation.retreat_distance_m` 和自由运动规划，然后返回安全关节位置。采集是否成功取决于资产、配置和 seed。
-
-采集默认保存初态、动作和关节数据，不保存相机图像。如需 RGB-D，将 `--viz none` 换成 `--viz kit --record-camera-observations` 并设置 `HEADLESS=1`。多 episode 采集与视频导出说明见 [scripts/README.md](scripts/README.md)。
-
 ## 主要入口
 
 | 入口 | 用途 |
@@ -144,13 +121,7 @@ Episode 运行时分为两条链路：
 
 ## 验证改动
 
-奶茶杯兼容性回归检查不启动仿真：
-
-```bash
-PYTHONPATH=src uv run --with pytest python -m pytest -q tests/test_bubble_tea_compatibility.py
-```
-
-改动后还应运行对应的真实链路。最低限度先加载配置，再执行有界环境运行：
+改动后运行对应的真实链路。最低限度先加载配置，再执行有界环境运行：
 
 ```bash
 uv run python -c \

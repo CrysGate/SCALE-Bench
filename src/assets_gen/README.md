@@ -9,9 +9,7 @@ independently, and export the aligned geometry as OBJ files.
 
 ## Requirements
 
-The script requires Isaac Sim 6.0.1 and the project dependencies. It starts
-`SimulationApp` in headless mode. The `pxr` and `omni` modules must therefore
-be imported only after the Isaac Sim runtime is initialized.
+Requires Isaac Sim 6.0.1 and the project dependencies.
 
 ```bash
 uv run python src/assets_gen/convert_obj_to_usd.py \
@@ -22,34 +20,15 @@ uv run python src/assets_gen/convert_obj_to_usd.py \
   --usd-output-root ./converted-usd
 ```
 
-When `--folders` is omitted, the script scans `<assets-root>/vase`. When
-`--metadata-xlsx` is omitted, it reads `<assets-root>/sample.xlsx`. The default
-OBJ output directory is `<assets-root>/../rigid assets`. All defaults are
-portable relative paths rather than machine-specific user paths.
+By default, the script scans `<assets-root>/vase`, reads
+`<assets-root>/sample.xlsx`, and exports OBJ files to
+`<assets-root>/../rigid assets`.
 
-## Processing Pipeline
+## Output
 
-1. Optionally extract ZIP archives under the input folders. Git LFS pointers
-   are skipped, and archive members are checked for path traversal.
-2. Recursively discover OBJ files and deduplicate them by resolved path.
-3. Generate USD directly from the original OBJ with Asset Converter, measure
-   the source AABB, and match the corresponding metadata record.
-4. Create `/root/{_materials,visual,collision}`. Source hierarchy transforms,
-   physical dimension scaling, and up-axis alignment are baked into the visual
-   and collision meshes. The baked mesh AABB is then centered on `/root`, so
-   the rigid-body root represents the geometry center.
-5. Author rigid-body properties, mass, and `scale_x/scale_y/scale_z` on
-   `/root`; apply PhysX convex-decomposition colliders to the collision mesh;
-   then author `real_x/real_y/real_z` on `/root`.
-6. Limit collision geometry to 500000 triangles and use `maxConvexHulls=128`
-   and `errorPercentage=0.010001`. Visual geometry is not simplified. The small margin above 0.01
-   avoids float32 rounding below the convex decomposer’s minimum.
-7. Save `Aligned.usd`, generate `metadata.json`, and copy material resources into
-   `textures/` with relative USD references, including transitive relative MDL imports. Converter temporary files are cleaned
-   up. Export `Aligned.obj` into the separate OBJ output directory.
-
-Each source directory receives an `Aligned.usd`. Exported OBJ files preserve
-the directory layout relative to `--assets-root`, for example:
+The script converts each OBJ to an aligned rigid-body USD with collision
+geometry, exports an aligned OBJ, and writes `metadata.json` with the final
+size, mass, and friction. Output paths preserve the layout under `--assets-root`:
 
 ```text
 assets/vase/001/model.obj
@@ -59,16 +38,9 @@ converted-usd/vase/001/textures/
 converted-obj/vase/001/Aligned.obj
 ```
 
-With `--usd-output-root`, each asset package follows the Geniesim layout:
-`Aligned.usd`, `metadata.json`, and `textures/`. Without this option, output stays
-beside the source OBJ and source files are preserved. Existing USD files are
-skipped; use `--force` to regenerate their packages.
-With `--force`, existing files are replaced only after the new package is
-complete; a failed conversion leaves the previous package in place.
-
-Generated JSON contains `physics.size` (final x/y/z dimensions in meters),
-`physics.mass` (the applied mass in kg), and `physics.friction` (matching the USD,
-currently 1.0). Values describe the converted asset, not the reference asset.
+Without `--usd-output-root`, USD output stays beside the source OBJ. Existing
+assets are skipped unless `--force` is set; failed conversions leave previous
+outputs intact.
 
 ## Metadata Format
 
@@ -114,6 +86,5 @@ computed independently for all three axes, and passing a value other than
   an invalid collider.
 - `Aligned.usd` and `Aligned.obj` form one conversion result. A failed reverse
   OBJ export marks the asset as failed rather than reporting partial success.
-- A failed asset does not stop the batch. The final summary reports discovered,
-  converted, skipped, and failed counts. The process exits nonzero if any asset
-  fails to convert.
+- A failed asset does not stop the batch; the process exits nonzero if any
+  asset fails to convert.

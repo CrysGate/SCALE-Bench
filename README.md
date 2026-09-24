@@ -82,29 +82,6 @@ uv run python scripts/run_demo_generation.py \
 
 Grasp candidates are read from `grasps-<robot name>.yaml` beside each object USD, including its TCP definition and approach distance.
 
-## Collect bubble-tea demonstrations
-
-Run these commands from the repository root with a working NVIDIA GPU, the dependencies above, and the local assets. Place the cup assets under `Assets/Object/Rigid/bubble_tea_cup/{300g,500g,800g}/`. The task configuration lists all assets under `objects`; the task selects the largest cup by height using asset metadata. Each manipulated asset requires `grasps-<robot name>.yaml` beside its USD, such as `grasps-piper.yaml` or `grasps-arx-x5.yaml`; these files are external inputs and are not distributed in Git.
-
-```bash
-# Collect seed 31; an existing dataset name receives a suffix.
-uv run python scripts/run_demo_generation.py \
-  --task largest_pick_and_place \
-  --viz none --base-seed 31 --episodes 1 --max-steps 1200 \
-  --record-output outputs/demos/bubble_tea_cup_800g \
-  --dataset-name bubble_tea_seed31
-
-# Replace this path with the actual dataset path printed by collection.
-HEADLESS=1 uv run python scripts/replay_episode.py \
-  --task largest_pick_and_place --viz kit \
-  --camera-config configs/cameras/d435.yml \
-  outputs/demos/bubble_tea_cup_800g/bubble_tea_seed31.hdf5
-```
-
-After release, the shared skill computes a retreat target opposite the grasp approach, plans a free motion using `manipulation.retreat_distance_m`, and returns to the safe joint configuration. Collection success depends on the assets, configuration and seed.
-
-Collection records initial state, actions and joints by default. For RGB-D, replace `--viz none` with `--viz kit --record-camera-observations` and set `HEADLESS=1`. See [scripts/README.md](scripts/README.md) for episode collection and video export.
-
 ## Entry Points
 
 | Entry point | Purpose |
@@ -144,13 +121,7 @@ They share scheduling, evaluation, termination, and recording. HDF5 output conta
 
 ## Validation
 
-Run the bubble-tea compatibility regressions without starting the simulator:
-
-```bash
-PYTHONPATH=src uv run --with pytest python -m pytest -q tests/test_bubble_tea_compatibility.py
-```
-
-Also validate changes through the corresponding real execution path. At minimum, load the configuration and run a bounded environment:
+Validate changes through the corresponding real execution path. At minimum, load the configuration and run a bounded environment:
 
 ```bash
 uv run python -c \
