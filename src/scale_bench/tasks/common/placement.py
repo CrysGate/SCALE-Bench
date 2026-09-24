@@ -61,8 +61,6 @@ def generate_tabletop_layout(
     radii = _footprint_radii(asset_sizes_m)
     rng = random.Random(seed)
     sampling_order = sorted(asset_sizes_m, key=radii.__getitem__, reverse=True)
-    # Keep the RNG alive when discarding a partial layout so the original
-    # seed reproduces the entire sequence of attempts.
     for _ in range(layout_sampling_attempts):
         placements: dict[str, AssetPlacement] = {}
 
