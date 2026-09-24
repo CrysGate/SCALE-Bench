@@ -13,10 +13,6 @@ target_slot:
   height_tolerance_m: 0.02
   upright_tolerance_rad: 0.12
 
-# Keep the manipulated cup inside the stable reach zone of the rear-mounted
-# Piper arms; distractors may still occupy the rest of the tabletop area.
-target_source_y_max_m: 0.04
-
 physics:
   restitution: 0.0
   linear_damping: 0.10

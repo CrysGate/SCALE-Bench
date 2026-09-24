@@ -11,7 +11,6 @@ from scale_bench.tasks.common.fixed_target import (
     PlacementResult,
 )
 from scale_bench.tasks.common.layout import TaskLayout
-from scale_bench.tasks.common.placement import PlacementContext
 from scale_bench.tasks.common.task import EvaluatorObservation
 
 from .config import LargestPickAndPlaceConfig
@@ -42,37 +41,6 @@ class LargestPickAndPlace(FixedTargetRigidObjectTask):
         """Return the large target object, excluding distractors."""
 
         return (self.target_name,)
-
-    def generate_layout(
-        self,
-        context: PlacementContext,
-        seed: int,
-    ) -> TaskLayout:
-        """Sample a layout with the manipulated object inside the front reach zone.
-
-        The scene placement area is shared by several tabletop tasks and is
-        intentionally wide.  A Piper mounted at the back edge cannot reliably
-        reach the rear-most samples, so retry deterministic layout seeds until
-        the target object is in the front zone.  The requested seed remains the
-        public layout identity even when a retry is used internally.
-        """
-
-        max_target_y_m = self.config.target_source_y_max_m
-        last_sampling_error: RuntimeError | None = None
-        for retry in range(32):
-            try:
-                layout = super().generate_layout(context, seed + retry)
-            except RuntimeError as error:
-                # Multiple objects can exhaust the sampler in the narrower shared
-                # scene. Retry the whole layout, not just the reach-zone test.
-                last_sampling_error = error
-                continue
-            if layout.assets[self.target_name].position_m[1] <= max_target_y_m:
-                return layout.model_copy(update={"seed": seed})
-        raise RuntimeError(
-            "could not sample a reachable target-object layout after 32 retries; "
-            f"requested seed={seed}, target_source_y_max_m={max_target_y_m}"
-        ) from last_sampling_error
 
     def evaluate(self, observation: EvaluatorObservation) -> PlacementResult:
         """Evaluate placement of the largest object."""
