@@ -5,10 +5,7 @@ sampling_attempts_per_object: 1000
 success_stability_steps: 10
 
 target_slot:
-  # The right Piper arm has a stable upright-placement branch on this side
-  # of the centreline; the slot stays far enough forward to avoid the wrist
-  # limit reached near the rear table edge.
-  position_xy_m: [-0.15, -0.225]
+  position_xy_m: [0.0, -0.225]
   position_tolerance_m: 0.03
   height_tolerance_m: 0.02
   upright_tolerance_rad: 0.12
