@@ -30,13 +30,6 @@ class LargestPickAndPlaceConfig(RigidObjectTaskConfig):
     objects: tuple[PickObjectConfig, ...] = Field(min_length=1)
     target_slot: TargetSlotConfig
 
-    @model_validator(mode="after")
-    def _validate_asset_names(self) -> "LargestPickAndPlaceConfig":
-        names = tuple(object_asset.name for object_asset in self.objects)
-        if len(names) != len(set(names)):
-            raise ValueError("object asset names must be unique")
-        return self
-
 
 __all__ = [
     "PickObjectConfig",
