@@ -1,7 +1,7 @@
 """Collect complete task experts into one recorded dataset."""
 
 import logging
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -38,12 +38,8 @@ def collect_expert_data(
     *,
     recording: RecordingConfig,
     num_envs: int,
-    grasp_files: Mapping[str, Path],
 ) -> CollectionResult:
-    """Collect task experts; an empty grasp mapping uses asset-local grasps.yaml."""
-    unknown_objects = grasp_files.keys() - run.task.assets.keys()
-    if unknown_objects:
-        raise ValueError(f"unknown task objects in grasp overrides: {sorted(unknown_objects)}")
+    """Execute task-owned experts and return after the dataset is closed."""
     target_layout = run.task.target_layout(
         PlacementContext.from_scene_config(run.scene)
     )
@@ -68,7 +64,6 @@ def collect_expert_data(
         with record_skill_events(dataset_path.with_suffix(".segments.jsonl")):
             result = run_skill_episodes(
                 env, run, specs, expert_factory=expert_factory, visualize_curobo=False,
-                grasp_files=grasp_files,
             )
             for episode in result.episodes.values():
                 LOGGER.log(

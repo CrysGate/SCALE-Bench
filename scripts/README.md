@@ -77,7 +77,7 @@ seed 范围为 `[base-seed, base-seed + episodes)`，`--num-envs` 只改变并�
 
 省略 `--record-camera-observations` 时记录关节、动作等默认数据；传入时额外保存左腕、右腕和俯视相机的 RGB-D。无显示器采集相机时使用 `HEADLESS=1 --viz kit`，使 reset 阶段生成有效 RTX 帧；`--viz none` 适用于不录制相机的运行。
 
-抓取候选默认读取自物体 USD 同目录的 `grasps.yaml`。机器人通过 `--robot-config` 选择，其 TCP 和关节定义必须与抓取数据匹配。
+抓取候选读取自物体 USD 同目录的 `grasps-<机器人name>.yaml`。机器人通过 `--robot-config` 选择，其 TCP 和关节定义必须与抓取数据匹配。
 
 `--log-file PATH` 追加完整 DEBUG JSONL；省略时只输出终端日志。自定义配置路径相对于当前目录解析，内置配置默认使用仓库中的绝对路径。
 
@@ -89,12 +89,11 @@ seed 范围为 `[base-seed, base-seed + episodes)`，`--num-envs` 只改变并�
 uv run python scripts/run_demo_generation.py \
   --task largest_pick_and_place \
   --base-seed 31 --episodes 1 --max-steps 1200 --viz none \
-  --grasp-file bubble_tea_cup_800g_target outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml \
   --record-output outputs/demos/bubble_tea_cup_800g \
   --dataset-name bubble_tea_seed31
 ```
 
-`--grasp-file OBJECT PATH` 为指定物体使用外部抓取文件，可以重复传入以覆盖多个物体；未指定的物体仍读取 USD 同目录的 `grasps.yaml`。上例用于复用奶茶杯的旧抓取数据，也支持紧凑格式。旧格式的 TCP 若与机器人配置共享父坐标系，会转换到当前 TCP 定义；物体、机器人和夹爪关节必须匹配。干扰杯不需要抓取标注。
+抓取文件名中的机器人名称来自机器人配置的 `name` 字段，例如 `piper` 对应 `grasps-piper.yaml`，`arx-x5` 对应 `grasps-arx-x5.yaml`。只为实际抓取的物体加载候选，干扰物不需要抓取标注。
 
 松爪后按抓取接近方向反向计算撤离目标，并使用公共 `manipulation.retreat_distance_m` 和自由运动规划，再返回安全关节位置。录制 RGB-D 时使用 `HEADLESS=1 ... --viz kit --record-camera-observations`。
 

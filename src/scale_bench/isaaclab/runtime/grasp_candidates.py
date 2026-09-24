@@ -18,12 +18,9 @@ class IsaacLabGraspCandidates:
         self,
         task: RigidObjectTask,
         robot_configs: Mapping[Arm, RobotConfig],
-        *,
-        grasp_files: Mapping[str, Path] | None = None,
     ) -> None:
         self._task = task
         self._robot_configs = dict(robot_configs)
-        self._grasp_files = dict(grasp_files or {})
         self._asset_grasps: dict[tuple[Arm, str], tuple[GraspCandidate, ...]] = {}
 
     def candidates(
@@ -36,7 +33,6 @@ class IsaacLabGraspCandidates:
             self._asset_grasps[key] = load_asset_grasps(
                 Path(self._task.assets[object_name].usd_path),
                 self._robot_configs[arm],
-                grasp_file=self._grasp_files.get(object_name),
             )
         candidates = self._asset_grasps[key]
         if not candidates:

@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping
 from dataclasses import asdict
-from pathlib import Path
 
 from scale_bench.config.models.robot import RobotConfig
 from scale_bench.config.models.scene import SceneConfig
@@ -44,7 +43,6 @@ class IsaacLabSkillContext:
         robot_configs: Mapping[Arm, RobotConfig],
         *,
         env_id: int,
-        grasp_files: Mapping[str, Path] | None = None,
     ) -> None:
         if env_id < 0 or env_id >= env.num_envs:
             raise ValueError(f"env_id must be in [0, {env.num_envs})")
@@ -107,7 +105,7 @@ class IsaacLabSkillContext:
                 robot_config,
                 inverse_pose(self._tcp_poses_ee_body[arm]),
             )
-        self._grasps = IsaacLabGraspCandidates(task, robot_configs, grasp_files=grasp_files)
+        self._grasps = IsaacLabGraspCandidates(task, robot_configs)
 
     def snapshot(self) -> SceneSnapshot:
         """Read current robot, static-scene, and task-object geometry."""

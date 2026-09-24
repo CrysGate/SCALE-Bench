@@ -2,7 +2,6 @@
 
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import closing, contextmanager
-from pathlib import Path
 
 from scale_bench.config.models.robot import RobotConfig
 
@@ -36,11 +35,9 @@ def run_skill_episodes(
     *,
     expert_factory: ExpertFactory,
     visualize_curobo: bool,
-    grasp_files: Mapping[str, Path],
 ) -> BenchmarkRunResult:
     with open_skill_runner(
         env, run, expert_factory=expert_factory, visualize_curobo=visualize_curobo,
-        grasp_files=grasp_files,
     ) as runner:
         return BenchmarkScheduler(specs).run(runner)
 
@@ -53,7 +50,6 @@ def open_skill_runner(
     expert_factory: ExpertFactory,
     visualize_curobo: bool = False,
     robot_configs: Mapping[Arm, RobotConfig] | None = None,
-    grasp_files: Mapping[str, Path] | None = None,
 ) -> Iterator[DemoGenerationRunner]:
     """Keep the planning pool alive across successive batches and seed retries."""
     robots = dict(robot_configs) if robot_configs is not None else {
@@ -108,7 +104,6 @@ def open_skill_runner(
                 run.scene,
                 robots,
                 env_id=state.env_id,
-                grasp_files=grasp_files,
             )
             return QueuedSkillContext(context, pool)
 

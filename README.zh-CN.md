@@ -80,18 +80,17 @@ uv run python scripts/run_demo_generation.py \
   --viz none
 ```
 
-抓取候选读取自物体 USD 同目录的 `grasps.yaml`，包括 TCP 定义和接近距离。
+抓取候选读取自物体 USD 同目录的 `grasps-<机器人name>.yaml`，包括 TCP 定义和接近距离。
 
 ## 采集奶茶杯抓放演示
 
-以下命令在仓库根目录运行，需要可用的 NVIDIA GPU、上述依赖和本地资产。奶茶杯资产放在 `Assets/Object/Rigid/bubble_tea_cup/{300g,500g,800g}/` 下。任务配置通过 `objects` 列表声明所有资产，任务根据资产 metadata 中的高度选择最大的杯子。旧抓取文件 `outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml` 也是外部输入，不随 Git 仓库分发。
+以下命令在仓库根目录运行，需要可用的 NVIDIA GPU、上述依赖和本地资产。奶茶杯资产放在 `Assets/Object/Rigid/bubble_tea_cup/{300g,500g,800g}/` 下。任务配置通过 `objects` 列表声明所有资产，任务根据资产 metadata 中的高度选择最大的杯子。待抓取资产的 USD 同目录需要有 `grasps-<机器人name>.yaml`，例如 `grasps-piper.yaml` 或 `grasps-arx-x5.yaml`；这些文件是外部输入，不随 Git 仓库分发。
 
 ```bash
 # 采集 seed 31；已有同名数据集会自动增加后缀。
 uv run python scripts/run_demo_generation.py \
   --task largest_pick_and_place \
   --viz none --base-seed 31 --episodes 1 --max-steps 1200 \
-  --grasp-file bubble_tea_cup_800g_target outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml \
   --record-output outputs/demos/bubble_tea_cup_800g \
   --dataset-name bubble_tea_seed31
 

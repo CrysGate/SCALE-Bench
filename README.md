@@ -80,18 +80,17 @@ uv run python scripts/run_demo_generation.py \
   --viz none
 ```
 
-Grasp candidates are read from `grasps.yaml` beside each object USD, including its TCP definition and approach distance.
+Grasp candidates are read from `grasps-<robot name>.yaml` beside each object USD, including its TCP definition and approach distance.
 
 ## Collect bubble-tea demonstrations
 
-Run these commands from the repository root with a working NVIDIA GPU, the dependencies above, and the local assets. Place the cup assets under `Assets/Object/Rigid/bubble_tea_cup/{300g,500g,800g}/`. The task configuration lists all assets under `objects`; the task selects the largest cup by height using asset metadata. The legacy grasp file at `outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml` is also an external input and is not distributed in Git.
+Run these commands from the repository root with a working NVIDIA GPU, the dependencies above, and the local assets. Place the cup assets under `Assets/Object/Rigid/bubble_tea_cup/{300g,500g,800g}/`. The task configuration lists all assets under `objects`; the task selects the largest cup by height using asset metadata. Each manipulated asset requires `grasps-<robot name>.yaml` beside its USD, such as `grasps-piper.yaml` or `grasps-arx-x5.yaml`; these files are external inputs and are not distributed in Git.
 
 ```bash
 # Collect seed 31; an existing dataset name receives a suffix.
 uv run python scripts/run_demo_generation.py \
   --task largest_pick_and_place \
   --viz none --base-seed 31 --episodes 1 --max-steps 1200 \
-  --grasp-file bubble_tea_cup_800g_target outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml \
   --record-output outputs/demos/bubble_tea_cup_800g \
   --dataset-name bubble_tea_seed31
 
