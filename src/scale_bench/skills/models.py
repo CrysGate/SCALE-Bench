@@ -45,21 +45,6 @@ class PickAndPlace:
     target_object_pose_env: Pose
     grasp_settle_steps: int = 5
     release_settle_steps: int = 5
-    # None retraces the grasp approach. Tasks may request an explicit retreat
-    # direction in environment coordinates, e.g. up to clear a tall cup.
-    retreat_axis_env: tuple[float, float, float] | None = None
-    retreat_distance_m: float | None = None
-
-    def __post_init__(self) -> None:
-        if self.retreat_axis_env is not None:
-            if (len(self.retreat_axis_env) != 3
-                    or any(not math.isfinite(x) for x in self.retreat_axis_env)
-                    or not math.isclose(math.hypot(*self.retreat_axis_env), 1.0, abs_tol=1e-6)):
-                raise ValueError("retreat_axis_env must be a finite unit vector")
-        if self.retreat_distance_m is not None and (
-            not math.isfinite(self.retreat_distance_m) or self.retreat_distance_m <= 0
-        ):
-            raise ValueError("retreat_distance_m must be positive")
 
 
 SkillRequest: TypeAlias = Pick | PickAndPlace

@@ -82,7 +82,7 @@ uv run python scripts/run_demo_generation.py \
 
 抓取候选读取自物体 USD 同目录的 `grasps.yaml`，包括 TCP 定义和接近距离。
 
-## 复现成功的奶茶杯抓放
+## 采集奶茶杯抓放演示
 
 以下命令在仓库根目录运行，需要可用的 NVIDIA GPU、上述依赖和本地资产。奶茶杯资产放在 `Assets/Object/Rigid/bubble_tea_cup/{300g,500g,800g}/` 下。任务配置通过 `objects` 列表声明所有资产，任务根据资产 metadata 中的高度选择最大的杯子。旧抓取文件 `outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml` 也是外部输入，不随 Git 仓库分发。
 
@@ -102,7 +102,7 @@ HEADLESS=1 uv run python scripts/replay_episode.py \
   outputs/demos/bubble_tea_cup_800g/bubble_tea_seed31.hdf5
 ```
 
-2026-09-23 的实测结果：320 步后 `success=True`、`termination=goal_reached`，平面位置误差约 4.8 mm、直立角误差约 0.064 rad；原始动作回放也通过成功判定。奶茶杯在松爪后先向上撤离 0.12 m，再回位，成功阈值和碰撞检查未放宽。不同资产、配置或仿真版本可能改变结果，其他 seed 不保证成功。
+松爪后，公共技能按抓取接近方向反向计算撤离目标，使用 `manipulation.retreat_distance_m` 和自由运动规划，然后返回安全关节位置。采集是否成功取决于资产、配置和 seed。
 
 采集默认保存初态、动作和关节数据，不保存相机图像。如需 RGB-D，将 `--viz none` 换成 `--viz kit --record-camera-observations` 并设置 `HEADLESS=1`。多 episode 采集与视频导出说明见 [scripts/README.md](scripts/README.md)。
 

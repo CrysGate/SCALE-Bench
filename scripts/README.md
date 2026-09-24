@@ -96,7 +96,7 @@ uv run python scripts/run_demo_generation.py \
 
 `--grasp-file OBJECT PATH` 为指定物体使用外部抓取文件，可以重复传入以覆盖多个物体；未指定的物体仍读取 USD 同目录的 `grasps.yaml`。上例用于复用奶茶杯的旧抓取数据，也支持紧凑格式。旧格式的 TCP 若与机器人配置共享父坐标系，会转换到当前 TCP 定义；物体、机器人和夹爪关节必须匹配。干扰杯不需要抓取标注。
 
-奶茶杯松爪后沿环境 Z 轴向上撤离，再返回安全关节位置。任务配置中的 `release_retreat_height_m` 默认是 0.12 m。录制 RGB-D 时使用 `HEADLESS=1 ... --viz kit --record-camera-observations`。
+松爪后按抓取接近方向反向计算撤离目标，并使用公共 `manipulation.retreat_distance_m` 和自由运动规划，再返回安全关节位置。录制 RGB-D 时使用 `HEADLESS=1 ... --viz kit --record-camera-observations`。
 
 ### 单步技能与 CuRobo 调试
 

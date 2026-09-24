@@ -82,7 +82,7 @@ uv run python scripts/run_demo_generation.py \
 
 Grasp candidates are read from `grasps.yaml` beside each object USD, including its TCP definition and approach distance.
 
-## Reproduce the successful bubble-tea demonstration
+## Collect bubble-tea demonstrations
 
 Run these commands from the repository root with a working NVIDIA GPU, the dependencies above, and the local assets. Place the cup assets under `Assets/Object/Rigid/bubble_tea_cup/{300g,500g,800g}/`. The task configuration lists all assets under `objects`; the task selects the largest cup by height using asset metadata. The legacy grasp file at `outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml` is also an external input and is not distributed in Git.
 
@@ -102,7 +102,7 @@ HEADLESS=1 uv run python scripts/replay_episode.py \
   outputs/demos/bubble_tea_cup_800g/bubble_tea_seed31.hdf5
 ```
 
-Verified on 2026-09-23: `success=True`, `termination=goal_reached` after 320 steps, with approximately 4.8 mm planar error and 0.064 rad upright error. Replaying the recorded actions also passed evaluation. The cup task retreats vertically by 0.12 m after release before returning home; success thresholds and collision checks are unchanged. Different assets, configurations or simulator versions can change the result, and other seeds are not guaranteed to succeed.
+After release, the shared skill computes a retreat target opposite the grasp approach, plans a free motion using `manipulation.retreat_distance_m`, and returns to the safe joint configuration. Collection success depends on the assets, configuration and seed.
 
 Collection records initial state, actions and joints by default. For RGB-D, replace `--viz none` with `--viz kit --record-camera-observations` and set `HEADLESS=1`. See [scripts/README.md](scripts/README.md) for episode collection and video export.
 

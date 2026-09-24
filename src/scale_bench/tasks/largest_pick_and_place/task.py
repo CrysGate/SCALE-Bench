@@ -126,12 +126,9 @@ class LargestPickAndPlace(FixedTargetRigidObjectTask):
                     self.target_name
                 ].orientation_xyzw,
             ),
-            # Let the opened fingers settle clear of the object before the
-            # vertical retreat starts; this prevents release impulses from
-            # becoming lateral drift on the tabletop.
+            # Let the opened fingers settle before retreat to limit lateral
+            # drift from release impulses.
             release_settle_steps=10,
-            retreat_axis_env=(0.0, 0.0, 1.0),
-            retreat_distance_m=self.config.release_retreat_height_m,
         )
 
 

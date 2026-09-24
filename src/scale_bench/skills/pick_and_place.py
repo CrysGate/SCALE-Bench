@@ -131,8 +131,14 @@ async def pick_and_place(session: SkillSession, request: PickAndPlace) -> AsyncI
         break
 
     for attempt in range(session.config.retreat_attempts):
-        async for command in _release_retreat(
-            session, request, arm, selected.candidate.approach_axis_tcp,
+        snapshot = session.context.snapshot()
+        retreat_tcp_pose_env = approach_start_pose(
+            snapshot.robot(arm).tcp_pose_env,
+            selected.candidate.approach_axis_tcp,
+            session.config.retreat_distance_m,
+        )
+        async for command in session.move_free(
+            arm, retreat_tcp_pose_env, contact_scene(snapshot, arm, object_name),
             "retreat" if attempt == 0 else "recover_retreat",
         ):
             yield command
@@ -153,30 +159,6 @@ async def pick_and_place(session: SkillSession, request: PickAndPlace) -> AsyncI
             session.recovery(error, attempt + 1)
             continue
         break
-
-
-async def _release_retreat(
-    session: SkillSession, request: PickAndPlace, arm: Arm,
-    approach_axis_tcp: tuple[float, float, float], stage: str,
-) -> AsyncIterator[SkillCommand]:
-    snapshot = session.context.snapshot()
-    tcp_pose_env = snapshot.robot(arm).tcp_pose_env
-    scene = contact_scene(snapshot, arm, request.object_name)
-    distance = request.retreat_distance_m or session.config.retreat_distance_m
-    if request.retreat_axis_env is None:
-        motion = session.move_free(
-            arm, approach_start_pose(tcp_pose_env, approach_axis_tcp, distance), scene, stage,
-        )
-    else:
-        target = Pose(
-            tuple(position + distance * direction for position, direction in zip(
-                tcp_pose_env.position_m, request.retreat_axis_env, strict=True,
-            )),
-            tcp_pose_env.orientation_xyzw,
-        )
-        motion = session.move_linear(arm, target, scene, request.retreat_axis_env, stage)
-    async for command in motion:
-        yield command
 
 
 async def _select_placement(
