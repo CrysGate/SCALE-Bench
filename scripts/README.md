@@ -93,9 +93,7 @@ uv run python scripts/run_demo_generation.py \
   --dataset-name bubble_tea_seed31
 ```
 
-抓取文件名中的机器人名称来自机器人配置的 `name` 字段，例如 `piper` 对应 `grasps-piper.yaml`，`arx-x5` 对应 `grasps-arx-x5.yaml`。只为实际抓取的物体加载候选，干扰物不需要抓取标注。
-
-松爪后按抓取接近方向反向计算撤离目标，并使用公共 `manipulation.retreat_distance_m` 和自由运动规划，再返回安全关节位置。录制 RGB-D 时使用 `HEADLESS=1 ... --viz kit --record-camera-observations`。
+录制 RGB-D 时使用 `HEADLESS=1 ... --viz kit --record-camera-observations`。
 
 ### 单步技能与 CuRobo 调试
 
