@@ -143,10 +143,9 @@ class FixedTargetRigidObjectTask(RigidObjectTask, ABC):
         source_layout: TaskLayout,
         target_layout: TaskLayout,
     ) -> Iterator[SkillRequest]:
-        """Move every object to its fixed slot while preserving its orientation."""
+        """Move each target object to its fixed slot while preserving orientation."""
 
         self.validate_asset_layout(source_layout)
-        self.validate_asset_layout(target_layout)
         for object_name in self.target_object_order:
             source_object_placement = source_layout.assets[object_name]
             target_object_placement = target_layout.assets[object_name]

@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from typing import ClassVar
 
-from scale_bench.skills.models import PickAndPlace, Pose
 from scale_bench.tasks.common.fixed_target import (
     FixedTargetRigidObjectTask,
     PlacementResult,
 )
-from scale_bench.tasks.common.layout import TaskLayout
 from scale_bench.tasks.common.task import EvaluatorObservation
 
 from .config import LargestPickAndPlaceConfig
@@ -42,7 +39,10 @@ class LargestPickAndPlace(FixedTargetRigidObjectTask):
 
         return (self.target_name,)
 
-    def evaluate(self, observation: EvaluatorObservation) -> PlacementResult:
+    def evaluate(
+        self,
+        observation: EvaluatorObservation,
+    ) -> PlacementResult:
         """Evaluate placement of the largest object."""
 
         status = self._placement_statuses(observation)[0]
@@ -60,37 +60,6 @@ class LargestPickAndPlace(FixedTargetRigidObjectTask):
                 else f"{self.target_name} is outside the fixed target slot"
             ),
             statuses=(status,),
-        )
-
-    def expert(
-        self,
-        *,
-        source_layout: TaskLayout,
-        target_layout: TaskLayout,
-    ) -> Iterator[PickAndPlace]:
-        """Generate a pick-and-place request for the target object only."""
-
-        self.validate_asset_layout(source_layout)
-        if target_layout.task_id != self.task_id:
-            raise ValueError(
-                f"layout task_id {target_layout.task_id!r} does not match "
-                f"{self.task_id!r}"
-            )
-        try:
-            target_placement = target_layout.assets[self.target_name]
-        except KeyError as error:
-            raise ValueError(
-                f"target layout does not contain {self.target_name!r}"
-            ) from error
-        yield PickAndPlace(
-            object_name=self.target_name,
-            arm="auto",
-            target_object_pose_env=Pose(
-                position_m=target_placement.position_m,
-                orientation_xyzw=source_layout.assets[
-                    self.target_name
-                ].orientation_xyzw,
-            ),
         )
 
 
