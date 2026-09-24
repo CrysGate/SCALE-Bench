@@ -1,11 +1,11 @@
 instruction: "Pick up the largest bubble tea cup and place it upright in the fixed target slot."
 spawn_clearance_m: 0.003
-minimum_object_gap_m: 0.02
+minimum_object_gap_m: 0.08
 sampling_attempts_per_object: 1000
 success_stability_steps: 10
 
 target_slot:
-  position_xy_m: [0.0, -0.225]
+  position_xy_m: [0.0, -0.25]
 
 physics:
   restitution: 0.0
