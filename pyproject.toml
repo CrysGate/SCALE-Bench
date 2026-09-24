@@ -30,7 +30,6 @@ dependencies = [
     "pyyaml",
     "rich",
     "nicegui",
-    "rerun-sdk",
 ]
 
 [build-system]
