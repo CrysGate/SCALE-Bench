@@ -57,6 +57,7 @@ converted-obj/vase/001/Aligned.obj
 指定 `--usd-output-root` 后，每个资产目录与 Geniesim 示例一致，包含
 `Aligned.usd`、`metadata.json` 和 `textures/`。未指定时仍在源 OBJ 目录输出，
 保留源文件。已有 USD 默认跳过，重新生成包需要 `--force`。
+使用 `--force` 时，新包转换完成后才替换旧文件；转换失败保留旧包。
 
 生成的 JSON 使用 `physics.size`（最终 x/y/z 尺寸，单位米）、`physics.mass`
 （实际采用的质量，单位 kg）和 `physics.friction`（与 USD 一致，当前为 1.0）。
@@ -104,4 +105,4 @@ converted-obj/vase/001/Aligned.obj
 - `Aligned.usd` 和 `Aligned.obj` 是同一批处理结果的一对文件。反向 OBJ 导出失败
   会将该资产计为失败，而不会报告为成功。
 - 失败资产不会中断后续资产处理；程序结束时会输出找到、成功、跳过和
-  失败数量。
+  失败数量。只要有资产转换失败，进程就返回非零退出码。

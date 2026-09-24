@@ -1249,17 +1249,7 @@ def _usd_output_path(input_path: Path, config: ConversionConfig) -> Path:
     return config.usd_output_root / relative_parent / DEFAULT_USD_FILENAME
 
 
-def _remove_partial_outputs(paths: Sequence[Optional[Path]]) -> None:
-    for path in paths:
-        if path is None:
-            continue
-        try:
-            path.unlink(missing_ok=True)
-        except OSError as exc:
-            print(f"Warning: failed to remove partial output {path}: {exc}")
-
-
-def copy_mdl_module(source: Path, destination: Path) -> None:
+def copy_mdl_module(source: Path, destination: Path) -> set[Path]:
     """Copy an MDL module and its transitive relative module imports.
 
     Absolute imports (e.g. ::df and ::nvidia) use the runtime's MDL library.
@@ -1299,13 +1289,17 @@ def copy_mdl_module(source: Path, destination: Path) -> None:
                 copy_module(dependency, target.parent / relative)
 
     copy_module(source, destination)
+    return {target for _, target in visited}
 
 
-def organize_material_resources(stage: Usd.Stage, output_dir: Path) -> None:
+def organize_material_resources(
+    stage: Usd.Stage, output_dir: Path, published_dir: Path,
+) -> set[Path]:
     """Copy material assets into textures/ and author portable relative paths."""
     texture_dir = output_dir / "textures"
     texture_dir.mkdir(parents=True, exist_ok=True)
     copied: Dict[Path, str] = {}
+    resources: set[Path] = set()
 
     def localize(value: Sdf.AssetPath) -> Sdf.AssetPath:
         if not value.path:
@@ -1320,14 +1314,24 @@ def organize_material_resources(stage: Usd.Stage, output_dir: Path) -> None:
         source = source.resolve()
         if source not in copied:
             destination = texture_dir / source.name
-            if destination.exists() and destination.resolve() != source:
-                if destination.read_bytes() != source.read_bytes():
-                    digest = hashlib.sha256(source.read_bytes()).hexdigest()[:12]
-                    destination = texture_dir / f"{source.stem}_{digest}{source.suffix}"
+            published = published_dir / "textures" / destination.name
+            if any(
+                path.exists() and path.read_bytes() != source.read_bytes()
+                for path in (destination, published) if path.resolve() != source
+            ):
+                digest = hashlib.sha256(source.read_bytes()).hexdigest()[:12]
+                destination = texture_dir / f"{source.stem}_{digest}{source.suffix}"
+                published = published_dir / "textures" / destination.name
+                if any(
+                    path.exists() and path.read_bytes() != source.read_bytes()
+                    for path in (destination, published) if path.resolve() != source
+                ):
+                    raise ValueError(f"Conflicting material resource: {destination}")
             if source.suffix.lower() == ".mdl":
-                copy_mdl_module(source, destination)
+                resources.update(copy_mdl_module(source, destination))
             elif destination.resolve() != source:
                 shutil.copy2(source, destination)
+            resources.add(destination.resolve())
             copied[source] = f"./textures/{destination.name}"
         return Sdf.AssetPath(copied[source])
 
@@ -1343,6 +1347,7 @@ def organize_material_resources(stage: Usd.Stage, output_dir: Path) -> None:
                     attr.Set([localize(item) for item in value], time)
                 else:
                     attr.Set(localize(value), time)
+    return resources
 
 
 def write_asset_metadata(
@@ -1359,6 +1364,34 @@ def write_asset_metadata(
     )
 
 
+def _publish_asset(
+    working_dir: Path, output_path: Path, export_obj: Path,
+    material_resources: set[Path],
+) -> None:
+    working_obj = working_dir / "obj" / DEFAULT_OBJ_FILENAME
+    if not working_obj.is_file():
+        raise FileNotFoundError(f"Missing conversion output: {working_obj}")
+    resources = [
+        (source, output_path.parent / source.relative_to(working_dir))
+        for source in sorted(material_resources)
+    ]
+    for source, destination in resources:
+        if destination.exists() and destination.read_bytes() != source.read_bytes():
+            raise ValueError(f"Conflicting material resource: {destination}")
+    for source, destination in resources:
+        if not destination.exists():
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+
+    export_obj.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(working_obj, export_obj)
+    working_mtl = working_obj.with_suffix(".mtl")
+    if working_mtl.exists():
+        shutil.copy2(working_mtl, export_obj.with_suffix(".mtl"))
+    shutil.copy2(working_dir / "metadata.json", output_path.with_name("metadata.json"))
+    (working_dir / DEFAULT_USD_FILENAME).replace(output_path)
+
+
 def _convert_one_asset(
     input_path: Path,
     config: ConversionConfig,
@@ -1366,15 +1399,10 @@ def _convert_one_asset(
     loop: asyncio.AbstractEventLoop,
 ) -> ConvertedAsset:
     output_path = _usd_output_path(input_path, config)
-    if output_path.exists() and config.force:
-        output_path.unlink()
-
-    export_obj: Optional[Path] = None
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    # Keep converter sidecars and intermediate files out of the final package.
-    temporary = tempfile.TemporaryDirectory(prefix=".obj-to-usd-", dir=output_path.parent)
-    working_usd = Path(temporary.name) / DEFAULT_USD_FILENAME
-    try:
+    with tempfile.TemporaryDirectory(prefix=".obj-to-usd-", dir=output_path.parent) as temporary:
+        working_dir = Path(temporary)
+        working_usd = working_dir / DEFAULT_USD_FILENAME
         if not _run_async(loop, convert_asset_to_usd(str(input_path), str(working_usd))):
             raise RuntimeError("OBJ to USD conversion failed")
 
@@ -1397,22 +1425,28 @@ def _convert_one_asset(
             write_real_dimensions(stage, real_dimensions, save=False)
             stage.GetRootLayer().Save()
 
-            export_obj = _export_path(input_path, config)
-            export_obj.parent.mkdir(parents=True, exist_ok=True)
+            working_obj_dir = working_dir / "obj"
+            working_obj_dir.mkdir()
+            working_obj = working_obj_dir / DEFAULT_OBJ_FILENAME
             if not _run_async(
                 loop,
-                convert_usd_to_obj(str(working_usd), str(export_obj)),
+                convert_usd_to_obj(str(working_usd), str(working_obj)),
             ):
                 raise RuntimeError("USD to OBJ conversion failed")
-            organize_material_resources(stage, output_path.parent)
-            if not stage.GetRootLayer().Export(str(output_path)):
-                raise RuntimeError("Failed to export packaged USD")
-            write_asset_metadata(output_path.parent, real_dimensions, mass_kg)
+            material_resources = organize_material_resources(
+                stage, working_dir, output_path.parent,
+            )
+            stage.GetRootLayer().Save()
+            write_asset_metadata(working_dir, real_dimensions, mass_kg)
         finally:
             _pump_app_updates(POST_STAGE_UPDATE_COUNT)
             stage = None
             close_current_stage()
 
+        _publish_asset(
+            working_dir, output_path, _export_path(input_path, config),
+            material_resources,
+        )
         return ConvertedAsset(
             metadata=metadata,
             source_aabb=source_aabb,
@@ -1420,11 +1454,6 @@ def _convert_one_asset(
             scale_source=scale_source,
             real_dimensions=real_dimensions,
         )
-    except Exception:
-        _remove_partial_outputs((output_path, export_obj))
-        raise
-    finally:
-        temporary.cleanup()
 
 
 def _print_conversion_result(
@@ -1450,7 +1479,7 @@ def _print_conversion_result(
     print(f"--- Success: {output_path} (source: {input_path})")
 
 
-def asset_convert_pipeline(args: argparse.Namespace) -> None:
+def asset_convert_pipeline(args: argparse.Namespace) -> int:
     config = build_conversion_config(args)
     metadata_records = load_asset_metadata(config.metadata_xlsx, config.metadata_mass_unit)
 
@@ -1465,7 +1494,7 @@ def asset_convert_pipeline(args: argparse.Namespace) -> None:
         print(f"Folder not found: {folder}")
     if not existing_folders:
         print("No valid folders to scan.")
-        return
+        return 0
 
     if config.extract_zips:
         zip_stats = ZipExtractionStats()
@@ -1513,6 +1542,7 @@ def asset_convert_pipeline(args: argparse.Namespace) -> None:
         f"skipped_existing={skipped_existing}, failed={failed}, "
         f"attempted={converted + failed}"
     )
+    return failed
 
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
@@ -1559,12 +1589,14 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parse_args(argv)
     initialize_isaac_runtime()
+    exit_code = 1
     try:
-        asset_convert_pipeline(args)
+        failed = asset_convert_pipeline(args)
+        exit_code = 1 if failed else 0
     finally:
         if simulation_app is not None:
-            simulation_app.close()
-    return 0
+            simulation_app.close(exit_code=exit_code)
+    return exit_code
 
 
 if __name__ == "__main__":

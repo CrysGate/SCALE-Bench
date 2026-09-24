@@ -63,6 +63,8 @@ With `--usd-output-root`, each asset package follows the Geniesim layout:
 `Aligned.usd`, `metadata.json`, and `textures/`. Without this option, output stays
 beside the source OBJ and source files are preserved. Existing USD files are
 skipped; use `--force` to regenerate their packages.
+With `--force`, existing files are replaced only after the new package is
+complete; a failed conversion leaves the previous package in place.
 
 Generated JSON contains `physics.size` (final x/y/z dimensions in meters),
 `physics.mass` (the applied mass in kg), and `physics.friction` (matching the USD,
@@ -113,4 +115,5 @@ computed independently for all three axes, and passing a value other than
 - `Aligned.usd` and `Aligned.obj` form one conversion result. A failed reverse
   OBJ export marks the asset as failed rather than reporting partial success.
 - A failed asset does not stop the batch. The final summary reports discovered,
-  converted, skipped, and failed counts.
+  converted, skipped, and failed counts. The process exits nonzero if any asset
+  fails to convert.
