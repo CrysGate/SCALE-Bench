@@ -29,6 +29,7 @@ from scale_bench.skills.models import Arm, Pose
 from scale_bench.skills.planner import PlanningStage
 
 from .curobo_planner import CuroboMotionPlanner
+from .warp_stream_cache import install_warp_stream_cache
 
 if TYPE_CHECKING:
     from .skill_context import IsaacLabSkillContext
@@ -57,6 +58,7 @@ class CuroboPlanningPool:
         device: str,
         planner_factory: Callable[[int], Mapping[Arm, CuroboMotionPlanner]],
     ) -> None:
+        install_warp_stream_cache()
         self.planners: list[Mapping[Arm, CuroboMotionPlanner]] = []
         self._resources = ExitStack()
         self._pending: list[_Request] = []
