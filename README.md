@@ -84,7 +84,7 @@ Grasp candidates are read from `grasps.yaml` beside each object USD, including i
 
 ## Reproduce the successful bubble-tea demonstration
 
-Run these commands from the repository root with a working NVIDIA GPU, the dependencies above, and the local assets. Update the USD/metadata paths in `configs/tasks/bubble_tea_cup_800g_pick_and_place.yml` for your machine. The legacy grasp file at `outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml` is also an external input and is not distributed in Git.
+Run these commands from the repository root with a working NVIDIA GPU, the dependencies above, and the local assets. Place the cup assets under `Assets/Object/Rigid/bubble_tea_cup/{300g,500g,800g}/`. The task configuration lists all assets under `cups`; the task selects the largest cup by height using asset metadata. The legacy grasp file at `outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml` is also an external input and is not distributed in Git.
 
 ```bash
 # Collect seed 31; an existing dataset name receives a suffix.

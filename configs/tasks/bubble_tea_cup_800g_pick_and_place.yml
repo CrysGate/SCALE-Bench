@@ -1,4 +1,4 @@
-instruction: "Pick up the large 800g bubble tea cup and place it upright in the fixed target slot. Leave the small and medium cups in place."
+instruction: "Pick up the largest bubble tea cup and place it upright in the fixed target slot."
 spawn_clearance_m: 0.003
 minimum_object_gap_m: 0.02
 sampling_attempts_per_object: 1000
@@ -27,23 +27,19 @@ physics:
   sleep_threshold: 0.005
   stabilization_threshold: 0.001
 
-target:
-  name: bubble_tea_cup_800g_target
-  usd_path: /mnt/hdd0_10t/zhangyi/ScaleBench-Data/our_Assets/bubble_tea_cup/800g/Aligned.usd
-  metadata_path: /mnt/hdd0_10t/zhangyi/ScaleBench-Data/our_Assets/bubble_tea_cup/800g/metadata.json
-
-small_distractors:
+cups:
+  - name: bubble_tea_cup_800g_target
+    usd_path: Assets/Object/Rigid/bubble_tea_cup/800g/Aligned.usd
+    metadata_path: Assets/Object/Rigid/bubble_tea_cup/800g/metadata.json
   - name: bubble_tea_cup_300g_left
-    usd_path: /mnt/hdd0_10t/zhangyi/ScaleBench-Data/our_Assets/bubble_tea_cup/300g/Aligned.usd
-    metadata_path: /mnt/hdd0_10t/zhangyi/ScaleBench-Data/our_Assets/bubble_tea_cup/300g/metadata.json
+    usd_path: Assets/Object/Rigid/bubble_tea_cup/300g/Aligned.usd
+    metadata_path: Assets/Object/Rigid/bubble_tea_cup/300g/metadata.json
   - name: bubble_tea_cup_300g_right
-    usd_path: /mnt/hdd0_10t/zhangyi/ScaleBench-Data/our_Assets/bubble_tea_cup/300g/Aligned.usd
-    metadata_path: /mnt/hdd0_10t/zhangyi/ScaleBench-Data/our_Assets/bubble_tea_cup/300g/metadata.json
-
-medium_distractors:
+    usd_path: Assets/Object/Rigid/bubble_tea_cup/300g/Aligned.usd
+    metadata_path: Assets/Object/Rigid/bubble_tea_cup/300g/metadata.json
   - name: bubble_tea_cup_500g_left
-    usd_path: /mnt/hdd0_10t/zhangyi/ScaleBench-Data/our_Assets/bubble_tea_cup/500g/Aligned.usd
-    metadata_path: /mnt/hdd0_10t/zhangyi/ScaleBench-Data/our_Assets/bubble_tea_cup/500g/metadata.json
+    usd_path: Assets/Object/Rigid/bubble_tea_cup/500g/Aligned.usd
+    metadata_path: Assets/Object/Rigid/bubble_tea_cup/500g/metadata.json
   - name: bubble_tea_cup_500g_right
-    usd_path: /mnt/hdd0_10t/zhangyi/ScaleBench-Data/our_Assets/bubble_tea_cup/500g/Aligned.usd
-    metadata_path: /mnt/hdd0_10t/zhangyi/ScaleBench-Data/our_Assets/bubble_tea_cup/500g/metadata.json
+    usd_path: Assets/Object/Rigid/bubble_tea_cup/500g/Aligned.usd
+    metadata_path: Assets/Object/Rigid/bubble_tea_cup/500g/metadata.json

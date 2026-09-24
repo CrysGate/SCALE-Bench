@@ -23,15 +23,7 @@ class BubbleTeaCup800gPickAndPlace(FixedTargetRigidObjectTask):
     TASK_ID: ClassVar[str] = "bubble_tea_cup_800g_pick_and_place"
 
     def __init__(self, config: BubbleTeaCupPickAndPlaceConfig) -> None:
-        self._target_name = config.target.name
-        assets = {
-            asset.name: asset
-            for asset in (
-                config.target,
-                *config.small_distractors,
-                *config.medium_distractors,
-            )
-        }
+        assets = {cup.name: cup for cup in config.cups}
         super().__init__(
             config,
             assets,
@@ -41,9 +33,9 @@ class BubbleTeaCup800gPickAndPlace(FixedTargetRigidObjectTask):
 
     @property
     def target_name(self) -> str:
-        """Return the only manipulated object."""
+        """Select the largest cup by height, as defined by asset metadata."""
 
-        return self._target_name
+        return max(self.assets, key=lambda name: self.metadata[name].size[2])
 
     @property
     def target_object_order(self) -> tuple[str, ...]:

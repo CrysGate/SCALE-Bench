@@ -84,7 +84,7 @@ uv run python scripts/run_demo_generation.py \
 
 ## 复现成功的奶茶杯抓放
 
-以下命令在仓库根目录运行，需要可用的 NVIDIA GPU、上述依赖和本地资产。奶茶杯资产路径位于 `configs/tasks/bubble_tea_cup_800g_pick_and_place.yml`；请根据本机位置修改 USD/metadata 路径。旧抓取文件 `outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml` 也是外部输入，不随 Git 仓库分发。
+以下命令在仓库根目录运行，需要可用的 NVIDIA GPU、上述依赖和本地资产。奶茶杯资产放在 `Assets/Object/Rigid/bubble_tea_cup/{300g,500g,800g}/` 下。任务配置通过 `cups` 列表声明所有资产，任务根据资产 metadata 中的高度选择最大的杯子。旧抓取文件 `outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml` 也是外部输入，不随 Git 仓库分发。
 
 ```bash
 # 采集 seed 31；已有同名数据集会自动增加后缀。

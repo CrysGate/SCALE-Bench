@@ -83,7 +83,7 @@ seed 范围为 `[base-seed, base-seed + episodes)`，`--num-envs` 只改变并�
 
 ### 奶茶杯演示采集
 
-奶茶杯任务使用同一个 `run_demo_generation.py` 入口，沿用上述 seed 范围、并行采集、记录和退出码规则：
+奶茶杯任务通过 `cups` 列表声明全部物体，资产使用 `Assets/Object/Rigid/bubble_tea_cup/` 下的相对路径；任务按 metadata 中的高度选择最大的杯子。采集使用同一个 `run_demo_generation.py` 入口，沿用上述 seed 范围、并行采集、记录和退出码规则：
 
 ```bash
 uv run python scripts/run_demo_generation.py \
