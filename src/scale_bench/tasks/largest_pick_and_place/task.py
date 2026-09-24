@@ -84,19 +84,13 @@ class LargestPickAndPlace(FixedTargetRigidObjectTask):
             ) from error
         yield PickAndPlace(
             object_name=self.target_name,
-            # The fixed target slot and upright placement branch are tuned for
-            # the right Piper.  Selecting the nearer arm can complete the
-            # grasp but fail the subsequent lift or placement.
-            arm="right",
+            arm="auto",
             target_object_pose_env=Pose(
                 position_m=target_placement.position_m,
                 orientation_xyzw=source_layout.assets[
                     self.target_name
                 ].orientation_xyzw,
             ),
-            # Let the opened fingers settle before retreat to limit lateral
-            # drift from release impulses.
-            release_settle_steps=10,
         )
 
 
