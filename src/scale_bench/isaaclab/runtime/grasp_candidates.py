@@ -26,8 +26,6 @@ class IsaacLabGraspCandidates:
     def candidates(
         self, object_name: str, arm: Arm,
     ) -> tuple[GraspCandidate, ...]:
-        if object_name not in self._task.assets:
-            raise SkillError(f"unknown task object: {object_name!r}")
         key = (arm, object_name)
         if key not in self._asset_grasps:
             self._asset_grasps[key] = load_asset_grasps(
