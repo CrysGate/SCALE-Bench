@@ -89,7 +89,7 @@ parser.add_argument(
 parser.add_argument(
     "--workspace-samples",
     type=int,
-    default=131072,
+    default=1310720,
     help="Joint configurations sampled per arm for the TCP reachability cloud.",
 )
 parser.add_argument(
@@ -320,6 +320,117 @@ def _sample_tcp_positions_world_m(
     ]
 
 
+def _workspace_projection_lines_world_m(
+    tcp_positions_world_m: list[Point],
+    env_origins_world_m: list[list[float]],
+    scene_config: SceneConfig,
+    sample_count: int,
+) -> list[Line]:
+    """Draw the convex hull of sampled TCP XY positions within each tabletop."""
+
+    first_env_origin_world_m = env_origins_world_m[0]
+    tcp_projections_env_xy_m = sorted({
+        (
+            tcp_position_world_m[0] - first_env_origin_world_m[0],
+            tcp_position_world_m[1] - first_env_origin_world_m[1],
+        )
+        for tcp_position_world_m in tcp_positions_world_m[:sample_count]
+    })
+    if len(tcp_projections_env_xy_m) < 3:
+        return []
+
+    def cross(
+        start_env_xy_m: tuple[float, float],
+        end_env_xy_m: tuple[float, float],
+        candidate_env_xy_m: tuple[float, float],
+    ) -> float:
+        return (
+            (end_env_xy_m[0] - start_env_xy_m[0])
+            * (candidate_env_xy_m[1] - start_env_xy_m[1])
+            - (end_env_xy_m[1] - start_env_xy_m[1])
+            * (candidate_env_xy_m[0] - start_env_xy_m[0])
+        )
+
+    lower_boundary_env_xy_m: list[tuple[float, float]] = []
+    upper_boundary_env_xy_m: list[tuple[float, float]] = []
+    for ordered_projections_env_xy_m, boundary_env_xy_m in (
+        (tcp_projections_env_xy_m, lower_boundary_env_xy_m),
+        (reversed(tcp_projections_env_xy_m), upper_boundary_env_xy_m),
+    ):
+        for tcp_projection_env_xy_m in ordered_projections_env_xy_m:
+            while len(boundary_env_xy_m) >= 2 and cross(
+                boundary_env_xy_m[-2],
+                boundary_env_xy_m[-1],
+                tcp_projection_env_xy_m,
+            ) <= 0:
+                boundary_env_xy_m.pop()
+            boundary_env_xy_m.append(tcp_projection_env_xy_m)
+    boundary_env_xy_m = lower_boundary_env_xy_m[:-1] + upper_boundary_env_xy_m[:-1]
+    if len(boundary_env_xy_m) < 3:
+        return []
+
+    table = scene_config.table
+    for axis, limit_m, keep_above in (
+        (0, table.position_m[0] - table.size_m[0] / 2, True),
+        (0, table.position_m[0] + table.size_m[0] / 2, False),
+        (1, table.position_m[1] - table.size_m[1] / 2, True),
+        (1, table.position_m[1] + table.size_m[1] / 2, False),
+    ):
+        clipped_boundary_env_xy_m: list[tuple[float, float]] = []
+        for start_env_xy_m, end_env_xy_m in zip(
+            boundary_env_xy_m,
+            boundary_env_xy_m[1:] + boundary_env_xy_m[:1],
+        ):
+            start_inside = (
+                start_env_xy_m[axis] >= limit_m
+                if keep_above
+                else start_env_xy_m[axis] <= limit_m
+            )
+            end_inside = (
+                end_env_xy_m[axis] >= limit_m
+                if keep_above
+                else end_env_xy_m[axis] <= limit_m
+            )
+            if start_inside != end_inside:
+                fraction = (limit_m - start_env_xy_m[axis]) / (
+                    end_env_xy_m[axis] - start_env_xy_m[axis]
+                )
+                clipped_boundary_env_xy_m.append(
+                    tuple(
+                        start_env_xy_m[index]
+                        + fraction * (end_env_xy_m[index] - start_env_xy_m[index])
+                        for index in range(2)
+                    )
+                )
+            if end_inside:
+                clipped_boundary_env_xy_m.append(end_env_xy_m)
+        boundary_env_xy_m = clipped_boundary_env_xy_m
+        if len(boundary_env_xy_m) < 3:
+            return []
+
+    lines_world_m: list[Line] = []
+    for env_origin_world_m in env_origins_world_m:
+        projection_z_world_m = (
+            env_origin_world_m[2] + scene_config.table_top_z_m + 0.009
+        )
+        boundary_world_m = [
+            (
+                env_origin_world_m[0] + projection_env_xy_m[0],
+                env_origin_world_m[1] + projection_env_xy_m[1],
+                projection_z_world_m,
+            )
+            for projection_env_xy_m in boundary_env_xy_m
+        ]
+        lines_world_m.extend(
+            (
+                boundary_world_m[index],
+                boundary_world_m[(index + 1) % len(boundary_world_m)],
+            )
+            for index in range(len(boundary_world_m))
+        )
+    return lines_world_m
+
+
 class ScenePreviewOverlay:
     """Draw placement, camera, and joint-limited TCP reachability overlays."""
 
@@ -349,6 +460,7 @@ class ScenePreviewOverlay:
         self._frustum_model = omni.ui.SimpleBoolModel(True)
         self._left_workspace_model = omni.ui.SimpleBoolModel(True)
         self._right_workspace_model = omni.ui.SimpleBoolModel(True)
+        self._workspace_projection_model = omni.ui.SimpleBoolModel(True)
         self._workspace_visible = (False, False)
         self._workspace_opacity = workspace_opacity
         env_origins_world_m = self._scene.env_origins.tolist()
@@ -364,9 +476,18 @@ class ScenePreviewOverlay:
             )
             for arm in ("left", "right")
         }
+        self._workspace_projection_lines_world_m = {
+            arm: _workspace_projection_lines_world_m(
+                self._workspace_points_world_m[arm],
+                env_origins_world_m,
+                scene_config,
+                workspace_samples,
+            )
+            for arm in ("left", "right")
+        }
         self._draw = _debug_draw.acquire_debug_draw_interface()
 
-        self._window = omni.ui.Window("Scene overlays", width=280, height=172)
+        self._window = omni.ui.Window("Scene overlays", width=280, height=196)
         with self._window.frame:
             with omni.ui.VStack(spacing=4):
                 with omni.ui.HStack(height=24):
@@ -384,6 +505,9 @@ class ScenePreviewOverlay:
                 with omni.ui.HStack(height=24):
                     omni.ui.Label("Right TCP reach (orange)")
                     omni.ui.CheckBox(model=self._right_workspace_model, width=24)
+                with omni.ui.HStack(height=24):
+                    omni.ui.Label("TCP table projections (red)")
+                    omni.ui.CheckBox(model=self._workspace_projection_model, width=24)
 
     def draw(self) -> None:
         """Redraw enabled overlays using the latest scene state."""
@@ -438,6 +562,19 @@ class ScenePreviewOverlay:
                             2.0,
                         )
                     )
+
+        if self._workspace_projection_model.as_bool:
+            groups.append(
+                (
+                    [
+                        line_world_m
+                        for arm in ("left", "right")
+                        for line_world_m in self._workspace_projection_lines_world_m[arm]
+                    ],
+                    (1.0, 0.0, 0.0, 1.0),
+                    3.0,
+                )
+            )
 
         styled_lines = [
             (line, color, width)
@@ -554,7 +691,7 @@ def main() -> None:
     )
     overlay = None
     try:
-        env.sim.set_camera_view((2.6, 2.2, 2.2), (0.0, 0.0, 0.8))
+        env.sim.set_camera_view((1.35, 1.25, 1.55), (0.0, -0.05, 0.78))
         env.reset()
         overlay = (
             ScenePreviewOverlay(
