@@ -42,7 +42,7 @@ from scale_bench.tasks.common.task import Task
 
 @configclass
 class ScaleBenchEnvCfg(ManagerBasedEnvCfg):
-    """Native Isaac Lab configuration used by the ScaleBench runtime."""
+    """Native Isaac Lab configuration used by the SCALE-Bench runtime."""
 
     scene: InteractiveSceneCfg = MISSING
     sim: SimulationCfg = MISSING

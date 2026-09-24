@@ -1,4 +1,4 @@
-"""Stateful event terms used by ScaleBench environments."""
+"""Stateful event terms used by SCALE-Bench environments."""
 
 from __future__ import annotations
 
@@ -125,7 +125,7 @@ def synchronize_tensor_pose_resets_for_rtx(
     ``SimulationContext.forward()``.  The native update keeps Isaac Lab's
     public physics-step count unchanged while making the reset poses available
     to the subsequent Fabric forward and RTX render. Native PhysX step
-    callbacks still run; ScaleBench does not attach episode logic to them.
+    callbacks still run; SCALE-Bench does not attach episode logic to them.
     """
 
     del env_ids

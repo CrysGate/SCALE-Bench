@@ -2325,7 +2325,7 @@ wheels = [
 ]
 
 [[package]]
-name = "learn-isaac"
+name = "scale-bench"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

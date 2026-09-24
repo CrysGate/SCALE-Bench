@@ -1,8 +1,8 @@
-# ScaleBench
+# SCALE-Bench
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+[English](README.md) | [简体中文](README.zh-CN.md) | [Documentation](https://crysgate.github.io/SCALE-Bench/)
 
-ScaleBench is a configuration-driven Isaac Lab project for dual-arm manipulation. Robot, camera, scene, task, simulation, and environment settings live in validated YAML files. The repository provides scene preview, task evaluation, expert-data generation, policy rollout, and episode replay entry points.
+SCALE-Bench is a configuration-driven Isaac Lab project for dual-arm manipulation. Robot, camera, scene, task, simulation, and environment settings live in validated YAML files. The repository provides scene preview, task evaluation, expert-data generation, policy rollout, and episode replay entry points.
 
 Three tasks are currently implemented:
 

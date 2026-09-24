@@ -1,4 +1,4 @@
-"""Replay one ScaleBench HDF5 episode and recompute its task evaluation."""
+"""Replay one SCALE-Bench HDF5 episode and recompute its task evaluation."""
 
 from __future__ import annotations
 

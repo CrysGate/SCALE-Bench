@@ -4,7 +4,7 @@
 
 从仓库根目录采集一个 episode：
 
-```bash
+```bash title="专家数据采集"
 uv run python scripts/run_demo_generation.py \
   --task sort_dolls_by_size \
   --num-envs 1 \

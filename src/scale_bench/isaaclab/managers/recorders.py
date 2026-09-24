@@ -50,7 +50,7 @@ class SemanticEventsRecorderCfg(RecorderTermCfg):
 
 @configclass
 class RecordersCfg(RecorderManagerBaseCfg):
-    """Recorder terms enabled for one ScaleBench environment."""
+    """Recorder terms enabled for one SCALE-Bench environment."""
 
     initial_state: InitialStateRecorderCfg | None = None
     actions: PreStepActionsRecorderCfg | None = None

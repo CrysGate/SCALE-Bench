@@ -1,4 +1,4 @@
-"""Recorder terms for the ScaleBench dataset contract."""
+"""Recorder terms for the SCALE-Bench dataset contract."""
 
 from __future__ import annotations
 

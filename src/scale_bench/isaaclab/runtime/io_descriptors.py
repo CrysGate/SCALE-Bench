@@ -13,7 +13,7 @@ def build_io_descriptors(
     env: ManagerBasedEnv,
     native_descriptors: dict[str, Any],
 ) -> dict[str, Any]:
-    """Supplement native descriptors with resolved ScaleBench semantics."""
+    """Supplement native descriptors with resolved SCALE-Bench semantics."""
 
     _annotate_action_descriptors(env, native_descriptors["actions"])
     _annotate_observation_descriptors(env, native_descriptors["observations"])

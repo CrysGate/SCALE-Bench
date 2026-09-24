@@ -1,1 +1,1 @@
-"""Pure-Python configuration package for ScaleBench."""
+"""Pure-Python configuration package for SCALE-Bench."""

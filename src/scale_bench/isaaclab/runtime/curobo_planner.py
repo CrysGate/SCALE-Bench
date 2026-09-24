@@ -1,4 +1,4 @@
-"""CuRobo single-segment planning over explicit ScaleBench scene facts."""
+"""CuRobo single-segment planning over explicit SCALE-Bench scene facts."""
 
 from __future__ import annotations
 

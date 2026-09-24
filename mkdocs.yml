@@ -1,15 +1,50 @@
-site_name: ScaleBench
-site_url: https://crysgate.github.io/learn-isaac/
-repo_url: https://github.com/CrysGate/learn-isaac
-repo_name: CrysGate/learn-isaac
+site_name: SCALE-Bench
+site_description: Isaac Lab 双臂操作任务与专家数据采集
+site_url: https://crysgate.github.io/SCALE-Bench/
+repo_url: https://github.com/CrysGate/SCALE-Bench
+repo_name: CrysGate/SCALE-Bench
 
 theme:
   name: material
   language: zh
+  icon:
+    logo: material/robot-industrial
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: orange
+      toggle:
+        icon: material/weather-night
+        name: 切换深色模式
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: orange
+      toggle:
+        icon: material/weather-sunny
+        name: 切换浅色模式
   features:
+    - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
+    - navigation.top
     - content.code.copy
+    - search.suggest
     - search.highlight
+
+markdown_extensions:
+  - pymdownx.superfences
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/CrysGate/SCALE-Bench
+      name: GitHub 仓库
 
 nav:
   - 首页: index.md

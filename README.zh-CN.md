@@ -1,8 +1,8 @@
-# ScaleBench
+# SCALE-Bench
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+[English](README.md) | [简体中文](README.zh-CN.md) | [在线文档](https://crysgate.github.io/SCALE-Bench/)
 
-ScaleBench 是一个配置驱动的 Isaac Lab 双臂操作项目。它把机器人、相机、场景、任务、仿真和环境参数保存在 YAML 中，并提供场景预览、任务评测、专家数据生成、策略运行和 episode 回放入口。
+SCALE-Bench 是一个配置驱动的 Isaac Lab 双臂操作项目。它把机器人、相机、场景、任务、仿真和环境参数保存在 YAML 中，并提供场景预览、任务评测、专家数据生成、策略运行和 episode 回放入口。
 
 当前包含三个任务：
 

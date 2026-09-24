@@ -1,4 +1,4 @@
-"""Grasp configuration built on ScaleBench's public config API."""
+"""Grasp configuration built on SCALE-Bench's public config API."""
 
 from __future__ import annotations
 
@@ -114,7 +114,7 @@ def load_grasp_config(
     *,
     asset_root: str | Path,
 ) -> tuple[GraspGenerationConfig, RobotConfig]:
-    """Load a grasp recipe and its shared ScaleBench robot profile."""
+    """Load a grasp recipe and its shared SCALE-Bench robot profile."""
 
     path = Path(config_path).expanduser().resolve()
     generation = load_config(path, GraspGenerationConfig)

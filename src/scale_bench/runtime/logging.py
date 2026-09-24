@@ -1,4 +1,4 @@
-"""Human-readable console and structured JSONL logging for ScaleBench runs."""
+"""Human-readable console and structured JSONL logging for SCALE-Bench runs."""
 
 from __future__ import annotations
 
@@ -196,7 +196,7 @@ def configure_logging(
     console_format: LogFormat,
     jsonl_path: Path | None,
 ) -> None:
-    """Configure ScaleBench logs for one CLI process.
+    """Configure SCALE-Bench logs for one CLI process.
 
     ``jsonl_path`` is omitted for interactive runs that need only terminal
     output. Batch and debugging runs pass a path to retain every DEBUG event.

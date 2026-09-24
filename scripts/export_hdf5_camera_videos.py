@@ -1,4 +1,4 @@
-"""Export RGB and false-color depth videos from a ScaleBench HDF5 episode."""
+"""Export RGB and false-color depth videos from a SCALE-Bench HDF5 episode."""
 
 from __future__ import annotations
 

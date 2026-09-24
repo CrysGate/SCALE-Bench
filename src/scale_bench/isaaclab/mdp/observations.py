@@ -1,4 +1,4 @@
-"""Observation terms used by the ScaleBench Observation Manager."""
+"""Observation terms used by the SCALE-Bench Observation Manager."""
 
 from __future__ import annotations
 

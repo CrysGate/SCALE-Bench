@@ -1,4 +1,4 @@
-"""ScaleBench manager-based environment runtime."""
+"""SCALE-Bench manager-based environment runtime."""
 
 from __future__ import annotations
 

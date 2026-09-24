@@ -1,1 +1,1 @@
-"""Isaac-independent ScaleBench configuration data models."""
+"""Isaac-independent SCALE-Bench configuration data models."""
