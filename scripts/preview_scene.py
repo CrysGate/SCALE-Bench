@@ -1,7 +1,6 @@
 """Preview a task-bound YAML scene in Isaac Sim."""
 
 import argparse
-import subprocess
 import sys
 from pathlib import Path
 
@@ -19,22 +18,6 @@ from scale_bench.config.loader import load_config
 from scale_bench.config.models.simulation import SimulationConfig
 
 from isaaclab.app import AppLauncher
-
-
-def _cuda_available() -> bool:
-    """Check CUDA in a child process before Kit imports PyTorch."""
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            "import torch; raise SystemExit(not torch.cuda.is_available())",
-        ],
-        check=False,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    return result.returncode == 0
 
 
 parser = argparse.ArgumentParser()
@@ -130,16 +113,6 @@ elif args.device is None:
     args.device = sim_config.device
 if args.rendering_mode is None:
     args.rendering_mode = sim_config.render.rendering_mode
-
-# Keep headless scene checks usable on CPU-only hosts.  AppLauncher sets the
-# requested CUDA device during startup, so the fallback must happen before it
-# is constructed; otherwise a missing driver aborts before the scene loads.
-if args.device.startswith("cuda") and not _cuda_available():
-    print(
-        f"CUDA device '{args.device}' is unavailable; falling back to CPU.",
-        file=sys.stderr,
-    )
-    args.device = "cpu"
 
 preview_overlays_enabled = not args.headless and "kit" in (args.visualizer or ())
 if args.physics_inspector and not preview_overlays_enabled:
