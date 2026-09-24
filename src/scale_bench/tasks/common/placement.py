@@ -51,8 +51,9 @@ def generate_tabletop_layout(
     spawn_clearance_m: float,
     minimum_object_gap_m: float,
     sampling_attempts_per_object: int,
+    layout_sampling_attempts: int,
 ) -> TaskLayout:
-    """Deterministically sample a non-overlapping upright layout."""
+    """Sample bounded full-layout attempts from one deterministic random stream."""
 
     if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
         raise ValueError("seed must be a non-negative integer")
@@ -60,50 +61,56 @@ def generate_tabletop_layout(
     radii = _footprint_radii(asset_sizes_m)
     rng = random.Random(seed)
     sampling_order = sorted(asset_sizes_m, key=radii.__getitem__, reverse=True)
-    placements: dict[str, AssetPlacement] = {}
+    # Keep the RNG alive when discarding a partial layout so the original
+    # seed reproduces the entire sequence of attempts.
+    for _ in range(layout_sampling_attempts):
+        placements: dict[str, AssetPlacement] = {}
 
-    for name in sampling_order:
-        radius = radii[name]
-        x_range, y_range = _center_ranges(context, name, radius)
-        for _ in range(sampling_attempts_per_object):
-            x_m = rng.uniform(*x_range)
-            y_m = rng.uniform(*y_range)
-            if any(
-                math.hypot(
-                    x_m - previous.position_m[0],
-                    y_m - previous.position_m[1],
+        for name in sampling_order:
+            radius = radii[name]
+            x_range, y_range = _center_ranges(context, name, radius)
+            for _ in range(sampling_attempts_per_object):
+                x_m = rng.uniform(*x_range)
+                y_m = rng.uniform(*y_range)
+                if any(
+                    math.hypot(
+                        x_m - previous.position_m[0],
+                        y_m - previous.position_m[1],
+                    )
+                    < radius + radii[previous_name] + minimum_object_gap_m
+                    for previous_name, previous in placements.items()
+                ):
+                    continue
+
+                yaw_env_rad = rng.uniform(-math.pi, math.pi)
+                placements[name] = AssetPlacement(
+                    position_m=(
+                        x_m,
+                        y_m,
+                        context.table_top_z_m
+                        + asset_sizes_m[name][2] / 2.0
+                        + spawn_clearance_m,
+                    ),
+                    orientation_xyzw=quaternion_xyzw_from_rpy(
+                        0.0,
+                        0.0,
+                        yaw_env_rad,
+                    ),
                 )
-                < radius + radii[previous_name] + minimum_object_gap_m
-                for previous_name, previous in placements.items()
-            ):
-                continue
-
-            yaw_env_rad = rng.uniform(-math.pi, math.pi)
-            placements[name] = AssetPlacement(
-                position_m=(
-                    x_m,
-                    y_m,
-                    context.table_top_z_m
-                    + asset_sizes_m[name][2] / 2.0
-                    + spawn_clearance_m,
-                ),
-                orientation_xyzw=quaternion_xyzw_from_rpy(
-                    0.0,
-                    0.0,
-                    yaw_env_rad,
-                ),
-            )
-            break
+                break
+            else:
+                break
         else:
-            raise RuntimeError(
-                f"Could not place {name} within task_object_placement_area "
-                f"after {sampling_attempts_per_object} attempts for seed {seed}"
+            return TaskLayout(
+                task_id=task_id,
+                seed=seed,
+                assets={name: placements[name] for name in asset_sizes_m},
             )
 
-    return TaskLayout(
-        task_id=task_id,
-        seed=seed,
-        assets={name: placements[name] for name in asset_sizes_m},
+    raise RuntimeError(
+        f"Could not sample a complete layout within task_object_placement_area "
+        f"after {layout_sampling_attempts} layout attempts for seed {seed} "
+        f"({sampling_attempts_per_object} position attempts per object)"
     )
 
 
