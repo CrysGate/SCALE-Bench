@@ -27,7 +27,7 @@ physics:
   sleep_threshold: 0.005
   stabilization_threshold: 0.001
 
-cups:
+objects:
   - name: bubble_tea_cup_800g_target
     usd_path: Assets/Object/Rigid/bubble_tea_cup/800g/Aligned.usd
     metadata_path: Assets/Object/Rigid/bubble_tea_cup/800g/metadata.json

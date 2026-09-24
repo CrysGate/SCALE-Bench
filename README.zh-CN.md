@@ -8,7 +8,7 @@ ScaleBench 是一个配置驱动的 Isaac Lab 双臂操作项目。它把机器�
 
 - `sort_dolls_by_size`：将五个套娃按尺寸排列到固定槽位。
 - `single_object_pick_and_place`：将随机位置的 bottle 直立放到固定槽位。
-- `bubble_tea_cup_800g_pick_and_place`：将大号 800g 奶茶杯放入目标槽，同时保留两个 300g 和两个 500g 奶茶杯作为干扰物。
+- `largest_pick_and_place`：将最大的物体放入目标槽，默认配置使用奶茶杯资产。
 
 三个任务都支持确定性 seed、layout 导入导出和最终状态评测。专家链路支持 CuRobo 规划，以及 AnyGrasp 在线抓取或机器人配置中的离线抓取 catalog。
 
@@ -84,12 +84,12 @@ uv run python scripts/run_demo_generation.py \
 
 ## 复现成功的奶茶杯抓放
 
-以下命令在仓库根目录运行，需要可用的 NVIDIA GPU、上述依赖和本地资产。奶茶杯资产放在 `Assets/Object/Rigid/bubble_tea_cup/{300g,500g,800g}/` 下。任务配置通过 `cups` 列表声明所有资产，任务根据资产 metadata 中的高度选择最大的杯子。旧抓取文件 `outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml` 也是外部输入，不随 Git 仓库分发。
+以下命令在仓库根目录运行，需要可用的 NVIDIA GPU、上述依赖和本地资产。奶茶杯资产放在 `Assets/Object/Rigid/bubble_tea_cup/{300g,500g,800g}/` 下。任务配置通过 `objects` 列表声明所有资产，任务根据资产 metadata 中的高度选择最大的杯子。旧抓取文件 `outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml` 也是外部输入，不随 Git 仓库分发。
 
 ```bash
 # 采集 seed 31；已有同名数据集会自动增加后缀。
 uv run python scripts/run_demo_generation.py \
-  --task bubble_tea_cup_800g_pick_and_place \
+  --task largest_pick_and_place \
   --viz none --base-seed 31 --episodes 1 --max-steps 1200 \
   --grasp-file bubble_tea_cup_800g_target outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml \
   --record-output outputs/demos/bubble_tea_cup_800g \
@@ -97,7 +97,7 @@ uv run python scripts/run_demo_generation.py \
 
 # 把下面的路径替换为采集日志输出的实际 dataset 路径。
 HEADLESS=1 uv run python scripts/replay_episode.py \
-  --task bubble_tea_cup_800g_pick_and_place --viz kit \
+  --task largest_pick_and_place --viz kit \
   --camera-config configs/cameras/d435.yml \
   outputs/demos/bubble_tea_cup_800g/bubble_tea_seed31.hdf5
 ```

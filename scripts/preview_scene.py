@@ -12,7 +12,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 SUPPORTED_TASK_IDS = (
     "sort_dolls_by_size",
     "single_object_pick_and_place",
-    "bubble_tea_cup_800g_pick_and_place",
+    "largest_pick_and_place",
 )
 
 from scale_bench.config.loader import load_config
@@ -180,11 +180,11 @@ from scale_bench.tasks.single_object_pick_and_place.config import (
 from scale_bench.tasks.single_object_pick_and_place.task import (
     SingleObjectPickAndPlace,
 )
-from scale_bench.tasks.bubble_tea_cup_800g_pick_and_place.task import (
-    BubbleTeaCup800gPickAndPlace,
+from scale_bench.tasks.largest_pick_and_place.task import (
+    LargestPickAndPlace,
 )
-from scale_bench.tasks.bubble_tea_cup_800g_pick_and_place.config import (
-    BubbleTeaCupPickAndPlaceConfig,
+from scale_bench.tasks.largest_pick_and_place.config import (
+    LargestPickAndPlaceConfig,
 )
 from scale_bench.tasks.sort_dolls_by_size.config import SortDollsBySizeConfig
 from scale_bench.tasks.sort_dolls_by_size.task import SortDollsBySize
@@ -375,12 +375,12 @@ def main() -> None:
                 asset_root=args.asset_root,
             )
         )
-    elif args.task == "bubble_tea_cup_800g_pick_and_place":
-        task = BubbleTeaCup800gPickAndPlace(
+    elif args.task == "largest_pick_and_place":
+        task = LargestPickAndPlace(
             load_config(
                 PROJECT_ROOT
-                / "configs/tasks/bubble_tea_cup_800g_pick_and_place.yml",
-                BubbleTeaCupPickAndPlaceConfig,
+                / "configs/tasks/largest_pick_and_place.yml",
+                LargestPickAndPlaceConfig,
                 asset_root=args.asset_root,
             )
         )

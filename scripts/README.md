@@ -12,7 +12,7 @@ uv run python scripts/preview_scene.py \
   --seed 42
 ```
 
-支持的 task 为 `sort_dolls_by_size`、`single_object_pick_and_place` 和 `bubble_tea_cup_800g_pick_and_place`。奶茶杯任务包含一个 800g 目标杯、两个 300g 干扰杯和两个 500g 干扰杯；`--seed` 与 `--layout` 互斥；`--export-layout` 保存本次布局。
+支持的 task 为 `sort_dolls_by_size`、`single_object_pick_and_place` 和 `largest_pick_and_place`。奶茶杯任务包含一个 800g 目标杯、两个 300g 干扰杯和两个 500g 干扰杯；`--seed` 与 `--layout` 互斥；`--export-layout` 保存本次布局。
 
 使用 Physics Inspector 手动检查机械臂关节：
 
@@ -83,11 +83,11 @@ seed 范围为 `[base-seed, base-seed + episodes)`，`--num-envs` 只改变并�
 
 ### 奶茶杯演示采集
 
-奶茶杯任务通过 `cups` 列表声明全部物体，资产使用 `Assets/Object/Rigid/bubble_tea_cup/` 下的相对路径；任务按 metadata 中的高度选择最大的杯子。采集使用同一个 `run_demo_generation.py` 入口，沿用上述 seed 范围、并行采集、记录和退出码规则：
+奶茶杯任务通过 `objects` 列表声明全部物体，资产使用 `Assets/Object/Rigid/bubble_tea_cup/` 下的相对路径；任务按 metadata 中的高度选择最大的杯子。采集使用同一个 `run_demo_generation.py` 入口，沿用上述 seed 范围、并行采集、记录和退出码规则：
 
 ```bash
 uv run python scripts/run_demo_generation.py \
-  --task bubble_tea_cup_800g_pick_and_place \
+  --task largest_pick_and_place \
   --base-seed 31 --episodes 1 --max-steps 1200 --viz none \
   --grasp-file bubble_tea_cup_800g_target outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml \
   --record-output outputs/demos/bubble_tea_cup_800g \

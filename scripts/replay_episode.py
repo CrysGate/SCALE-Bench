@@ -11,7 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 SUPPORTED_TASK_IDS = (
-    "bubble_tea_cup_800g_pick_and_place",
+    "largest_pick_and_place",
     "sort_dolls_by_size",
     "single_object_pick_and_place",
 )
@@ -93,8 +93,8 @@ from scale_bench.config.models.robot import RobotConfig
 from scale_bench.config.models.scene import SceneConfig
 from scale_bench.runtime import EpisodeReplayRunner, RecordedEpisode
 from scale_bench.tasks.common.placement import PlacementContext
-from scale_bench.tasks.bubble_tea_cup_800g_pick_and_place.config import BubbleTeaCupPickAndPlaceConfig
-from scale_bench.tasks.bubble_tea_cup_800g_pick_and_place.task import BubbleTeaCup800gPickAndPlace
+from scale_bench.tasks.largest_pick_and_place.config import LargestPickAndPlaceConfig
+from scale_bench.tasks.largest_pick_and_place.task import LargestPickAndPlace
 from scale_bench.tasks.single_object_pick_and_place.config import (
     SingleObjectPickAndPlaceConfig,
 )
@@ -149,11 +149,11 @@ def main() -> int:
         }
     )
     environment_config = load_config(args.env_config, EnvironmentConfig)
-    if args.task == "bubble_tea_cup_800g_pick_and_place":
-        task = BubbleTeaCup800gPickAndPlace(
+    if args.task == "largest_pick_and_place":
+        task = LargestPickAndPlace(
             load_config(
-                PROJECT_ROOT / "configs/tasks/bubble_tea_cup_800g_pick_and_place.yml",
-                BubbleTeaCupPickAndPlaceConfig,
+                PROJECT_ROOT / "configs/tasks/largest_pick_and_place.yml",
+                LargestPickAndPlaceConfig,
                 asset_root=PROJECT_ROOT,
             )
         )

@@ -8,7 +8,7 @@ Three tasks are currently implemented:
 
 - `sort_dolls_by_size`: arrange five nesting dolls in size order at fixed slots.
 - `single_object_pick_and_place`: place a randomly positioned bottle upright at a fixed slot.
-- `bubble_tea_cup_800g_pick_and_place`: place the large 800g cup while leaving two 300g and two 500g cups as distractors.
+- `largest_pick_and_place`: place the largest object in the target slot; the default configuration uses bubble tea cups.
 
 The tasks support deterministic seeds, layout import/export, and final-state evaluation. The expert path supports CuRobo planning with either live AnyGrasp detections or an offline grasp catalog from the robot configuration.
 
@@ -84,12 +84,12 @@ Grasp candidates are read from `grasps.yaml` beside each object USD, including i
 
 ## Reproduce the successful bubble-tea demonstration
 
-Run these commands from the repository root with a working NVIDIA GPU, the dependencies above, and the local assets. Place the cup assets under `Assets/Object/Rigid/bubble_tea_cup/{300g,500g,800g}/`. The task configuration lists all assets under `cups`; the task selects the largest cup by height using asset metadata. The legacy grasp file at `outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml` is also an external input and is not distributed in Git.
+Run these commands from the repository root with a working NVIDIA GPU, the dependencies above, and the local assets. Place the cup assets under `Assets/Object/Rigid/bubble_tea_cup/{300g,500g,800g}/`. The task configuration lists all assets under `objects`; the task selects the largest cup by height using asset metadata. The legacy grasp file at `outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml` is also an external input and is not distributed in Git.
 
 ```bash
 # Collect seed 31; an existing dataset name receives a suffix.
 uv run python scripts/run_demo_generation.py \
-  --task bubble_tea_cup_800g_pick_and_place \
+  --task largest_pick_and_place \
   --viz none --base-seed 31 --episodes 1 --max-steps 1200 \
   --grasp-file bubble_tea_cup_800g_target outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml \
   --record-output outputs/demos/bubble_tea_cup_800g \
@@ -97,7 +97,7 @@ uv run python scripts/run_demo_generation.py \
 
 # Replace this path with the actual dataset path printed by collection.
 HEADLESS=1 uv run python scripts/replay_episode.py \
-  --task bubble_tea_cup_800g_pick_and_place --viz kit \
+  --task largest_pick_and_place --viz kit \
   --camera-config configs/cameras/d435.yml \
   outputs/demos/bubble_tea_cup_800g/bubble_tea_seed31.hdf5
 ```

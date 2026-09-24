@@ -1,4 +1,4 @@
-"""Task identity and evaluation for the 800g bubble tea cup task."""
+"""Task identity and evaluation for picking and placing the largest object."""
 
 from __future__ import annotations
 
@@ -14,16 +14,16 @@ from scale_bench.tasks.common.layout import TaskLayout
 from scale_bench.tasks.common.placement import PlacementContext
 from scale_bench.tasks.common.task import EvaluatorObservation
 
-from .config import BubbleTeaCupPickAndPlaceConfig
+from .config import LargestPickAndPlaceConfig
 
 
-class BubbleTeaCup800gPickAndPlace(FixedTargetRigidObjectTask):
-    """Move the 800g target cup while leaving four cups as distractors."""
+class LargestPickAndPlace(FixedTargetRigidObjectTask):
+    """Move the largest object to a fixed slot."""
 
-    TASK_ID: ClassVar[str] = "bubble_tea_cup_800g_pick_and_place"
+    TASK_ID: ClassVar[str] = "largest_pick_and_place"
 
-    def __init__(self, config: BubbleTeaCupPickAndPlaceConfig) -> None:
-        assets = {cup.name: cup for cup in config.cups}
+    def __init__(self, config: LargestPickAndPlaceConfig) -> None:
+        assets = {asset.name: asset for asset in config.objects}
         super().__init__(
             config,
             assets,
@@ -33,13 +33,13 @@ class BubbleTeaCup800gPickAndPlace(FixedTargetRigidObjectTask):
 
     @property
     def target_name(self) -> str:
-        """Select the largest cup by height, as defined by asset metadata."""
+        """Select the largest object by height, as defined by asset metadata."""
 
         return max(self.assets, key=lambda name: self.metadata[name].size[2])
 
     @property
     def target_object_order(self) -> tuple[str, ...]:
-        """Return the large target cup, excluding distractors."""
+        """Return the large target object, excluding distractors."""
 
         return (self.target_name,)
 
@@ -48,12 +48,12 @@ class BubbleTeaCup800gPickAndPlace(FixedTargetRigidObjectTask):
         context: PlacementContext,
         seed: int,
     ) -> TaskLayout:
-        """Sample a layout with the manipulated cup inside the front reach zone.
+        """Sample a layout with the manipulated object inside the front reach zone.
 
         The scene placement area is shared by several tabletop tasks and is
         intentionally wide.  A Piper mounted at the back edge cannot reliably
         reach the rear-most samples, so retry deterministic layout seeds until
-        the target cup is in the front zone.  The requested seed remains the
+        the target object is in the front zone.  The requested seed remains the
         public layout identity even when a retry is used internally.
         """
 
@@ -63,19 +63,19 @@ class BubbleTeaCup800gPickAndPlace(FixedTargetRigidObjectTask):
             try:
                 layout = super().generate_layout(context, seed + retry)
             except RuntimeError as error:
-                # Five cups can exhaust the sampler in the narrower shared
+                # Multiple objects can exhaust the sampler in the narrower shared
                 # scene. Retry the whole layout, not just the reach-zone test.
                 last_sampling_error = error
                 continue
             if layout.assets[self.target_name].position_m[1] <= max_target_y_m:
                 return layout.model_copy(update={"seed": seed})
         raise RuntimeError(
-            "could not sample a reachable target-cup layout after 32 retries; "
+            "could not sample a reachable target-object layout after 32 retries; "
             f"requested seed={seed}, target_source_y_max_m={max_target_y_m}"
         ) from last_sampling_error
 
     def evaluate(self, observation: EvaluatorObservation) -> PlacementResult:
-        """Evaluate only the 800g target cup; distractors are ignored."""
+        """Evaluate placement of the largest object."""
 
         status = self._placement_statuses(observation)[0]
         return PlacementResult(
@@ -100,7 +100,7 @@ class BubbleTeaCup800gPickAndPlace(FixedTargetRigidObjectTask):
         source_layout: TaskLayout,
         target_layout: TaskLayout,
     ) -> Iterator[PickAndPlace]:
-        """Generate a pick-and-place request for the target cup only."""
+        """Generate a pick-and-place request for the target object only."""
 
         self.validate_asset_layout(source_layout)
         if target_layout.task_id != self.task_id:
@@ -126,7 +126,7 @@ class BubbleTeaCup800gPickAndPlace(FixedTargetRigidObjectTask):
                     self.target_name
                 ].orientation_xyzw,
             ),
-            # Let the opened fingers settle clear of the cup before the
+            # Let the opened fingers settle clear of the object before the
             # vertical retreat starts; this prevents release impulses from
             # becoming lateral drift on the tabletop.
             release_settle_steps=10,
@@ -135,4 +135,4 @@ class BubbleTeaCup800gPickAndPlace(FixedTargetRigidObjectTask):
         )
 
 
-__all__ = ["BubbleTeaCup800gPickAndPlace"]
+__all__ = ["LargestPickAndPlace"]
