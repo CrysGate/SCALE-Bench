@@ -6,9 +6,6 @@ success_stability_steps: 10
 
 target_slot:
   position_xy_m: [0.0, -0.225]
-  position_tolerance_m: 0.03
-  height_tolerance_m: 0.02
-  upright_tolerance_rad: 0.12
 
 physics:
   restitution: 0.0
