@@ -3,25 +3,27 @@ site_description: Isaac Lab 双臂操作任务与专家数据采集
 site_url: https://crysgate.github.io/SCALE-Bench/
 repo_url: https://github.com/CrysGate/SCALE-Bench
 repo_name: CrysGate/SCALE-Bench
+copyright: SCALE-Bench · 双臂操作与专家数据采集
 
 theme:
   name: material
   language: zh
+  font: false
   icon:
     logo: material/robot-industrial
     repo: fontawesome/brands/github
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: teal
-      accent: orange
+      primary: white
+      accent: indigo
       toggle:
         icon: material/weather-night
         name: 切换深色模式
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: teal
-      accent: orange
+      primary: black
+      accent: indigo
       toggle:
         icon: material/weather-sunny
         name: 切换浅色模式
@@ -29,13 +31,26 @@ theme:
     - navigation.tabs
     - navigation.tabs.sticky
     - navigation.sections
+    - navigation.indexes
+    - navigation.footer
     - navigation.top
+    - toc.follow
     - content.code.copy
     - search.suggest
     - search.highlight
 
 markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+      title: 本页内容
+  - pymdownx.details
+  - pymdownx.highlight
   - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
 
 extra_css:
   - stylesheets/extra.css
@@ -48,7 +63,9 @@ extra:
 
 nav:
   - 首页: index.md
-  - 任务:
+  - 开始使用: getting-started.md
+  - 任务指南:
+      - 任务总览: tasks/index.md
       - 套娃排序: tasks/sort_dolls_by_size.md
       - 单物体抓取与放置: tasks/single_object_pick_and_place.md
       - 最大物体抓取与放置: tasks/largest_pick_and_place.md
