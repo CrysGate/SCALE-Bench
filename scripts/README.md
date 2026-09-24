@@ -14,8 +14,6 @@ uv run python scripts/preview_scene.py \
 
 支持的 task 为 `sort_dolls_by_size`、`single_object_pick_and_place` 和 `largest_pick_and_place`。奶茶杯任务包含一个 800g 目标杯、两个 300g 干扰杯和两个 500g 干扰杯；`--seed` 与 `--layout` 互斥；`--export-layout` 保存本次布局。
 
-公共布局采样器逐个摆放物体。某个物体耗尽 `sampling_attempts_per_object` 次位置尝试后，会丢弃本轮布局并重新摆放全部物体；`layout_sampling_attempts` 控制整套布局尝试上限，默认 32 次。所有尝试持续使用同一个 seed 的随机序列，结果可复现；摆放区域、物体间距和最终记录的 seed 不变。超过上限会报错。
-
 使用 Physics Inspector 手动检查机械臂关节：
 
 ```bash
