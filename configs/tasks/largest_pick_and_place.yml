@@ -18,15 +18,15 @@ objects:
   - name: bubble_tea_cup_800g_target
     usd_path: Assets/Object/Rigid/bubble_tea_cup/800g/Aligned.usd
     metadata_path: Assets/Object/Rigid/bubble_tea_cup/800g/metadata.json
-  - name: bubble_tea_cup_300g_left
+  - name: bubble_tea_cup_300g_01
     usd_path: Assets/Object/Rigid/bubble_tea_cup/300g/Aligned.usd
     metadata_path: Assets/Object/Rigid/bubble_tea_cup/300g/metadata.json
-  - name: bubble_tea_cup_300g_right
+  - name: bubble_tea_cup_300g_02
     usd_path: Assets/Object/Rigid/bubble_tea_cup/300g/Aligned.usd
     metadata_path: Assets/Object/Rigid/bubble_tea_cup/300g/metadata.json
-  - name: bubble_tea_cup_500g_left
+  - name: bubble_tea_cup_500g_01
     usd_path: Assets/Object/Rigid/bubble_tea_cup/500g/Aligned.usd
     metadata_path: Assets/Object/Rigid/bubble_tea_cup/500g/metadata.json
-  - name: bubble_tea_cup_500g_right
+  - name: bubble_tea_cup_500g_02
     usd_path: Assets/Object/Rigid/bubble_tea_cup/500g/Aligned.usd
     metadata_path: Assets/Object/Rigid/bubble_tea_cup/500g/metadata.json
