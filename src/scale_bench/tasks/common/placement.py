@@ -67,40 +67,22 @@ def generate_tabletop_layout(
         placements: dict[str, AssetPlacement] = {}
 
         for name in sampling_order:
-            radius = radii[name]
-            x_range, y_range = _center_ranges(context, name, radius)
-            for _ in range(sampling_attempts_per_object):
-                x_m = rng.uniform(*x_range)
-                y_m = rng.uniform(*y_range)
-                if any(
-                    math.hypot(
-                        x_m - previous.position_m[0],
-                        y_m - previous.position_m[1],
-                    )
-                    < radius + radii[previous_name] + minimum_object_gap_m
-                    for previous_name, previous in placements.items()
-                ):
-                    continue
+            placement = _sample_object_placement(
+                name=name,
+                context=context,
+                asset_sizes_m=asset_sizes_m,
+                radii=radii,
+                placements=placements,
+                rng=rng,
+                spawn_clearance_m=spawn_clearance_m,
+                minimum_object_gap_m=minimum_object_gap_m,
+                sampling_attempts=sampling_attempts_per_object,
+            )
+            if placement is None:
+                break
+            placements[name] = placement
 
-                yaw_env_rad = rng.uniform(-math.pi, math.pi)
-                placements[name] = AssetPlacement(
-                    position_m=(
-                        x_m,
-                        y_m,
-                        context.table_top_z_m
-                        + asset_sizes_m[name][2] / 2.0
-                        + spawn_clearance_m,
-                    ),
-                    orientation_xyzw=quaternion_xyzw_from_rpy(
-                        0.0,
-                        0.0,
-                        yaw_env_rad,
-                    ),
-                )
-                break
-            else:
-                break
-        else:
+        if len(placements) == len(asset_sizes_m):
             return TaskLayout(
                 task_id=task_id,
                 seed=seed,
@@ -112,6 +94,47 @@ def generate_tabletop_layout(
         f"after {layout_sampling_attempts} layout attempts for seed {seed} "
         f"({sampling_attempts_per_object} position attempts per object)"
     )
+
+
+def _sample_object_placement(
+    *,
+    name: str,
+    context: PlacementContext,
+    asset_sizes_m: Mapping[str, tuple[float, float, float]],
+    radii: Mapping[str, float],
+    placements: Mapping[str, AssetPlacement],
+    rng: random.Random,
+    spawn_clearance_m: float,
+    minimum_object_gap_m: float,
+    sampling_attempts: int,
+) -> AssetPlacement | None:
+    """Return None when position attempts are exhausted, requiring a new layout."""
+
+    radius = radii[name]
+    x_range_m, y_range_m = _center_ranges(context, name, radius)
+    for _ in range(sampling_attempts):
+        x_env_m = rng.uniform(*x_range_m)
+        y_env_m = rng.uniform(*y_range_m)
+        if any(
+            math.hypot(
+                x_env_m - previous.position_m[0],
+                y_env_m - previous.position_m[1],
+            )
+            < radius + radii[previous_name] + minimum_object_gap_m
+            for previous_name, previous in placements.items()
+        ):
+            continue
+
+        yaw_env_rad = rng.uniform(-math.pi, math.pi)
+        return AssetPlacement(
+            position_m=(
+                x_env_m,
+                y_env_m,
+                context.table_top_z_m + asset_sizes_m[name][2] / 2.0 + spawn_clearance_m,
+            ),
+            orientation_xyzw=quaternion_xyzw_from_rpy(0.0, 0.0, yaw_env_rad),
+        )
+    return None
 
 
 def validate_tabletop_layout(
