@@ -4,12 +4,13 @@
 
 ScaleBench is a configuration-driven Isaac Lab project for dual-arm manipulation. Robot, camera, scene, task, simulation, and environment settings live in validated YAML files. The repository provides scene preview, task evaluation, expert-data generation, policy rollout, and episode replay entry points.
 
-Two tasks are currently implemented:
+Three tasks are currently implemented:
 
 - `sort_dolls_by_size`: arrange five nesting dolls in size order at fixed slots.
 - `single_object_pick_and_place`: place a randomly positioned bottle upright at a fixed slot.
+- `largest_pick_and_place`: place the largest object in the target slot; the default configuration uses bubble tea cups.
 
-Both tasks support deterministic seeds, layout import/export, and final-state evaluation. The expert path uses CuRobo planning with asset-local `grasps.yaml` annotations.
+The tasks support deterministic seeds, layout import/export, and final-state evaluation. The expert path supports CuRobo planning with either live AnyGrasp detections or an offline grasp catalog from the robot configuration.
 
 ## Environment
 
@@ -79,7 +80,7 @@ uv run python scripts/run_demo_generation.py \
   --viz none
 ```
 
-Grasp candidates are read from `grasps.yaml` beside each object USD, including its TCP definition and approach distance.
+Grasp candidates are read from `grasps-<robot name>.yaml` beside each object USD, including its TCP definition and approach distance.
 
 ## Entry Points
 
@@ -120,7 +121,7 @@ They share scheduling, evaluation, termination, and recording. HDF5 output conta
 
 ## Validation
 
-The project does not add unit tests; changes are validated through the corresponding real execution path. At minimum, load the configuration and run a bounded environment:
+Validate changes through the corresponding real execution path. At minimum, load the configuration and run a bounded environment:
 
 ```bash
 uv run python -c \

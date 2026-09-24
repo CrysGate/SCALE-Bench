@@ -16,6 +16,8 @@ from scale_bench.config.models.scene import SceneConfig
 from scale_bench.config.models.simulation import SimulationConfig
 from scale_bench.runtime.logging import configure_logging
 from scale_bench.runtime.task_run import TaskRun
+from scale_bench.tasks.largest_pick_and_place.config import LargestPickAndPlaceConfig
+from scale_bench.tasks.largest_pick_and_place.task import LargestPickAndPlace
 from scale_bench.tasks.single_object_pick_and_place.config import (
     SingleObjectPickAndPlaceConfig,
 )
@@ -24,6 +26,10 @@ from scale_bench.tasks.sort_dolls_by_size.config import SortDollsBySizeConfig
 from scale_bench.tasks.sort_dolls_by_size.task import SortDollsBySize
 
 TASKS = {
+    LargestPickAndPlace.TASK_ID: (
+        LargestPickAndPlaceConfig,
+        LargestPickAndPlace,
+    ),
     SingleObjectPickAndPlace.TASK_ID: (
         SingleObjectPickAndPlaceConfig,
         SingleObjectPickAndPlace,

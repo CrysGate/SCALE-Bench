@@ -14,9 +14,9 @@ def load_asset_grasps(
     object_usd_path: Path,
     robot_config: RobotConfig,
 ) -> tuple[GraspCandidate, ...]:
-    """Load candidates for one robot, retaining their order in grasps.yaml."""
+    """Load the asset's grasps-<robot name>.yaml, retaining candidate order."""
 
-    path = object_usd_path.with_name("grasps.yaml")
+    path = object_usd_path.with_name(f"grasps-{robot_config.name}.yaml")
     grasps = load_config(path, AssetGraspsConfig)
     if grasps.tcp != robot_config.kinematics.tcp:
         raise ValueError(f"grasp TCP does not match robot {robot_config.name!r}: {path}")

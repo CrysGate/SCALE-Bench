@@ -1,4 +1,4 @@
-"""Result aggregation for one-object pick-and-place."""
+"""Task identity and evaluation for picking and placing the largest object."""
 
 from __future__ import annotations
 
@@ -10,41 +10,42 @@ from scale_bench.tasks.common.fixed_target import (
 )
 from scale_bench.tasks.common.task import EvaluatorObservation
 
-from .config import SingleObjectPickAndPlaceConfig
+from .config import LargestPickAndPlaceConfig
 
 
-class SingleObjectPickAndPlace(FixedTargetRigidObjectTask):
-    """Move one randomly initialized bottle to one fixed tabletop slot."""
+class LargestPickAndPlace(FixedTargetRigidObjectTask):
+    """Move the largest object to a fixed slot."""
 
-    TASK_ID: ClassVar[str] = "single_object_pick_and_place"
+    TASK_ID: ClassVar[str] = "largest_pick_and_place"
 
-    def __init__(self, config: SingleObjectPickAndPlaceConfig) -> None:
-        self._object_name = config.object.name
+    def __init__(self, config: LargestPickAndPlaceConfig) -> None:
+        assets = {asset.name: asset for asset in config.objects}
         super().__init__(
             config,
-            {config.object.name: config.object},
+            assets,
             target_positions_env_xy_m=(config.target_slot.position_xy_m,),
             target_placement_config=config.target_slot,
         )
 
     @property
-    def object_name(self) -> str:
-        return self._object_name
+    def target_name(self) -> str:
+        """Select the largest object by height, as defined by asset metadata."""
+
+        return max(self.assets, key=lambda name: self.metadata[name].size[2])
 
     @property
     def target_object_order(self) -> tuple[str, ...]:
-        """Return the only object in its only target slot."""
+        """Return the large target object, excluding distractors."""
 
-        return (self.object_name,)
+        return (self.target_name,)
 
     def evaluate(
         self,
         observation: EvaluatorObservation,
     ) -> PlacementResult:
-        """Build the final success result and geometric diagnostics."""
+        """Evaluate placement of the largest object."""
 
-        statuses = self._placement_statuses(observation)
-        status = statuses[0]
+        status = self._placement_statuses(observation)[0]
         return PlacementResult(
             success=status.placed,
             progress=float(status.placed),
@@ -56,12 +57,10 @@ class SingleObjectPickAndPlace(FixedTargetRigidObjectTask):
             failure_reason=(
                 None
                 if status.placed
-                else f"{self.object_name} is outside the fixed target slot"
+                else f"{self.target_name} is outside the fixed target slot"
             ),
-            statuses=statuses,
+            statuses=(status,),
         )
 
 
-__all__ = [
-    "SingleObjectPickAndPlace",
-]
+__all__ = ["LargestPickAndPlace"]

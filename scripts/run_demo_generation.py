@@ -55,7 +55,7 @@ def main() -> int:
             max_steps=args.max_steps,
         )
         result = collect_expert_data(
-            run, specs, recording=recording, num_envs=args.num_envs
+            run, specs, recording=recording, num_envs=args.num_envs,
         )
         episode_count = len(result.benchmark.episodes)
         LOGGER.log(

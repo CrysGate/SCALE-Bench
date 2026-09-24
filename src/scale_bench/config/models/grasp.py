@@ -44,7 +44,7 @@ class AssetGraspCandidateConfig(FrozenModel):
 
 
 class AssetGraspsConfig(FrozenModel):
-    """The compact grasps.yaml stored beside one object asset."""
+    """The compact grasps-<robot name>.yaml stored beside one object asset."""
 
     object: Name
     position_unit: Literal["m"]

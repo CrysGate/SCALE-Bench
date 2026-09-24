@@ -12,7 +12,7 @@ uv run python scripts/preview_scene.py \
   --seed 42
 ```
 
-支持的 task 为 `sort_dolls_by_size` 和 `single_object_pick_and_place`。`--seed` 与 `--layout` 互斥；`--export-layout` 保存本次布局。
+支持的 task 为 `sort_dolls_by_size`、`single_object_pick_and_place` 和 `largest_pick_and_place`。`--seed` 与 `--layout` 互斥；`--export-layout` 保存本次布局。
 
 使用 Physics Inspector 手动检查机械臂关节：
 
@@ -77,9 +77,11 @@ seed 范围为 `[base-seed, base-seed + episodes)`，`--num-envs` 只改变并�
 
 省略 `--record-camera-observations` 时记录关节、动作等默认数据；传入时额外保存左腕、右腕和俯视相机的 RGB-D。无显示器采集相机时使用 `HEADLESS=1 --viz kit`，使 reset 阶段生成有效 RTX 帧；`--viz none` 适用于不录制相机的运行。
 
-抓取候选固定读取自物体 USD 同目录的 `grasps.yaml`。机器人通过 `--robot-config` 选择，其 TCP 和关节定义必须与抓取数据匹配。
+抓取候选读取自物体 USD 同目录的 `grasps-<机器人name>.yaml`。机器人通过 `--robot-config` 选择，其 TCP 和关节定义必须与抓取数据匹配。
 
 `--log-file PATH` 追加完整 DEBUG JSONL；省略时只输出终端日志。自定义配置路径相对于当前目录解析，内置配置默认使用仓库中的绝对路径。
+
+运行奶茶杯任务时将示例中的 `--task` 改为 `largest_pick_and_place`，并准备好 [任务配置](../configs/tasks/largest_pick_and_place.yml) 引用的资产及对应的抓取文件。
 
 ### 单步技能与 CuRobo 调试
 

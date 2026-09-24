@@ -39,7 +39,7 @@ def collect_expert_data(
     recording: RecordingConfig,
     num_envs: int,
 ) -> CollectionResult:
-    """Execute task-owned experts and return only after the dataset is closed."""
+    """Execute task-owned experts and return after the dataset is closed."""
     target_layout = run.task.target_layout(
         PlacementContext.from_scene_config(run.scene)
     )

@@ -4,12 +4,13 @@
 
 ScaleBench 是一个配置驱动的 Isaac Lab 双臂操作项目。它把机器人、相机、场景、任务、仿真和环境参数保存在 YAML 中，并提供场景预览、任务评测、专家数据生成、策略运行和 episode 回放入口。
 
-当前包含两个任务：
+当前包含三个任务：
 
 - `sort_dolls_by_size`：将五个套娃按尺寸排列到固定槽位。
 - `single_object_pick_and_place`：将随机位置的 bottle 直立放到固定槽位。
+- `largest_pick_and_place`：将最大的物体放入目标槽，默认配置使用奶茶杯资产。
 
-两个任务都支持确定性 seed、layout 导入导出和最终状态评测。专家链路使用 CuRobo 规划和物体资产目录中的 `grasps.yaml` 抓取标注。
+三个任务都支持确定性 seed、layout 导入导出和最终状态评测。专家链路支持 CuRobo 规划，以及 AnyGrasp 在线抓取或机器人配置中的离线抓取 catalog。
 
 ## 环境
 
@@ -79,7 +80,7 @@ uv run python scripts/run_demo_generation.py \
   --viz none
 ```
 
-抓取候选读取自物体 USD 同目录的 `grasps.yaml`，包括 TCP 定义和接近距离。
+抓取候选读取自物体 USD 同目录的 `grasps-<机器人name>.yaml`，包括 TCP 定义和接近距离。
 
 ## 主要入口
 
@@ -120,7 +121,7 @@ Episode 运行时分为两条链路：
 
 ## 验证改动
 
-项目不编写单元测试；改动后运行对应的真实链路。最低限度先加载配置，再执行有界环境运行：
+改动后运行对应的真实链路。最低限度先加载配置，再执行有界环境运行：
 
 ```bash
 uv run python -c \

@@ -8,45 +8,36 @@
 
 ## 运行环境
 
-脚本需要 Isaac Sim 6.0.1 及项目依赖。运行时会以 headless 模式启动
-`SimulationApp`，因此不能在 Isaac Sim 运行时初始化之前导入 `pxr`、`omni` 或
-`pymeshlab`。
+需要 Isaac Sim 6.0.1 及项目依赖。
 
 ```bash
 uv run python src/assets_gen/convert_obj_to_usd.py \
   --assets-root ./assets \
   --folders ./assets/vase ./assets/mug \
   --metadata-xlsx ./assets/sample.xlsx \
-  --output-root ./converted-obj
+  --output-root ./converted-obj \
+  --usd-output-root ./converted-usd
 ```
 
-如果不传 `--folders`，默认扫描 `<assets-root>/vase`；如果不传
-`--metadata-xlsx`，默认使用 `<assets-root>/sample.xlsx`。默认输出目录是
-`<assets-root>/../rigid assets`。这些默认值是相对路径，不依赖某台机器的用户
-目录。
+默认扫描 `<assets-root>/vase`，读取 `<assets-root>/sample.xlsx`，
+并将 OBJ 导出到 `<assets-root>/../rigid assets`。
 
-## 处理流程
+## 输出
 
-1. 可选地在扫描目录中解压 ZIP。Git LFS pointer 会被识别并跳过，ZIP 成员路径
-   会经过目录穿越检查。
-2. 递归查找 OBJ，并按真实路径去重。
-3. 使用 MeshLab 将超过 `--target-faces` 的网格简化。
-4. 使用 Asset Converter 生成 USD，测量源 AABB，并读取匹配的元数据。
-5. 创建固定拓扑：`/root/{_materials,visual,collision}`。源层级变换、物理尺寸缩放
-   和 up-axis 对齐会烘焙进 visual/collision 网格；随后将网格 AABB 中心平移到
-   `/root` 原点，使刚体 root 表示几何中心。
-6. 在 `/root` 写入刚体、质量和 `scale_x/scale_y/scale_z`；在 collision 网格上设置
-   PhysX 凸分解碰撞体；在 `/root` 写入 `real_x/real_y/real_z`。
-7. 保存 `Aligned.usd`，并导出对应的 `Aligned.obj`。
-
-单个输入目录中的 USD 输出文件名固定为 `Aligned.usd`。导出的 OBJ 保持相对于
-`--assets-root` 的目录结构，例如：
+脚本将 OBJ 转为包含碰撞体的对齐 USD，导出对齐后的 OBJ，并在
+`metadata.json` 中记录最终尺寸、质量和摩擦系数。输出保留相对于
+`--assets-root` 的目录结构：
 
 ```text
 assets/vase/001/model.obj
-assets/vase/001/Aligned.usd
+converted-usd/vase/001/Aligned.usd
+converted-usd/vase/001/metadata.json
+converted-usd/vase/001/textures/
 converted-obj/vase/001/Aligned.obj
 ```
+
+未指定 `--usd-output-root` 时，USD 输出到源 OBJ 目录。已有资产默认跳过；
+使用 `--force` 重新生成，转换失败时保留旧文件。
 
 ## 元数据格式
 
@@ -73,7 +64,7 @@ converted-obj/vase/001/Aligned.obj
 | `--folders PATH ...` | 要扫描的目录 |
 | `--metadata-xlsx PATH` | 元数据工作簿 |
 | `--output-root PATH` | 导出 OBJ 的根目录 |
-| `--target-faces N` | MeshLab 简化的最大面数，默认 `1000` |
+| `--usd-output-root PATH` | USD 资产包根目录，保留源目录相对结构 |
 | `--mass KG` | 缺少质量元数据时的回退质量 |
 | `--scale VALUE` | 缺少尺寸元数据时的回退缩放 |
 | `--force` | 覆盖已有 `Aligned.usd` |
@@ -89,5 +80,4 @@ converted-obj/vase/001/Aligned.obj
   拒绝继续，以避免生成错误的碰撞体。
 - `Aligned.usd` 和 `Aligned.obj` 是同一批处理结果的一对文件。反向 OBJ 导出失败
   会将该资产计为失败，而不会报告为成功。
-- 失败资产不会中断后续资产处理；程序结束时会输出找到、成功、跳过和
-  失败数量。
+- 失败资产不会中断后续处理；只要有资产转换失败，进程就返回非零退出码。

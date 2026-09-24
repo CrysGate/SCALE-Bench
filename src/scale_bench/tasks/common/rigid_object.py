@@ -53,6 +53,7 @@ class RigidObjectTaskConfig(FrozenModel):
     spawn_clearance_m: NonNegativeFloat = 0.003
     minimum_object_gap_m: NonNegativeFloat = 0.02
     sampling_attempts_per_object: PositiveInt = 1000
+    layout_sampling_attempts: PositiveInt = 32
     success_stability_steps: PositiveInt = 1
     physics: RigidObjectPhysicsConfig
 
@@ -174,6 +175,7 @@ class RigidObjectTask:
             spawn_clearance_m=self._config.spawn_clearance_m,
             minimum_object_gap_m=self._config.minimum_object_gap_m,
             sampling_attempts_per_object=self._config.sampling_attempts_per_object,
+            layout_sampling_attempts=self._config.layout_sampling_attempts,
         )
 
     def validate_layout(

@@ -132,12 +132,13 @@ async def pick_and_place(session: SkillSession, request: PickAndPlace) -> AsyncI
 
     for attempt in range(session.config.retreat_attempts):
         snapshot = session.context.snapshot()
-        tcp_pose_env = snapshot.robot(arm).tcp_pose_env
+        retreat_tcp_pose_env = approach_start_pose(
+            snapshot.robot(arm).tcp_pose_env,
+            selected.candidate.approach_axis_tcp,
+            session.config.retreat_distance_m,
+        )
         async for command in session.move_free(
-            arm, approach_start_pose(
-                tcp_pose_env, selected.candidate.approach_axis_tcp, session.config.retreat_distance_m,
-            ),
-            contact_scene(snapshot, arm, object_name),
+            arm, retreat_tcp_pose_env, contact_scene(snapshot, arm, object_name),
             "retreat" if attempt == 0 else "recover_retreat",
         ):
             yield command
