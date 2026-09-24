@@ -77,38 +77,26 @@ seed 范围为 `[base-seed, base-seed + episodes)`，`--num-envs` 只改变并�
 
 省略 `--record-camera-observations` 时记录关节、动作等默认数据；传入时额外保存左腕、右腕和俯视相机的 RGB-D。无显示器采集相机时使用 `HEADLESS=1 --viz kit`，使 reset 阶段生成有效 RTX 帧；`--viz none` 适用于不录制相机的运行。
 
-抓取候选固定读取自物体 USD 同目录的 `grasps.yaml`。机器人通过 `--robot-config` 选择，其 TCP 和关节定义必须与抓取数据匹配。
+抓取候选默认读取自物体 USD 同目录的 `grasps.yaml`。机器人通过 `--robot-config` 选择，其 TCP 和关节定义必须与抓取数据匹配。
 
 `--log-file PATH` 追加完整 DEBUG JSONL；省略时只输出终端日志。自定义配置路径相对于当前目录解析，内置配置默认使用仓库中的绝对路径。
 
 ### 奶茶杯演示采集
 
-`run_bubble_tea_demo.py` 使用新版异步 CuRobo 技能执行器，在单个环境中依次尝试 seed，达到 `--success-count` 后停止。保留 `--config`、`--left-robot-config`、`--right-robot-config`、`--grasp-file`、`--record-dir` 和 `--record-cameras` 等原有参数。
+奶茶杯任务使用同一个 `run_demo_generation.py` 入口，沿用上述 seed 范围、并行采集、记录和退出码规则：
 
 ```bash
-# 只检查配置、布局和抓取文件，不启动仿真。
-uv run python scripts/run_bubble_tea_demo.py --check-config
-
-# 最多尝试 9 个 seed，收集 3 个成功 episode。
-uv run python scripts/run_bubble_tea_demo.py \
-  --seed 0 --success-count 3 --max-attempts 9 \
-  --max-steps 1200 --viz none
+uv run python scripts/run_demo_generation.py \
+  --task bubble_tea_cup_800g_pick_and_place \
+  --base-seed 31 --episodes 1 --max-steps 1200 --viz none \
+  --grasp-file bubble_tea_cup_800g_target outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml \
+  --record-output outputs/demos/bubble_tea_cup_800g \
+  --dataset-name bubble_tea_seed31
 ```
 
-`--seeds 0 5 10` 可指定尝试顺序；默认从 `--seed` 开始，最多尝试成功目标数的三倍。成功次数累计计算，不要求连续成功；未达到目标时返回非零退出码。成功和失败 episode 均写入同一个 HDF5，技能事件写入 `.segments.jsonl`，日志输出实际数据集路径。
+`--grasp-file OBJECT PATH` 为指定物体使用外部抓取文件，可以重复传入以覆盖多个物体；未指定的物体仍读取 USD 同目录的 `grasps.yaml`。上例用于复用奶茶杯的旧抓取数据，也支持紧凑格式。旧格式的 TCP 若与机器人配置共享父坐标系，会转换到当前 TCP 定义；物体、机器人和夹爪关节必须匹配。干扰杯不需要抓取标注。
 
-默认使用 `outputs/grasp_data/piper/bubble_tea_cup_800g_target/successful_grasps.yaml`，也可通过 `--grasp-file` 指定新版紧凑 `grasps.yaml`。旧格式的 TCP 若与机器人配置共享父坐标系，会转换到当前 TCP 定义，以保留原有物理抓取姿态；物体、机器人和夹爪关节必须匹配。干扰杯不需要抓取标注。
-
-当前入口使用 CuRobo，需要可用的 CUDA GPU，不再回退到旧 Pinocchio CPU 规划器。抓取和放置使用新版公共技能流程；奶茶杯松爪后沿环境 Z 轴向上撤离，再返回安全关节位置。任务配置中的 `release_retreat_height_m` 默认是 0.12 m，避免直接沿水平抓取方向撤离时无可行路径。相机默认关闭；录制 RGB-D 时使用 `HEADLESS=1 ... --viz kit --record-cameras`。
-
-2026-09-23 在本机默认配置和旧抓取文件上验证通过的命令：
-
-```bash
-uv run python scripts/run_bubble_tea_demo.py \
-  --viz none --seeds 31 --success-count 1 --max-steps 1200
-```
-
-该次运行在 320 步后返回 `goal_reached`，平面位置误差约 4.8 mm，直立角误差约 0.064 rad。验证数据位于 `outputs/compatibility_checks/bubble_tea_vertical_retreat.hdf5`，episode 为 `demo_bubble_tea_cup_800g_000031`，HDF5 中的 `success` 为 true。此结果不代表所有 seed 均可成功。
+奶茶杯松爪后沿环境 Z 轴向上撤离，再返回安全关节位置。任务配置中的 `release_retreat_height_m` 默认是 0.12 m。录制 RGB-D 时使用 `HEADLESS=1 ... --viz kit --record-camera-observations`。
 
 ### 单步技能与 CuRobo 调试
 

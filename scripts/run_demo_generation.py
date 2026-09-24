@@ -33,11 +33,24 @@ def main() -> int:
     )
     parser.add_argument("--dataset-name", default="demo_generation")
     parser.add_argument(
+        "--grasp-file", nargs=2, action="append", default=[],
+        metavar=("OBJECT", "PATH"),
+        help="Override an object's grasps.yaml with an external grasp file; repeat per object.",
+    )
+    parser.add_argument(
         "--record-camera-observations",
         action="store_true",
         help="Include wrist and overhead RGB-D; omit for joint/action data only.",
     )
     args = parser.parse_args()
+    grasp_files: dict[str, Path] = {}
+    for object_name, filename in args.grasp_file:
+        path = Path(filename).resolve()
+        if object_name in grasp_files:
+            parser.error(f"duplicate grasp override: {object_name}")
+        if not path.is_file():
+            parser.error(f"grasp file does not exist: {path}")
+        grasp_files[object_name] = path
     args.enable_cameras = args.enable_cameras or args.record_camera_observations
     recording = RecordingConfig(
         output_dir=args.record_output.resolve(),
@@ -55,7 +68,8 @@ def main() -> int:
             max_steps=args.max_steps,
         )
         result = collect_expert_data(
-            run, specs, recording=recording, num_envs=args.num_envs
+            run, specs, recording=recording, num_envs=args.num_envs,
+            grasp_files=grasp_files,
         )
         episode_count = len(result.benchmark.episodes)
         LOGGER.log(

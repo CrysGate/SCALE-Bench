@@ -72,6 +72,7 @@ def main() -> int:
                 specs,
                 expert_factory=expert_factory,
                 visualize_curobo=args.visualize_curobo,
+                grasp_files={},
             )
         episode = result.episodes[specs[0].episode_id]
         print(

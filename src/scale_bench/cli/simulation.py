@@ -16,6 +16,8 @@ from scale_bench.config.models.scene import SceneConfig
 from scale_bench.config.models.simulation import SimulationConfig
 from scale_bench.runtime.logging import configure_logging
 from scale_bench.runtime.task_run import TaskRun
+from scale_bench.tasks.bubble_tea_cup_800g_pick_and_place.config import BubbleTeaCupPickAndPlaceConfig
+from scale_bench.tasks.bubble_tea_cup_800g_pick_and_place.task import BubbleTeaCup800gPickAndPlace
 from scale_bench.tasks.single_object_pick_and_place.config import (
     SingleObjectPickAndPlaceConfig,
 )
@@ -24,6 +26,10 @@ from scale_bench.tasks.sort_dolls_by_size.config import SortDollsBySizeConfig
 from scale_bench.tasks.sort_dolls_by_size.task import SortDollsBySize
 
 TASKS = {
+    BubbleTeaCup800gPickAndPlace.TASK_ID: (
+        BubbleTeaCupPickAndPlaceConfig,
+        BubbleTeaCup800gPickAndPlace,
+    ),
     SingleObjectPickAndPlace.TASK_ID: (
         SingleObjectPickAndPlaceConfig,
         SingleObjectPickAndPlace,
