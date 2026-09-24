@@ -14,6 +14,8 @@ uv run python scripts/preview_scene.py \
 
 支持的 task 为 `sort_dolls_by_size`、`single_object_pick_and_place` 和 `largest_pick_and_place`。`--seed` 与 `--layout` 互斥；`--export-layout` 保存本次布局。
 
+`--workspace-samples` 调整每臂采样数量，`--workspace-opacity` 调整单点不透明度。
+
 使用 Physics Inspector 手动检查机械臂关节：
 
 ```bash

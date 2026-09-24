@@ -62,12 +62,12 @@ parser.add_argument(
 parser.add_argument(
     "--left-robot-config",
     type=Path,
-    default=Path("configs/robots/x5.yml"),
+    default=Path("configs/robots/piper.yml"),
 )
 parser.add_argument(
     "--right-robot-config",
     type=Path,
-    default=Path("configs/robots/x5.yml"),
+    default=Path("configs/robots/piper.yml"),
 )
 parser.add_argument(
     "--max-steps",
@@ -86,6 +86,18 @@ parser.add_argument(
     default=0.75,
     help="Visual length of camera frustums in metres.",
 )
+parser.add_argument(
+    "--workspace-samples",
+    type=int,
+    default=131072,
+    help="Joint configurations sampled per arm for the TCP reachability cloud.",
+)
+parser.add_argument(
+    "--workspace-opacity",
+    type=float,
+    default=0.14,
+    help="Opacity of each TCP reachability point (0 to 1).",
+)
 AppLauncher.add_app_launcher_args(parser)
 parser.add_argument(
     "--task",
@@ -99,6 +111,10 @@ if args.max_steps is not None and args.max_steps <= 0:
     parser.error("--max-steps must be positive")
 if args.camera_frustum_length_m <= 0.0:
     parser.error("--camera-frustum-length-m must be positive")
+if args.workspace_samples <= 0:
+    parser.error("--workspace-samples must be positive")
+if not 0.0 < args.workspace_opacity <= 1.0:
+    parser.error("--workspace-opacity must be greater than 0 and at most 1")
 if args.seed is not None and args.seed < 0:
     parser.error("--seed must be non-negative")
 try:
@@ -122,10 +138,15 @@ camera_frustum_length_m = args.camera_frustum_length_m
 app_launcher = AppLauncher(args)
 simulation_app = app_launcher.app
 
+from isaaclab.assets import Articulation
 from isaaclab.scene import InteractiveScene
 
 if preview_overlays_enabled:
+    import torch
     from isaacsim.core.experimental.utils.app import enable_extension
+    from curobo.kinematics import Kinematics, KinematicsCfg
+    from curobo.types import DeviceCfg, JointState as CuroboJointState
+    from curobo.types import Pose as CuroboPose
 
     enable_extension("isaacsim.util.debug_draw")
     if args.physics_inspector:
@@ -139,7 +160,7 @@ if preview_overlays_enabled:
 from scale_bench.api import create_env
 from scale_bench.config.models.environment import EnvironmentConfig
 from scale_bench.config.models.robot import RobotConfig
-from scale_bench.config.models.scene import SceneConfig
+from scale_bench.config.models.scene import RobotMountConfig, SceneConfig
 from scale_bench.isaaclab.runtime.target_slot_visualization import (
     Color,
     Line,
@@ -214,8 +235,93 @@ def _usd_camera_frustum_lines(camera, length_m: float) -> list[Line]:
     return lines
 
 
+def _sample_tcp_positions_world_m(
+    robot: Articulation,
+    robot_config: RobotConfig,
+    mount: RobotMountConfig,
+    table_top_z_m: float,
+    env_origins_world_m: list[list[float]],
+    sample_count: int,
+    device: str,
+) -> list[Point]:
+    """Sample joint-limited TCP positions with CuRobo forward kinematics."""
+
+    tcp = robot_config.kinematics.tcp
+    if robot_config.urdf_path is None:
+        raise ValueError(f"TCP reachability requires a URDF for {robot_config.name}")
+    device_cfg = DeviceCfg(device=device)
+    kinematics = Kinematics(
+        KinematicsCfg.from_basic_urdf(
+            robot_config.urdf_path,
+            robot_config.kinematics.base_body,
+            [tcp.parent_frame],
+            device_cfg=device_cfg,
+        ),
+        compute_spheres=False,
+    )
+    joint_names = list(robot_config.kinematics.arm_joint_names)
+    if kinematics.joint_names != joint_names:
+        raise ValueError(
+            f"CuRobo joint order {kinematics.joint_names} differs from {joint_names}"
+        )
+    joint_ids = [robot.joint_names.index(name) for name in joint_names]
+    joint_state_limits_rad = robot.data.joint_pos_limits.torch[0, joint_ids].to(
+        device_cfg.device
+    )
+    if not torch.isfinite(joint_state_limits_rad).all() or not (
+        joint_state_limits_rad[:, 0] < joint_state_limits_rad[:, 1]
+    ).all():
+        raise ValueError(f"Invalid arm joint limits for {robot_config.name}")
+
+    tcp_pose_parent = CuroboPose.from_list(
+        [*tcp.position_m, *tcp.orientation_xyzw],
+        device_cfg=device_cfg,
+        q_xyzw=True,
+    )
+    base_pose_env = CuroboPose.from_list(
+        [*mount.position_xy_m, table_top_z_m, *mount.orientation_xyzw],
+        device_cfg=device_cfg,
+        q_xyzw=True,
+    )
+    joint_state_samples = torch.quasirandom.SobolEngine(
+        dimension=len(joint_names), scramble=True, seed=0
+    ).draw(sample_count)
+    tcp_positions_env_m: list[Point] = []
+    with torch.no_grad():
+        for start in range(0, sample_count, 8192):
+            joint_state_fractions = joint_state_samples[start : start + 8192].to(
+                device_cfg.device
+            )
+            joint_state_positions_rad = (
+                joint_state_limits_rad[:, 0]
+                + joint_state_fractions
+                * (joint_state_limits_rad[:, 1] - joint_state_limits_rad[:, 0])
+            )
+            joint_state = CuroboJointState.from_position(
+                joint_state_positions_rad.contiguous(), joint_names=joint_names
+            )
+            parent_pose_base = kinematics.compute_kinematics(
+                joint_state
+            ).tool_poses.get_link_pose(tcp.parent_frame)
+            tcp_pose_base = parent_pose_base.multiply(tcp_pose_parent)
+            tcp_pose_env = base_pose_env.multiply(tcp_pose_base)
+            tcp_positions_env_m.extend(
+                tuple(position_env_m)
+                for position_env_m in tcp_pose_env.position.cpu().tolist()
+            )
+
+    return [
+        tuple(
+            position_env_m[axis] + env_origin_world_m[axis]
+            for axis in range(3)
+        )
+        for env_origin_world_m in env_origins_world_m
+        for position_env_m in tcp_positions_env_m
+    ]
+
+
 class ScenePreviewOverlay:
-    """Draw optional placement-area, target-slot, and camera overlays."""
+    """Draw placement, camera, and joint-limited TCP reachability overlays."""
 
     CAMERA_COLORS: dict[str, Color] = {
         "left_robot_camera": (0.0, 0.75, 1.0, 1.0),
@@ -227,19 +333,40 @@ class ScenePreviewOverlay:
         self,
         scene: InteractiveScene,
         scene_config: SceneConfig,
+        robot_configs: dict[str, RobotConfig],
         target_positions_m: tuple[Point, ...],
         frustum_length_m: float,
+        workspace_samples: int,
+        workspace_opacity: float,
+        kinematics_device: str,
     ) -> None:
         self._scene = scene
         self._scene_config = scene_config
         self._target_positions_m = target_positions_m
         self._frustum_length_m = frustum_length_m
-        self._draw = _debug_draw.acquire_debug_draw_interface()
         self._area_model = omni.ui.SimpleBoolModel(True)
         self._target_slots_model = omni.ui.SimpleBoolModel(True)
         self._frustum_model = omni.ui.SimpleBoolModel(True)
+        self._left_workspace_model = omni.ui.SimpleBoolModel(True)
+        self._right_workspace_model = omni.ui.SimpleBoolModel(True)
+        self._workspace_visible = (False, False)
+        self._workspace_opacity = workspace_opacity
+        env_origins_world_m = self._scene.env_origins.tolist()
+        self._workspace_points_world_m = {
+            arm: _sample_tcp_positions_world_m(
+                self._scene[f"{arm}_robot"],
+                robot_configs[arm],
+                getattr(scene_config.robot_mounts, arm),
+                scene_config.table_top_z_m,
+                env_origins_world_m,
+                workspace_samples,
+                kinematics_device,
+            )
+            for arm in ("left", "right")
+        }
+        self._draw = _debug_draw.acquire_debug_draw_interface()
 
-        self._window = omni.ui.Window("Scene overlays", width=280, height=120)
+        self._window = omni.ui.Window("Scene overlays", width=280, height=172)
         with self._window.frame:
             with omni.ui.VStack(spacing=4):
                 with omni.ui.HStack(height=24):
@@ -251,6 +378,12 @@ class ScenePreviewOverlay:
                 with omni.ui.HStack(height=24):
                     omni.ui.Label("Camera frustums")
                     omni.ui.CheckBox(model=self._frustum_model, width=24)
+                with omni.ui.HStack(height=24):
+                    omni.ui.Label("Left TCP reach (cyan)")
+                    omni.ui.CheckBox(model=self._left_workspace_model, width=24)
+                with omni.ui.HStack(height=24):
+                    omni.ui.Label("Right TCP reach (orange)")
+                    omni.ui.CheckBox(model=self._right_workspace_model, width=24)
 
     def draw(self) -> None:
         """Redraw enabled overlays using the latest scene state."""
@@ -319,8 +452,28 @@ class ScenePreviewOverlay:
                 [width for _, _, width in styled_lines],
             )
 
+        workspace_visible = (
+            self._left_workspace_model.as_bool,
+            self._right_workspace_model.as_bool,
+        )
+        if workspace_visible != self._workspace_visible:
+            self._draw.clear_points()
+            for arm, visible, color in (
+                ("left", workspace_visible[0], (0.0, 0.85, 1.0, self._workspace_opacity)),
+                ("right", workspace_visible[1], (1.0, 0.45, 0.15, self._workspace_opacity)),
+            ):
+                if visible:
+                    points_world_m = self._workspace_points_world_m[arm]
+                    self._draw.draw_points(
+                        points_world_m,
+                        [color] * len(points_world_m),
+                        [2.0] * len(points_world_m),
+                    )
+            self._workspace_visible = workspace_visible
+
     def close(self) -> None:
         self._draw.clear_lines()
+        self._draw.clear_points()
         _debug_draw.release_debug_draw_interface(self._draw)
         self._window.visible = False
 
@@ -407,8 +560,12 @@ def main() -> None:
             ScenePreviewOverlay(
                 env.scene,
                 scene_config,
+                {"left": left_profile, "right": right_profile},
                 target_positions_m,
                 camera_frustum_length_m,
+                args.workspace_samples,
+                args.workspace_opacity,
+                sim_config.device,
             )
             if preview_overlays_enabled
             else None
