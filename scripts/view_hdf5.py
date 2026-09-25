@@ -26,6 +26,7 @@ from nicegui.elements.echart import EChart
 from nicegui.elements.label import Label
 
 BLOCK_SIZE = 16
+DEPTH_RANGE_SAMPLES_PER_BLOCK = 100_000
 TILE_WIDTH = 320
 CAMERA_ORDER = ("left_robot", "overhead", "right_robot")
 PLAYBACK_UI_FPS = 30.0
@@ -112,17 +113,19 @@ def _attrs(group: h5py.Group) -> dict[str, Any]:
     return {name: _json_value(group.attrs[name]) for name in sorted(group.attrs)}
 
 
-def _depth_range(dataset: h5py.Dataset, frame_count: int) -> tuple[float, float]:
-    sample_count = min(BLOCK_SIZE, frame_count)
-    start = max(0, (frame_count - sample_count) // 2)
-    depth = np.asarray(dataset[start : start + sample_count])
-    valid = depth[np.isfinite(depth) & (depth > 0.0)]
-    if not valid.size:
-        return 0.0, 1.0
-    minimum, maximum = np.percentile(valid, (1.0, 99.0))
-    if minimum >= maximum:
-        maximum = minimum + 1.0
-    return float(minimum), float(maximum)
+def _depth_range(dataset: h5py.Dataset) -> tuple[float, float]:
+    """Estimate a fixed color scale from valid samples across the whole episode."""
+    samples: list[np.ndarray] = []
+    for start in range(0, dataset.shape[0], BLOCK_SIZE):
+        depth = np.asarray(dataset[start : start + BLOCK_SIZE])
+        valid = depth[np.isfinite(depth) & (depth > 0.0)]
+        if valid.size:
+            stride = max(1, valid.size // DEPTH_RANGE_SAMPLES_PER_BLOCK)
+            samples.append(valid[::stride].copy())
+    if not samples:
+        return 0.0, 0.0
+    minimum_m, maximum_m = np.percentile(np.concatenate(samples), (1.0, 99.0))
+    return float(minimum_m), float(maximum_m)
 
 
 def _episode_frame_count(episode: h5py.Group, observations: h5py.Group) -> int:
@@ -274,7 +277,6 @@ class HDF5Viewer:
                 )
             if rgb.shape[1:3] != depth.shape[1:3]:
                 raise ValueError(f"RGB and depth resolution differ for {camera_name}")
-            minimum, maximum = _depth_range(depth, frame_count)
             cameras.append(
                 {
                     "name": camera_name,
@@ -282,8 +284,6 @@ class HDF5Viewer:
                     "depth_path": depth_path,
                     "width": int(rgb.shape[2]),
                     "height": int(rgb.shape[1]),
-                    "depth_min": minimum,
-                    "depth_max": maximum,
                 }
             )
         return cameras
@@ -440,6 +440,13 @@ class HDF5Viewer:
         with self._video_locks[episode_name]:
             if output_path.is_file():
                 return output_path
+            with h5py.File(self.recording_path, "r") as recording:
+                episode = recording[episode_info["path"]]
+                for camera in episode_info["cameras"]:
+                    if "depth_path" in camera:
+                        camera["depth_min_m"], camera["depth_max_m"] = _depth_range(
+                            episode[camera["depth_path"]]
+                        )
             self._encode_video(episode_info, output_path)
         return output_path
 
@@ -569,10 +576,11 @@ class HDF5Viewer:
             if depth.ndim == 3:
                 depth = depth[..., 0]
             valid = np.isfinite(depth) & (depth > 0.0)
-            minimum = float(camera["depth_min"])
-            maximum = float(camera["depth_max"])
+            minimum_m = camera["depth_min_m"]
+            maximum_m = camera["depth_max_m"]
             normalized = np.clip(
-                (np.where(valid, depth, maximum) - minimum) / (maximum - minimum),
+                (np.where(valid, depth, maximum_m) - minimum_m)
+                / max(maximum_m - minimum_m, np.finfo(np.float32).eps),
                 0.0,
                 1.0,
             )
@@ -719,6 +727,9 @@ body {
 .camera-label { min-width: 0; padding: 9px 12px; background: #20292d; color: #edf3f4; }
 .camera-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 700; }
 .camera-meta { color: #a5b3b8; font-size: 10px; }
+.camera-depth-range {
+  margin-top: 4px; color: #c5d1d5; font-size: 10px; font-variant-numeric: tabular-nums;
+}
 .state-pane {
   grid-area: inspector; min-width: 0; height: calc(100vh - var(--viewer-header-height) - var(--viewer-toolbar-height));
   position: sticky; top: calc(var(--viewer-header-height) + var(--viewer-toolbar-height));
@@ -1268,13 +1279,17 @@ class ViewerPage:
             for camera in cameras:
                 with ui.element("div").classes("camera-label"):
                     ui.label(camera["name"]).classes("camera-name")
-                    camera_meta = f"RGB · {camera['width']}x{camera['height']}"
-                    if "depth_path" in camera:
-                        camera_meta = (
-                            f"RGB + DEPTH · {camera['width']}x{camera['height']} · "
-                            f"{camera['depth_min']:.3g}-{camera['depth_max']:.3g} m"
-                        )
+                    image_types = "RGB + DEPTH" if "depth_path" in camera else "RGB"
+                    camera_meta = f"{image_types} · {camera['width']}x{camera['height']}"
                     ui.label(camera_meta).classes("camera-meta")
+                    if "depth_path" in camera:
+                        depth_range = (
+                            f"深度色标 {camera['depth_min_m']:.2f}–"
+                            f"{camera['depth_max_m']:.2f} m"
+                            if camera["depth_max_m"] > 0.0
+                            else "无有效深度"
+                        )
+                        ui.label(depth_range).classes("camera-depth-range")
         self.camera_legend.set_visibility(True)
 
     def _build_state_fields(self) -> None:
