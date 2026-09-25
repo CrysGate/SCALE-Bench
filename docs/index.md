@@ -12,11 +12,10 @@ hide:
 
 # SCALE-Bench
 
-<p class="hero-lead">Isaac Lab 双臂操作与专家数据采集</p>
-
 <div class="hero-actions" markdown>
 [开始使用 <span aria-hidden="true">↗</span>](getting-started.md){ .md-button .md-button--primary }
 [浏览任务 <span aria-hidden="true">→</span>](tasks/index.md){ .md-button }
+[浏览资产 <span aria-hidden="true">→</span>](assets/index.md){ .md-button }
 </div>
 </div>
 

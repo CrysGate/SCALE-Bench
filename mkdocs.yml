@@ -69,3 +69,6 @@ nav:
       - 套娃排序: tasks/sort_dolls_by_size.md
       - 单物体抓取与放置: tasks/single_object_pick_and_place.md
       - 最大物体抓取与放置: tasks/largest_pick_and_place.md
+  - 资产图鉴:
+      - 资产总览: assets/index.md
+      - 奶茶杯: assets/bubble_tea_cup.md

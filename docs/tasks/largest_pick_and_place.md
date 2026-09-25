@@ -15,7 +15,7 @@ description: 从多个奶茶杯中选出最大的一个并直立放入目标槽�
 | 项目 | 配置 |
 | --- | --- |
 | 任务标识 | `largest_pick_and_place` |
-| 默认物体 | 一个 800g、两个 500g 和两个 300g 奶茶杯资产 |
+| 默认物体 | 一个 800g、两个 500g 和两个 300g [奶茶杯资产](../assets/bubble_tea_cup.md) |
 | 任务配置 | [largest_pick_and_place.yml](https://github.com/CrysGate/SCALE-Bench/blob/main/configs/tasks/largest_pick_and_place.yml) |
 
 !!! info "运行准备"

@@ -2,6 +2,24 @@
 
 以下命令都从仓库根目录运行。参数列表以各脚本的 `--help` 为准。
 
+## 资产三视图与尺寸标注
+
+`render_asset_views.py` 在无界面的 Isaac Sim 中加载真实 USD，生成带尺寸标注的正面、侧面和俯视图片。正面与侧面采用 16° 俯角，配合地面接触阴影展示物体体积；三个视角均使用正交相机以保留尺寸对比。
+
+```bash
+uv run python scripts/render_asset_views.py \
+  Assets/Object/Rigid/bubble_tea_cup/300g/Aligned.usd \
+  Assets/Object/Rigid/bubble_tea_cup/500g/Aligned.usd \
+  Assets/Object/Rigid/bubble_tea_cup/800g/Aligned.usd \
+  --output-dir docs/assets/objects/bubble_tea_cup
+```
+
+| 输出文件 | 观察方向 | 图中尺寸 |
+| --- | --- | --- |
+| `front.png` | 从 −Y 一侧向下俯视 16° | X 宽度、Z 高度 |
+| `side.png` | 从 +X 一侧向下俯视 16° | Y 深度、Z 高度 |
+| `top.png` | 从 +Z 看向 −Z，Y 朝上 | X 宽度、Y 深度 |
+
 ## 场景预览
 
 `preview_scene.py` 创建真实 `ScaleBenchEnv`，用于交互预览、layout 检查和有界运行：
