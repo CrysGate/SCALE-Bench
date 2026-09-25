@@ -23,14 +23,15 @@ description: 从多个奶茶杯中选出最大的一个并直立放入目标槽�
 从仓库根目录采集一个 episode：
 
 ```bash title="专家数据采集"
-uv run python scripts/run_demo_generation.py \
+HEADLESS=1 uv run python scripts/run_demo_generation.py \
   --task largest_pick_and_place \
-  --num-envs 1 \
-  --episodes 1 \
+  --num-envs 10 \
+  --episodes 100 \
   --max-steps 1200 \
   --record-output outputs/largest-pick-place \
   --dataset-name largest_pick_place \
-  --viz none
+  --viz kit \
+  --record-camera-observations
 ```
 
 ## 检查结果
