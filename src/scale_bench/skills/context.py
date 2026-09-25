@@ -134,6 +134,7 @@ class PlanningScene:
     other_robot: RobotState
     tool: ToolState
     gripper_joint_positions: Mapping[str, float]
+    check_finger_collision: bool
 
 
 class SkillContext(Protocol):

@@ -99,6 +99,8 @@ uv run python scripts/run_skill_debug.py \
 
 `--visualize-curobo` 启用 Kit，在执行后浏览实际规划阶段；关闭浏览器后退出。该入口固定使用一个环境、一个 episode，不能将该开关与 `--headless` 或不包含 Kit 的显式 visualizer 配置组合。
 
+`grasp`、`retreat` 和恢复撤离 `recover_retreat` 临时关闭当前机械臂两个 finger 的 CuRobo 碰撞检查；抓取候选的 `select_grasp` IK 使用相同规则。其他阶段保留 finger 检查，另一机械臂的 finger 仍作为障碍物。每次求解结束或异常退出后恢复检查，仿真中的物理接触不变。`PLAN-STATE` 和 `MOTION-PLAN` 日志中的 `check_finger_collision` 记录该次求解的策略。
+
 - 蓝色球：求解机械臂的 collision spheres。
 - 橙色球：夹持物的 collision spheres。
 - 黄色盒体：桌面。

@@ -68,7 +68,9 @@ class PickSkill:
                 )
                 async for command in session.move_linear(
                     arm, target_tcp_pose_env,
-                    contact_scene(session.context.snapshot(), arm, request.object_name),
+                    contact_scene(
+                        session.context.snapshot(), arm, request.object_name, check_finger_collision=False,
+                    ),
                     approach_axis_env, "grasp",
                 ):
                     grasp_motion_started = True
@@ -113,7 +115,7 @@ class PickSkill:
                 if rise_m > session.config.support_height_tolerance_m:
                     async for command in session.move_linear(
                         arm, raised_tcp_pose_env(snapshot.robot(arm).tcp_pose_env, -rise_m),
-                        contact_scene(snapshot, arm, request.object_name),
+                        contact_scene(snapshot, arm, request.object_name, check_finger_collision=True),
                         (0.0, 0.0, -1.0), "recover_lower",
                     ):
                         yield command
@@ -127,7 +129,7 @@ class PickSkill:
                 async for command in session.move_linear(
                     arm, approach_start_pose(tcp_pose_env, selected.candidate.approach_axis_tcp,
                                              session.config.retreat_distance_m),
-                    contact_scene(snapshot, arm, request.object_name),
+                    contact_scene(snapshot, arm, request.object_name, check_finger_collision=False),
                     tuple(-value for value in retreat_axis_env), "recover_retreat",
                 ):
                     yield command

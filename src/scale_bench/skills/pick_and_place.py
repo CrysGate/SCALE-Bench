@@ -79,7 +79,9 @@ async def pick_and_place(session: SkillSession, request: PickAndPlace) -> AsyncI
             )
             async for command in session.move_free(
                 arm, placement_tcp_pose_env(target_object_pose_env, grasp.tcp_pose_object),
-                contact_scene(session.context.snapshot(), arm, object_name), "place",
+                contact_scene(
+                    session.context.snapshot(), arm, object_name, check_finger_collision=True,
+                ), "place",
             ):
                 place_motion_started = True
                 yield command
@@ -106,7 +108,9 @@ async def pick_and_place(session: SkillSession, request: PickAndPlace) -> AsyncI
                     < session.config.place_approach_distance_m):
                 async for command in session.move_linear(
                     arm, raised_tcp_pose_env(grasp.tcp_pose_env, session.config.retreat_distance_m),
-                    contact_scene(session.context.snapshot(), arm, object_name),
+                    contact_scene(
+                        session.context.snapshot(), arm, object_name, check_finger_collision=True,
+                    ),
                     (0.0, 0.0, 1.0), "recover_raise",
                 ):
                     yield command
@@ -138,7 +142,8 @@ async def pick_and_place(session: SkillSession, request: PickAndPlace) -> AsyncI
             session.config.retreat_distance_m,
         )
         async for command in session.move_free(
-            arm, retreat_tcp_pose_env, contact_scene(snapshot, arm, object_name),
+            arm, retreat_tcp_pose_env,
+            contact_scene(snapshot, arm, object_name, check_finger_collision=False),
             "retreat" if attempt == 0 else "recover_retreat",
         ):
             yield command
@@ -181,7 +186,8 @@ async def _select_placement(
         try:
             await session.planner.solve_ik(
                 arm=arm, start=joint_state, target=place_tcp_pose_env,
-                scene=contact_scene(snapshot, arm, object_name), stage="select_placement",
+                scene=contact_scene(snapshot, arm, object_name, check_finger_collision=True),
+                stage="select_placement",
             )
         except PlanningError as error:
             if error.code != FailureCode.IK_FAILED:
