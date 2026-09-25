@@ -2,9 +2,13 @@
 description: 从多个奶茶杯中选出最大的一个并直立放入目标槽位，采集尺寸选择与放置的专家数据。
 ---
 
+<p class="page-kicker">MANIPULATION / 目标选择</p>
+
 # 最大物体抓取与放置
 
 从多个物体中选出最大的一个，并将它直立放入目标槽位。
+
+<div class="task-tags"><span>尺寸比较</span><span>抓取与放置</span><span>奶茶杯</span></div>
 
 ## 任务配置
 
@@ -20,7 +24,7 @@ description: 从多个奶茶杯中选出最大的一个并直立放入目标槽�
 
 ## 专家数据采集 { #collect }
 
-从仓库根目录采集一个 episode：
+从仓库根目录运行，使用 10 个并行环境采集 100 个 episode，并记录 RGB-D 相机观测：
 
 ```bash title="专家数据采集"
 HEADLESS=1 uv run python scripts/run_demo_generation.py \

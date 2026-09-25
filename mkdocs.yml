@@ -10,7 +10,6 @@ theme:
   language: zh
   font: false
   icon:
-    logo: material/robot-industrial
     repo: fontawesome/brands/github
   palette:
     - media: "(prefers-color-scheme: light)"
@@ -34,6 +33,7 @@ theme:
     - navigation.indexes
     - navigation.footer
     - navigation.top
+    - navigation.tracking
     - toc.follow
     - content.code.copy
     - search.suggest

@@ -2,9 +2,13 @@
 description: 将五个套娃按尺寸从小到大排列，运行套娃排序任务并采集专家数据。
 ---
 
+<p class="page-kicker">MANIPULATION / 多物体排序</p>
+
 # 套娃排序
 
 将五个套娃按尺寸从小到大排列到桌面上的固定槽位。
+
+<div class="task-tags"><span>尺寸排序</span><span>依次放置</span><span>5 个套娃</span></div>
 
 ## 任务配置
 

@@ -2,9 +2,13 @@
 description: 抓起随机位置的 bottle 并直立放入固定槽位，采集单物体抓取与放置的专家轨迹。
 ---
 
+<p class="page-kicker">MANIPULATION / 单物体操作</p>
+
 # 单物体抓取与放置
 
 抓起随机位置的 bottle，将其直立放入固定目标槽位。
+
+<div class="task-tags"><span>推荐入门</span><span>抓取与放置</span><span>bottle</span></div>
 
 ## 任务配置
 

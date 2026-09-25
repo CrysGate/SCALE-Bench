@@ -2,9 +2,13 @@
 description: 准备 SCALE-Bench 运行环境与资产，预览场景，采集第一条专家轨迹并检查 HDF5 结果。
 ---
 
+<p class="page-kicker">QUICKSTART / 开始实验</p>
+
 # 开始使用
 
 从准备环境到采集第一条专家轨迹，沿着这条路径运行 SCALE-Bench。
+
+<div class="task-tags"><span>01 环境与资产</span><span>02 场景预览</span><span>03 专家采集</span><span>04 检查与回放</span></div>
 
 ## 01 · 准备环境与资产 { #environment }
 

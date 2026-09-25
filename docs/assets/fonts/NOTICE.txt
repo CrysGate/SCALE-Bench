@@ -1,0 +1,15 @@
+Self-hosted variable fonts (Latin, upright):
+
+Inter
+Source: @fontsource-variable/inter 5.2.8
+https://www.npmjs.com/package/@fontsource-variable/inter/v/5.2.8
+License: SIL Open Font License 1.1, see LICENSE-Inter.txt
+
+JetBrains Mono
+Source: @fontsource-variable/jetbrains-mono 5.2.8
+https://www.npmjs.com/package/@fontsource-variable/jetbrains-mono/v/5.2.8
+License: SIL Open Font License 1.1, see LICENSE-JetBrains-Mono.txt
+
+WOFF2 files are unmodified from the packages above. Chinese text uses the
+platform's local sans-serif fonts, as specified in stylesheets/extra.css.
+No font CDN is required when reading the documentation.

@@ -2,9 +2,13 @@
 description: SCALE-Bench 操作任务的目标定义、配置入口与专家数据采集方式。
 ---
 
+<p class="page-kicker">TASK LIBRARY / 操作任务</p>
+
 # 任务指南
 
 当前提供三个操作任务，均支持确定性 seed、layout 导入导出和最终状态评测。
+
+<div class="task-tags"><span>双臂 Piper</span><span>CuRobo 规划</span><span>HDF5 记录</span></div>
 
 ## 任务定义
 
@@ -18,7 +22,7 @@ description: SCALE-Bench 操作任务的目标定义、配置入口与专家数�
 
 ## 专家数据采集
 
-所有任务使用 `scripts/run_demo_generation.py` 采集专家数据，通过 `--task` 选择任务。每个任务页提供一个环境、一个 episode 的完整命令。
+所有任务使用 `scripts/run_demo_generation.py` 采集专家数据，通过 `--task` 选择任务。每个任务页提供完整命令，可按需调整并行环境数与 episode 数量。
 
 !!! info "运行准备"
 
