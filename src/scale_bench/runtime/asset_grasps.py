@@ -1,4 +1,4 @@
-"""Adapt GraspDataGen asset annotations to manipulation candidates."""
+"""Adapt asset grasp annotations to manipulation candidates."""
 
 from pathlib import Path
 

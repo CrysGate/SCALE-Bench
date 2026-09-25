@@ -137,7 +137,6 @@ Planner, grasping, or recorder changes should also run the matching demo-generat
 
 ## Documentation
 
-- [Grasp-data generation](src/grasp_data_gen/README.md)
 - [OBJ-to-USD conversion](src/assets_gen/README.md)
 
 ## License

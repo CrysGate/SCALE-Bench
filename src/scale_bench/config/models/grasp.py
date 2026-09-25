@@ -20,7 +20,7 @@ from scale_bench.config.models.robot import TcpConfig
 
 
 class AssetGraspCandidateConfig(FrozenModel):
-    """One GraspDataGen stable-closure TCP pose in the object frame."""
+    """One stable-closure TCP pose in the object frame."""
 
     candidate_id: NonNegativeInt
     robot: Name

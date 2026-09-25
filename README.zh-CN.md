@@ -137,7 +137,6 @@ uv run python scripts/preview_scene.py \
 
 ## 进一步阅读
 
-- [抓取数据生成](src/grasp_data_gen/README.zh-CN.md)
 - [OBJ 转 USD](src/assets_gen/README.zh-CN.md)
 
 ## 许可证
