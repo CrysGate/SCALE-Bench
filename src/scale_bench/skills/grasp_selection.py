@@ -83,7 +83,7 @@ async def feasible_grasps(
                 continue
             tcp_pose_object = relative_pose(source_object.pose_env, grasp_tcp_pose_env)
             selected = SelectedGrasp(object_name, arm, replace(candidate, tcp_pose_object=tcp_pose_object))
-            contact = contact_scene(snapshot, arm, object_name)
+            contact = contact_scene(snapshot, arm, object_name, check_finger_collision=False)
             held = replace(
                 held_object_scene(snapshot, arm, object_name, tcp_pose_object),
                 gripper_joint_positions=candidate.gripper_joint_positions,
@@ -113,6 +113,7 @@ async def feasible_grasps(
                                 arm=arm, start=robot.joints, target=place_tcp_pose_env,
                                 scene=replace(
                                     contact, gripper_joint_positions=candidate.gripper_joint_positions,
+                                    check_finger_collision=True,
                                 ),
                                 stage="select_placement",
                             )

@@ -6,7 +6,8 @@ import itertools
 import logging
 import math
 import xml.etree.ElementTree as ET
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -81,6 +82,7 @@ class CuroboMotionPlanner:
         )
         self._tcp_pose_parent = Pose(tcp.position_m, tcp.orientation_xyzw)
         self._joint_names = arm_joint_names
+        self._finger_link_names = list(robot_config.gripper.finger_body_names)
         self._visualizer = visualizer
         self._initialize_gripper_transforms(robot_config)
         attached_indices = (
@@ -176,13 +178,13 @@ class CuroboMotionPlanner:
     ) -> None:
         """Check IK reachability, raising PlanningError if no solution succeeds."""
         planning_start = self._planning_start(start.positions, stage)
-        self._sync_scene(scene)
-        self._log_planning_state(planning_start, scene, stage)
-        result = self._planner.ik_solver.solve_pose(
-            self._goal_from_env_pose(target_tcp_pose_env),
-            current_state=self._joint_state(planning_start),
-            return_seeds=self._planner.ik_solver.config.num_seeds,
-        )
+        with self._planning_scene(scene):
+            self._log_planning_state(planning_start, scene, stage)
+            result = self._planner.ik_solver.solve_pose(
+                self._goal_from_env_pose(target_tcp_pose_env),
+                current_state=self._joint_state(planning_start),
+                return_seeds=self._planner.ik_solver.config.num_seeds,
+            )
         successful_count = int(result.success.count_nonzero().item())
         if LOGGER.isEnabledFor(logging.DEBUG):
             LOGGER.debug(
@@ -218,57 +220,57 @@ class CuroboMotionPlanner:
                 component_env / linear_axis_norm for component_env in linear_axis_env
             )
         planning_start = self._planning_start(start.positions, stage)
-        collision_cuboids_base = self._sync_scene(scene)
-        self._log_planning_state(planning_start, scene, stage)
-        if LOGGER.isEnabledFor(logging.DEBUG):
+        with self._planning_scene(scene) as collision_cuboids_base:
+            self._log_planning_state(planning_start, scene, stage)
+            if LOGGER.isEnabledFor(logging.DEBUG):
+                LOGGER.debug(
+                    "%s %s pose target", self._arm, stage,
+                    extra={"event": "PLAN-TARGET", "event_fields": {
+                        "arm": self._arm, "stage": stage,
+                        "target_tcp_pose_env": asdict(target_tcp_pose_env),
+                        "linear_axis_env": linear_axis_env,
+                    }},
+                )
+            self._capture_visualization(
+                stage,
+                planning_start,
+                collision_cuboids_base,
+            )
+            violations = self._configuration_violations(
+                scene, planning_start, collision_cuboids_base,
+            )
             LOGGER.debug(
-                "%s %s pose target", self._arm, stage,
-                extra={"event": "PLAN-TARGET", "event_fields": {
-                    "arm": self._arm, "stage": stage,
-                    "target_tcp_pose_env": asdict(target_tcp_pose_env),
-                    "linear_axis_env": linear_axis_env,
+                "%s %s start constraints: %s", self._arm, stage, violations,
+                extra={"event": "PLAN-CHECK", "event_fields": {
+                    "arm": self._arm, "stage": stage, "violations": violations,
                 }},
             )
-        self._capture_visualization(
-            stage,
-            planning_start,
-            collision_cuboids_base,
-        )
-        violations = self._configuration_violations(
-            scene, planning_start, collision_cuboids_base,
-        )
-        LOGGER.debug(
-            "%s %s start constraints: %s", self._arm, stage, violations,
-            extra={"event": "PLAN-CHECK", "event_fields": {
-                "arm": self._arm, "stage": stage, "violations": violations,
-            }},
-        )
-        if violations:
-            raise StartStateError(self._arm, stage, violations)
-        current = self._joint_state(planning_start)
-        goal = self._goal_from_env_pose(target_tcp_pose_env)
-        criteria = self._motion_criteria(target_tcp_pose_env, linear_axis_env)
-        try:
-            self._planner.update_tool_pose_criteria(
-                {frame: criteria for frame in self._planner.tool_frames}
-            )
-            result = self._planner.plan_pose(goal, current)
-            return self._trajectory(result, stage)
-        except PlanningError as error:
-            LOGGER.debug(
-                "%s %s rejected: %s", self._arm, stage, error.reason,
-                extra={"event": "PLAN-FAIL", "event_fields": {
-                    "arm": self._arm, "stage": stage, "reason": error.reason,
-                }},
-            )
-            raise
-        finally:
-            self._planner.update_tool_pose_criteria(
-                {
-                    frame: ToolPoseCriteria(device_cfg=self._planner.device_cfg)
-                    for frame in self._planner.tool_frames
-                }
-            )
+            if violations:
+                raise StartStateError(self._arm, stage, violations)
+            current = self._joint_state(planning_start)
+            goal = self._goal_from_env_pose(target_tcp_pose_env)
+            criteria = self._motion_criteria(target_tcp_pose_env, linear_axis_env)
+            try:
+                self._planner.update_tool_pose_criteria(
+                    {frame: criteria for frame in self._planner.tool_frames}
+                )
+                result = self._planner.plan_pose(goal, current)
+                return self._trajectory(result, stage)
+            except PlanningError as error:
+                LOGGER.debug(
+                    "%s %s rejected: %s", self._arm, stage, error.reason,
+                    extra={"event": "PLAN-FAIL", "event_fields": {
+                        "arm": self._arm, "stage": stage, "reason": error.reason,
+                    }},
+                )
+                raise
+            finally:
+                self._planner.update_tool_pose_criteria(
+                    {
+                        frame: ToolPoseCriteria(device_cfg=self._planner.device_cfg)
+                        for frame in self._planner.tool_frames
+                    }
+                )
 
     def _motion_criteria(
         self,
@@ -316,37 +318,37 @@ class CuroboMotionPlanner:
         stage: PlanningStage,
     ) -> JointTrajectory:
         planning_start = self._planning_start(start.positions, stage)
-        collision_cuboids_base = self._sync_scene(scene)
-        self._log_planning_state(planning_start, scene, stage)
-        if LOGGER.isEnabledFor(logging.DEBUG):
+        with self._planning_scene(scene) as collision_cuboids_base:
+            self._log_planning_state(planning_start, scene, stage)
+            if LOGGER.isEnabledFor(logging.DEBUG):
+                LOGGER.debug(
+                    "%s %s joint target", self._arm, stage,
+                    extra={"event": "PLAN-TARGET", "event_fields": {
+                        "arm": self._arm, "stage": stage,
+                        "target_joint_state": target_joint_state.positions.tolist(),
+                    }},
+                )
+            self._capture_visualization(
+                stage,
+                planning_start,
+                collision_cuboids_base,
+            )
+            violations = self._configuration_violations(
+                scene, planning_start, collision_cuboids_base,
+            )
             LOGGER.debug(
-                "%s %s joint target", self._arm, stage,
-                extra={"event": "PLAN-TARGET", "event_fields": {
-                    "arm": self._arm, "stage": stage,
-                    "target_joint_state": target_joint_state.positions.tolist(),
+                "%s %s start constraints: %s", self._arm, stage, violations,
+                extra={"event": "PLAN-CHECK", "event_fields": {
+                    "arm": self._arm, "stage": stage, "violations": violations,
                 }},
             )
-        self._capture_visualization(
-            stage,
-            planning_start,
-            collision_cuboids_base,
-        )
-        violations = self._configuration_violations(
-            scene, planning_start, collision_cuboids_base,
-        )
-        LOGGER.debug(
-            "%s %s start constraints: %s", self._arm, stage, violations,
-            extra={"event": "PLAN-CHECK", "event_fields": {
-                "arm": self._arm, "stage": stage, "violations": violations,
-            }},
-        )
-        if violations:
-            raise StartStateError(self._arm, stage, violations)
-        result = self._planner.plan_cspace(
-            self._joint_state(target_joint_state.positions),
-            self._joint_state(planning_start),
-        )
-        return self._trajectory(result, stage)
+            if violations:
+                raise StartStateError(self._arm, stage, violations)
+            result = self._planner.plan_cspace(
+                self._joint_state(target_joint_state.positions),
+                self._joint_state(planning_start),
+            )
+            return self._trajectory(result, stage)
 
     def _log_planning_state(
         self, joint_positions: Tensor, scene: PlanningScene, stage: PlanningStage,
@@ -359,6 +361,7 @@ class CuroboMotionPlanner:
                     "joint_names": self._joint_names,
                     "start_joint_state": joint_positions.tolist(),
                     "gripper_joint_positions": dict(scene.gripper_joint_positions),
+                    "check_finger_collision": scene.check_finger_collision,
                     "other_arm": scene.other_arm,
                     "other_joint_state": scene.other_robot.joints.positions.tolist(),
                     "other_gripper_joint_positions": dict(
@@ -406,16 +409,24 @@ class CuroboMotionPlanner:
             )
         return clipped
 
-    def _sync_scene(
+    @contextmanager
+    def _planning_scene(
         self,
         scene: PlanningScene,
-    ) -> tuple[Cuboid, list[Cuboid], list[Cuboid], list[Cuboid]]:
+    ) -> Iterator[tuple[Cuboid, list[Cuboid], list[Cuboid], list[Cuboid]]]:
+        """Keep the other arm complete and scope active finger checks to this solve."""
         self._sync_tool(scene)
         table, camera_stand, objects, other_robot = self._scene_cuboids(scene)
         self._planner.update_world(
             SceneCfg(cuboid=[table, *camera_stand, *objects, *other_robot])
         )
-        return table, camera_stand, objects, other_robot
+        try:
+            if not scene.check_finger_collision:
+                self._planner.disable_link_collision(self._finger_link_names)
+            yield table, camera_stand, objects, other_robot
+        finally:
+            if not scene.check_finger_collision:
+                self._planner.enable_link_collision(self._finger_link_names)
 
     def _capture_visualization(
         self,

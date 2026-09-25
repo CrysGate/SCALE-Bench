@@ -6,6 +6,7 @@ from .models import Arm, Pose
 
 def _scene(
     snapshot: SceneSnapshot, arm: Arm, excluded_objects: tuple[str, ...], tool: ToolState,
+    *, check_finger_collision: bool,
 ) -> PlanningScene:
     other_arm: Arm = "right" if arm == "left" else "left"
     return PlanningScene(
@@ -16,12 +17,13 @@ def _scene(
         other_robot=snapshot.robot(other_arm),
         tool=tool,
         gripper_joint_positions=snapshot.robot(arm).gripper_joint_positions,
+        check_finger_collision=check_finger_collision,
     )
 
 
 def world_scene(snapshot: SceneSnapshot, arm: Arm) -> PlanningScene:
     """Empty tool; all objects, including actually released objects, collide."""
-    return _scene(snapshot, arm, (), EmptyTool())
+    return _scene(snapshot, arm, (), EmptyTool(), check_finger_collision=True)
 
 
 def held_object_scene(
@@ -29,14 +31,19 @@ def held_object_scene(
 ) -> PlanningScene:
     return _scene(
         snapshot, arm, (object_name,), HeldObject(snapshot.object(object_name), tcp_pose_object),
+        check_finger_collision=True,
     )
 
 
-def contact_scene(snapshot: SceneSnapshot, arm: Arm, object_name: str) -> PlanningScene:
+def contact_scene(
+    snapshot: SceneSnapshot, arm: Arm, object_name: str, *, check_finger_collision: bool,
+) -> PlanningScene:
     """Permit contact with the manipulated object; retain every other obstacle.
 
     The held body is omitted during the final support approach, since intentional
-    object/support contact is not a collision-free motion. Finger positions always
-    come from the real robot, including after release.
+    object/support contact is not a collision-free motion. Grasp approach and
+    retreat disable finger checks; placement and vertical recovery retain them.
     """
-    return _scene(snapshot, arm, (object_name,), EmptyTool())
+    return _scene(
+        snapshot, arm, (object_name,), EmptyTool(), check_finger_collision=check_finger_collision,
+    )

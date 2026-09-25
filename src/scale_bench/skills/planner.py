@@ -67,6 +67,7 @@ class SkillMotionPlanner:
                 "objects": [asdict(item) for item in scene.objects],
                 "tool": asdict(scene.tool),
                 "gripper_joint_positions": dict(scene.gripper_joint_positions),
+                "check_finger_collision": scene.check_finger_collision,
                 "other_arm": scene.other_arm,
                 "other_joint_state": scene.other_robot.joints.positions.tolist(),
             },
