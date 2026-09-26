@@ -83,6 +83,16 @@ class PolicyRolloutRunner:
     ) -> Mapping[str, EpisodeResult]:
         """Run at most one assigned episode in each environment slot."""
 
+        try:
+            return self._run_batch(states)
+        except BaseException:
+            self._driver.abort()
+            raise
+
+    def _run_batch(
+        self,
+        states: Sequence[EpisodeState],
+    ) -> Mapping[str, EpisodeResult]:
         snapshot = self._driver.start(states)
         state_by_env_id = {state.env_id: state for state in states}
         active_env_ids = torch.nonzero(

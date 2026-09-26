@@ -64,6 +64,7 @@ extra:
 nav:
   - 首页: index.md
   - 开始使用: getting-started.md
+  - 模型评测: policy-evaluation/index.md
   - 任务指南:
       - 任务总览: tasks/index.md
       - 套娃排序: tasks/sort_dolls_by_size.md
