@@ -157,7 +157,7 @@ body { -webkit-font-smoothing: antialiased; }
 .home-hero { padding: 2.4rem 0 3rem; text-align: center; }
 .research-home h1 { margin: 0 0 .7rem; font-size: clamp(2.3rem, 4.4vw, 3.65rem); font-weight: 750; letter-spacing: -.065em; line-height: 1.15; }
 .research-home h1 .headerlink { display: none; }
-.research-home .hero-lead { max-width: none; margin: 0; color: var(--site-muted); font-size: 1.05rem; font-weight: 400; line-height: 1.8; }
+.research-home .home-hero > p { margin-inline: auto; text-wrap: balance; }
 .research-home .hero-actions { display: flex; justify-content: center; margin-top: 1.5rem; }
 .hero-actions > p { display: flex; justify-content: center; flex-wrap: wrap; gap: .55rem; margin: 0; }
 .research-home .hero-actions .md-button { margin: 0; padding: .8em 1.35em; }
@@ -217,7 +217,6 @@ body { -webkit-font-smoothing: antialiased; }
   .md-typeset .highlight pre > code { padding: .9rem; font-size: .64rem; }
   .home-hero { padding: 1.2rem 0 2rem; }
   .research-home h1 { font-size: clamp(2rem, 9vw, 3rem); }
-  .research-home .hero-lead { font-size: .85rem; }
   .home-section { padding-top: 2rem; }
   .section-heading { align-items: start; }
   .research-home .section-heading h2 { font-size: 1.2rem; }
