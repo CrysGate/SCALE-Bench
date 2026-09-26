@@ -1,5 +1,6 @@
 name: matryoshka
 task: sort_dolls_by_size
+instruction: Arrange the objects in the target slots, ordered from smallest to largest in the positive Y direction.
 object_set: ../object_sets/matryoshka_5.yml
 layout:
   minimum_object_gap_m: 0.08

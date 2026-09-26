@@ -38,11 +38,9 @@ class RigidObjectPhysicsConfig(FrozenModel):
 
 
 class ObjectSetConfig(FrozenModel):
-    """Asset instances and nouns shared by selection and manipulation tasks."""
+    """Asset instances and physics shared by selection and manipulation tasks."""
 
     name: Name
-    singular: Name
-    plural: Name
     physics: RigidObjectPhysicsConfig
     objects: tuple[RigidObjectAssetConfig, ...] = Field(min_length=1)
 

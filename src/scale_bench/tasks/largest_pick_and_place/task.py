@@ -22,10 +22,6 @@ def build_task(
     if len(target_names) != 1:
         raise ValueError("largest-object selection requires a unique tallest candidate")
     return make_placement_task(
-        instruction=(
-            f"Pick up the largest {objects.config.singular} and place it upright "
-            "in the fixed target slot."
-        ),
         config=config,
         objects=objects,
         object_order=target_names,

@@ -24,10 +24,6 @@ def build_task(
     ):
         raise ValueError("sorting destinations must be ordered in the positive Y direction")
     return make_placement_task(
-        instruction=(
-            f"Arrange the {len(objects.assets)} {objects.config.plural} in the target slots, "
-            "ordered from smallest to largest in the positive Y direction."
-        ),
         config=config,
         objects=objects,
         object_order=tuple(sorted(heights_m, key=heights_m.__getitem__)),

@@ -311,7 +311,6 @@ def _unbatched_observation_tensor(
 
 def make_placement_task(
     *,
-    instruction: str,
     config: PlacementTaskConfig,
     objects: RigidObjects,
     object_order: tuple[str, ...],
@@ -322,7 +321,7 @@ def make_placement_task(
         raise ValueError("the number of selected objects must match the target slots")
     return Task(
         task_id=config.task,
-        instruction=instruction,
+        instruction=config.instruction,
         config=ResolvedTaskConfig(settings=config, object_set=objects.config),
         objects=objects,
         goal=FixedPlacementGoal(

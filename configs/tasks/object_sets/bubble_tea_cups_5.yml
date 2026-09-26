@@ -1,6 +1,4 @@
 name: bubble_tea_cups_5
-singular: bubble tea cup
-plural: bubble tea cups
 physics:
   restitution: 0.0
 objects:

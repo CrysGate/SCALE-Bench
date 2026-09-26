@@ -38,6 +38,7 @@ class TaskConfig(FrozenModel):
 
     name: Name
     task: Name
+    instruction: Name
     object_set: ConfigReference
     layout: TabletopLayoutConfig
     success_stability_steps: PositiveInt = 1

@@ -1,6 +1,4 @@
 name: bottle
-singular: bottle
-plural: bottles
 physics:
   restitution: 0.0
 objects:

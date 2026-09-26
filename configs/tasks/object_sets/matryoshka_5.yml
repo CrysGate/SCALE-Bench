@@ -1,6 +1,4 @@
 name: matryoshka_5
-singular: nesting doll
-plural: nesting dolls
 physics:
   restitution: 0.01
 objects:

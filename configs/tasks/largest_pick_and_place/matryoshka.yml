@@ -1,5 +1,6 @@
 name: matryoshka
 task: largest_pick_and_place
+instruction: Pick up the largest object and place it upright in the fixed target slot.
 object_set: ../object_sets/matryoshka_5.yml
 layout:
   minimum_object_gap_m: 0.08

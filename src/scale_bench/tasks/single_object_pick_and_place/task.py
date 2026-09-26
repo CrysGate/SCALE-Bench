@@ -12,10 +12,6 @@ def build_task(
     if len(objects.assets) != 1:
         raise ValueError("single-object pick-and-place requires exactly one object")
     return make_placement_task(
-        instruction=(
-            f"Pick up the {objects.config.singular} and place it upright "
-            "in the fixed target slot."
-        ),
         config=config,
         objects=objects,
         object_order=tuple(objects.assets),
