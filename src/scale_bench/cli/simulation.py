@@ -9,7 +9,6 @@ from pathlib import Path
 
 from isaaclab.app import AppLauncher
 
-from scale_bench.cli.tasks import add_task_overrides
 from scale_bench.config.loader import load_config
 from scale_bench.config.models.environment import EnvironmentConfig
 from scale_bench.config.models.robot import RobotConfig
@@ -32,6 +31,17 @@ def nonnegative_int(value: str) -> int:
     if number < 0:
         raise argparse.ArgumentTypeError("must be non-negative")
     return number
+
+
+def add_task_overrides(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--task-config", type=Path,
+        help="Task variant YAML; omit to use configs/tasks/<task>/default.yml.",
+    )
+    parser.add_argument(
+        "--object-set", type=Path,
+        help="Object-set YAML; omit to use the task variant's collection.",
+    )
 
 
 def add_simulation_arguments(

@@ -12,7 +12,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from scale_bench.config.loader import load_config
 from scale_bench.config.models.simulation import SimulationConfig
-from scale_bench.cli.tasks import add_task_overrides
+from scale_bench.cli.simulation import add_task_overrides
 from scale_bench.tasks.registry import TASKS, load_task
 
 from isaaclab.app import AppLauncher
