@@ -1,7 +1,7 @@
 """Select the unique tallest candidate and bind it to a placement goal."""
 
 from scale_bench.tasks.common.fixed_target import (
-    HeightPlacementTaskConfig,
+    PlacementTaskConfig,
     make_placement_task,
 )
 from scale_bench.tasks.common.rigid_object import RigidObjects
@@ -9,7 +9,7 @@ from scale_bench.tasks.common.task import Task
 
 
 def build_task(
-    config: HeightPlacementTaskConfig,
+    config: PlacementTaskConfig,
     objects: RigidObjects,
 ) -> Task:
     if len(objects.assets) < 2:

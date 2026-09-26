@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
 
 from pydantic import Field
 from torch import Tensor, where
@@ -28,12 +27,6 @@ class PlacementTaskConfig(TaskConfig):
     position_tolerance_m: PositiveFloat = 0.025
     height_tolerance_m: PositiveFloat = 0.015
     upright_tolerance_rad: PositiveFloat = 0.10
-
-
-class HeightPlacementTaskConfig(PlacementTaskConfig):
-    """Selection and ordering currently compare asset-aligned heights."""
-
-    measure: Literal["height"]
 
 
 @dataclass(frozen=True, slots=True)

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from scale_bench.config.loader import load_config
 
-from .common.fixed_target import HeightPlacementTaskConfig, PlacementTaskConfig
+from .common.fixed_target import PlacementTaskConfig
 from .common.rigid_object import ObjectSetConfig, RigidObjects
 from .common.task import Task
 from .largest_pick_and_place.task import build_task as build_largest
@@ -17,10 +17,10 @@ TASKS = {
         PlacementTaskConfig, build_single,
     ),
     "largest_pick_and_place": (
-        HeightPlacementTaskConfig, build_largest,
+        PlacementTaskConfig, build_largest,
     ),
     "sort_dolls_by_size": (
-        HeightPlacementTaskConfig, build_sort,
+        PlacementTaskConfig, build_sort,
     ),
 }
 
