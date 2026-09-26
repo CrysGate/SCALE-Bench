@@ -39,6 +39,7 @@ The HDF5 output contains joint states, actions, and evaluation results. Continue
 ## Further Reading
 
 - [Task guide](docs/tasks/index.md): task definitions and success conditions.
+- [Policy evaluation](docs/policy-evaluation/index.md): evaluate XPolicyLab servers through an independent WebSocket client (guide in Chinese).
 - [Asset catalog](docs/assets/index.md): asset specifications and grasp data.
 - [Script guide](scripts/README.md): layout reproduction, batch collection, debugging, and video export.
 - [OBJ-to-USD conversion](src/assets_gen/README.md): convert your own object assets.

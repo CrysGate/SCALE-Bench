@@ -227,6 +227,9 @@ third_parties/
 dual_piper_output/
 outputs/
 
+# Generated XPolicyLab environment metadata
+/env_cfg/
+
 # docs
 docs/learn.md
 docs/plan.md

@@ -117,6 +117,10 @@ uv run python scripts/preview_scene.py \
 
 在 Physics Inspector 中用 `Select Articulation` 选择机械臂，再用 `Joint States Position` 调整关节。该工具需要图形界面，用于局部关节检查；无需启动主时间轴。若显示 `Re-Enable authoring`，点击后继续操作。
 
+## 模型推理评测
+
+`run_policy_evaluation.py` 调用 XPolicyLab 服务执行仿真评测，保存逐 episode 结果和成功率；可选择录制 HDF5。服务端准备、联调命令和动作约定见[模型评测指南](../docs/policy-evaluation/index.md)。
+
 ## 验证策略运行链路
 
 `run_policy_rollout.py` 使用内置策略检查多环境运行与录制，默认保持初始关节位置：
