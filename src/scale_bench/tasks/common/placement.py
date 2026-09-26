@@ -9,11 +9,20 @@ from typing import Self
 
 from pydantic import field_validator
 
-from scale_bench.config.base import FiniteFloat, FrozenModel
+from scale_bench.config.base import FiniteFloat, FrozenModel, NonNegativeFloat, PositiveInt
 from scale_bench.config.models.scene import SceneConfig
 from scale_bench.skills.geometry import quaternion_xyzw_from_rpy
 
 from .layout import AssetPlacement, TaskLayout
+
+
+class TabletopLayoutConfig(FrozenModel):
+    """Sampling settings shared by tabletop task variants."""
+
+    spawn_clearance_m: NonNegativeFloat = 0.003
+    minimum_object_gap_m: NonNegativeFloat = 0.02
+    sampling_attempts_per_object: PositiveInt = 1000
+    layout_sampling_attempts: PositiveInt = 32
 
 
 class PlacementContext(FrozenModel):
@@ -229,6 +238,7 @@ def _center_ranges(
 
 __all__ = [
     "PlacementContext",
+    "TabletopLayoutConfig",
     "generate_tabletop_layout",
     "validate_tabletop_layout",
 ]

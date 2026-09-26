@@ -1,65 +1,113 @@
-"""Common task contract and evaluator observation types."""
+"""A resolved tabletop task composes object data, layout settings, and a goal."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Protocol, TypeAlias
+from dataclasses import dataclass
+from pathlib import Path
 
+from pydantic import SerializeAsAny
 from torch import Tensor
 
-from .evaluation import EpisodeEvaluatorSpec, EvaluationResult
+from scale_bench.config.base import ConfigReference, FrozenModel, Name, PositiveInt
+
+from .evaluation import (
+    BatchedEvaluatorObservation,
+    EpisodeEvaluatorSpec,
+    EvaluationResult,
+    EvaluatorObservation,
+    TaskGoal,
+)
 from .layout import TaskLayout
-from .placement import PlacementContext
+from .placement import (
+    PlacementContext,
+    TabletopLayoutConfig,
+    generate_tabletop_layout,
+    validate_tabletop_layout,
+)
+from .rigid_object import (
+    ObjectSetConfig,
+    RigidObjectAssetConfig,
+    RigidObjectMetadata,
+    RigidObjects,
+)
 
 
-EvaluatorTerms: TypeAlias = Mapping[str, object]
-EvaluatorObservation: TypeAlias = Mapping[str, Tensor]
-BatchedEvaluatorObservation: TypeAlias = Mapping[str, Tensor]
+class TaskConfig(FrozenModel):
+    """One task variant, including objects, layout, and success settings."""
+
+    name: Name
+    task: Name
+    object_set: ConfigReference
+    layout: TabletopLayoutConfig
+    success_stability_steps: PositiveInt = 1
 
 
-class Task(Protocol):
-    """Identity, layout behavior, and task-specific evaluation contract."""
+class ResolvedTaskConfig(FrozenModel):
+    """Complete inputs retained for collection and policy evaluation reports."""
+
+    settings: SerializeAsAny[TaskConfig]
+    object_set: ObjectSetConfig
+
+
+@dataclass(frozen=True, slots=True)
+class Task:
+    """One configured task; goal semantics do not depend on its controller."""
+
+    task_id: str
+    instruction: str
+    config: ResolvedTaskConfig
+    objects: RigidObjects
+    goal: TaskGoal
 
     @property
-    def task_id(self) -> str: ...
+    def assets(self) -> Mapping[str, RigidObjectAssetConfig]:
+        return self.objects.assets
 
     @property
-    def instruction(self) -> str: ...
+    def metadata(self) -> Mapping[str, RigidObjectMetadata]:
+        return self.objects.metadata
 
     @property
-    def evaluator_spec(self) -> EpisodeEvaluatorSpec: ...
+    def evaluator_spec(self) -> EpisodeEvaluatorSpec:
+        return EpisodeEvaluatorSpec(self.config.settings.success_stability_steps)
 
-    def generate_layout(
-        self,
-        context: PlacementContext,
-        seed: int,
-    ) -> TaskLayout: ...
+    def generate_layout(self, context: PlacementContext, seed: int) -> TaskLayout:
+        return generate_tabletop_layout(
+            task_id=self.task_id,
+            context=context,
+            asset_sizes_m=self.objects.sizes_m,
+            seed=seed,
+            **self.config.settings.layout.model_dump(),
+        )
 
-    def validate_layout(
-        self,
-        context: PlacementContext,
-        layout: TaskLayout,
-    ) -> None: ...
+    def validate_layout(self, context: PlacementContext, layout: TaskLayout) -> None:
+        settings = self.config.settings.layout
+        validate_tabletop_layout(
+            task_id=self.task_id,
+            context=context,
+            layout=layout,
+            asset_sizes_m=self.objects.sizes_m,
+            spawn_clearance_m=settings.spawn_clearance_m,
+            minimum_object_gap_m=settings.minimum_object_gap_m,
+        )
 
-    def build_evaluator_terms(
-        self,
-        context: PlacementContext,
-    ) -> EvaluatorTerms: ...
+    def validate_asset_layout(self, layout: TaskLayout) -> None:
+        if layout.task_id != self.task_id:
+            raise ValueError(f"layout task_id {layout.task_id!r} does not match {self.task_id!r}")
+        if set(layout.assets) != set(self.assets):
+            raise ValueError("layout assets do not match the task's object set")
 
-    def check_success(
-        self,
-        observation: BatchedEvaluatorObservation,
-    ) -> Tensor: ...
+    def load_layout(self, context: PlacementContext, path: Path) -> TaskLayout:
+        layout = TaskLayout.load(path)
+        self.validate_layout(context, layout)
+        return layout
 
-    def evaluate(
-        self,
-        observation: EvaluatorObservation,
-    ) -> EvaluationResult: ...
+    def check_success(self, observation: BatchedEvaluatorObservation) -> Tensor:
+        return self.goal.check_success(observation)
+
+    def evaluate(self, observation: EvaluatorObservation) -> EvaluationResult:
+        return self.goal.evaluate(observation)
 
 
-__all__ = [
-    "BatchedEvaluatorObservation",
-    "EvaluatorObservation",
-    "EvaluatorTerms",
-    "Task",
-]
+__all__ = ["Task", "BatchedEvaluatorObservation", "EvaluatorObservation"]

@@ -1,30 +1,39 @@
-"""Reusable behavior for rigid objects placed into fixed tabletop slots."""
+"""Fixed-placement goals and tensor measurements, independent of controllers."""
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
+from typing import Literal
 
+from pydantic import Field
 from torch import Tensor, where
 from torch.linalg import vector_norm
 
-from scale_bench.skills.models import PickAndPlace, Pose, SkillRequest
+from scale_bench.config.base import Position2, PositiveFloat
 
-from .evaluation import EvaluationResult
-from .layout import AssetPlacement, TaskLayout
+from .evaluation import (
+    BatchedEvaluatorObservation, EvaluationResult, EvaluatorObservation,
+    FixedPositions, ObjectOrientations, ObjectPositions, ObservationSource,
+)
+from .layout import AssetPlacement
 from .placement import PlacementContext
-from .rigid_object import (
-    RigidObjectAssetConfig,
-    RigidObjectTask,
-    RigidObjectTaskConfig,
-    TargetPlacementConfig,
-)
-from .task import (
-    BatchedEvaluatorObservation,
-    EvaluatorObservation,
-    EvaluatorTerms,
-)
+from .rigid_object import RigidObjects
+from .task import ResolvedTaskConfig, Task, TaskConfig
+
+
+class PlacementTaskConfig(TaskConfig):
+    """Destinations and scoring tolerances for upright-placement tasks."""
+
+    target_positions_env_xy_m: tuple[Position2, ...] = Field(min_length=1)
+    position_tolerance_m: PositiveFloat = 0.025
+    height_tolerance_m: PositiveFloat = 0.015
+    upright_tolerance_rad: PositiveFloat = 0.10
+
+
+class HeightPlacementTaskConfig(PlacementTaskConfig):
+    """Selection and ordering currently compare asset-aligned heights."""
+
+    measure: Literal["height"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,9 +42,9 @@ class PlacementStatus:
 
     object_name: str
     slot_index: int
-    position_m: tuple[float, float, float]
-    target_position_m: tuple[float, float, float]
-    position_error_xyz_m: tuple[float, float, float]
+    object_position_env_m: tuple[float, float, float]
+    target_position_env_m: tuple[float, float, float]
+    position_error_env_xyz_m: tuple[float, float, float]
     position_error_m: float
     height_error_m: float
     upright_error_rad: float
@@ -62,102 +71,66 @@ class _BatchedPlacementMeasurements:
     placed: Tensor
 
 
-class FixedTargetRigidObjectTask(RigidObjectTask, ABC):
-    """Common target layout, expert, and evaluation for fixed-slot tasks."""
+@dataclass(frozen=True, slots=True)
+class FixedPlacementGoal:
+    """Ordered objects must be upright at their corresponding destinations."""
 
-    def __init__(
-        self,
-        config: RigidObjectTaskConfig,
-        assets: Mapping[str, RigidObjectAssetConfig],
-        *,
-        target_positions_env_xy_m: tuple[tuple[float, float], ...],
-        target_placement_config: TargetPlacementConfig,
-    ) -> None:
-        self._target_positions_env_xy_m = target_positions_env_xy_m
-        self._target_placement_config = target_placement_config
-        super().__init__(config, assets)
+    object_names: tuple[str, ...]
+    target_positions_env_xy_m: tuple[tuple[float, float], ...]
+    object_heights_m: tuple[float, ...]
+    config: PlacementTaskConfig
 
-    @property
-    @abstractmethod
-    def target_object_order(self) -> tuple[str, ...]:
-        """Return object names in fixed target-slot order."""
-
-    def build_evaluator_terms(
-        self,
-        context: PlacementContext,
-    ) -> EvaluatorTerms:
-        """Observe all object poses and their fixed target positions."""
-
-        from isaaclab.managers import ObservationTermCfg, SceneEntityCfg
-
-        from scale_bench.isaaclab.mdp.observations import (
-            fixed_positions,
-            rigid_object_root_pos,
-            rigid_object_root_quat,
-        )
-
-        object_names = self.target_object_order
-        target_layout = self.target_layout(context)
-        target_positions_env_m = tuple(
-            target_layout.assets[name].position_m for name in object_names
-        )
-        asset_cfgs = tuple(SceneEntityCfg(name) for name in object_names)
+    def observation_sources(
+        self, context: PlacementContext,
+    ) -> dict[str, ObservationSource]:
+        target_placements_env = self.target_placements(context)
         return {
-            "object_positions_m": ObservationTermCfg(
-                func=rigid_object_root_pos,
-                params={"asset_cfgs": asset_cfgs},
-            ),
-            "object_orientations_xyzw": ObservationTermCfg(
-                func=rigid_object_root_quat,
-                params={"asset_cfgs": asset_cfgs},
-            ),
-            "target_positions_m": ObservationTermCfg(
-                func=fixed_positions,
-                params={"positions_m": target_positions_env_m},
+            "object_positions_m": ObjectPositions(self.object_names),
+            "object_orientations_xyzw": ObjectOrientations(self.object_names),
+            "target_positions_m": FixedPositions(
+                tuple(target_placements_env[name].position_m for name in self.object_names),
             ),
         }
 
-    def target_layout(self, context: PlacementContext) -> TaskLayout:
-        """Build metadata-height-aware poses for all fixed target slots."""
-
-        assets = {}
-        for object_name, target_position_env_xy_m in zip(
-            self.target_object_order,
-            self._target_positions_env_xy_m,
-            strict=True,
-        ):
-            object_height_m = self.metadata[object_name].size[2]
-            assets[object_name] = AssetPlacement(
+    def target_placements(self, context: PlacementContext) -> dict[str, AssetPlacement]:
+        return {
+            name: AssetPlacement(
                 position_m=(
-                    target_position_env_xy_m[0],
-                    target_position_env_xy_m[1],
-                    context.table_top_z_m + object_height_m / 2.0,
+                    *target_position_env_xy_m,
+                    context.table_top_z_m + height_m / 2.0,
                 ),
                 orientation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
-        return TaskLayout(task_id=self.task_id, seed=None, assets=assets)
-
-    def expert(
-        self,
-        *,
-        source_layout: TaskLayout,
-        target_layout: TaskLayout,
-    ) -> Iterator[SkillRequest]:
-        """Move each target object to its fixed slot while preserving orientation."""
-
-        self.validate_asset_layout(source_layout)
-        for object_name in self.target_object_order:
-            source_object_placement = source_layout.assets[object_name]
-            target_object_placement = target_layout.assets[object_name]
-            target_object_pose_env = Pose(
-                position_m=target_object_placement.position_m,
-                orientation_xyzw=source_object_placement.orientation_xyzw,
+            for name, target_position_env_xy_m, height_m in zip(
+                self.object_names, self.target_positions_env_xy_m,
+                self.object_heights_m, strict=True,
             )
-            yield PickAndPlace(
-                object_name=object_name,
-                arm="auto",
-                target_object_pose_env=target_object_pose_env,
-            )
+        }
+
+    def evaluate(self, observation: EvaluatorObservation) -> PlacementResult:
+        statuses = self._placement_statuses(observation)
+        placed_count = sum(status.placed for status in statuses)
+        success = placed_count == len(statuses)
+        if len(statuses) == 1:
+            status = statuses[0]
+            metrics = {
+                "position_error_m": status.position_error_m,
+                "height_error_m": status.height_error_m,
+                "upright_error_rad": status.upright_error_rad,
+            }
+            failure = f"{status.object_name} is outside the fixed target slot"
+        else:
+            metrics = {
+                "placed_count": float(placed_count),
+                "maximum_position_error_m": max(s.position_error_m for s in statuses),
+                "maximum_height_error_m": max(s.height_error_m for s in statuses),
+                "maximum_upright_error_rad": max(s.upright_error_rad for s in statuses),
+            }
+            failure = "one or more objects are misplaced"
+        return PlacementResult(
+            success=success, progress=placed_count / len(statuses), metrics=metrics,
+            failure_reason=None if success else failure, statuses=statuses,
+        )
 
     def check_success(
         self,
@@ -175,19 +148,19 @@ class FixedTargetRigidObjectTask(RigidObjectTask, ABC):
             "object_positions_m": _unbatched_observation_tensor(
                 observation,
                 "object_positions_m",
-                object_count=len(self.target_object_order),
+                object_count=len(self.object_names),
                 components=3,
             ).unsqueeze(0),
             "target_positions_m": _unbatched_observation_tensor(
                 observation,
                 "target_positions_m",
-                object_count=len(self.target_object_order),
+                object_count=len(self.object_names),
                 components=3,
             ).unsqueeze(0),
             "object_orientations_xyzw": _unbatched_observation_tensor(
                 observation,
                 "object_orientations_xyzw",
-                object_count=len(self.target_object_order),
+                object_count=len(self.object_names),
                 components=4,
             ).unsqueeze(0),
         }
@@ -216,9 +189,9 @@ class FixedTargetRigidObjectTask(RigidObjectTask, ABC):
             PlacementStatus(
                 object_name=object_name,
                 slot_index=slot_index,
-                position_m=tuple(object_positions_env_m[slot_index]),
-                target_position_m=tuple(target_positions_env_m[slot_index]),
-                position_error_xyz_m=tuple(
+                object_position_env_m=tuple(object_positions_env_m[slot_index]),
+                target_position_env_m=tuple(target_positions_env_m[slot_index]),
+                position_error_env_xyz_m=tuple(
                     position_errors_env_xyz_m[slot_index]
                 ),
                 position_error_m=planar_position_errors_env_m[slot_index],
@@ -226,14 +199,14 @@ class FixedTargetRigidObjectTask(RigidObjectTask, ABC):
                 upright_error_rad=upright_errors_env_rad[slot_index],
                 placed=placed[slot_index],
             )
-            for slot_index, object_name in enumerate(self.target_object_order)
+            for slot_index, object_name in enumerate(self.object_names)
         )
 
     def _measure_placements(
         self,
         observation: BatchedEvaluatorObservation,
     ) -> _BatchedPlacementMeasurements:
-        object_count = len(self.target_object_order)
+        object_count = len(self.object_names)
         object_positions_env_m = _batched_observation_tensor(
             observation,
             "object_positions_m",
@@ -283,7 +256,7 @@ class FixedTargetRigidObjectTask(RigidObjectTask, ABC):
             ),
         )
 
-        target_config = self._target_placement_config
+        target_config = self.config
         placed = (
             (
                 planar_position_errors_env_m
@@ -336,9 +309,26 @@ def _unbatched_observation_tensor(
     return value
 
 
-__all__ = [
-    "FixedTargetRigidObjectTask",
-    "PlacementResult",
-    "PlacementStatus",
-    "TargetPlacementConfig",
-]
+def make_placement_task(
+    *,
+    instruction: str,
+    config: PlacementTaskConfig,
+    objects: RigidObjects,
+    object_order: tuple[str, ...],
+) -> Task:
+    """Bind a selection/order rule to a reusable placement goal."""
+
+    if len(object_order) != len(config.target_positions_env_xy_m):
+        raise ValueError("the number of selected objects must match the target slots")
+    return Task(
+        task_id=config.task,
+        instruction=instruction,
+        config=ResolvedTaskConfig(settings=config, object_set=objects.config),
+        objects=objects,
+        goal=FixedPlacementGoal(
+            object_names=object_order,
+            target_positions_env_xy_m=config.target_positions_env_xy_m,
+            object_heights_m=tuple(objects.metadata[name].size[2] for name in object_order),
+            config=config,
+        ),
+    )

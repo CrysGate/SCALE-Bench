@@ -1,9 +1,5 @@
 """Single-object pick-and-place task package."""
 
-from .config import SingleObjectPickAndPlaceConfig
-from .task import SingleObjectPickAndPlace
+from .task import build_task
 
-__all__ = [
-    "SingleObjectPickAndPlace",
-    "SingleObjectPickAndPlaceConfig",
-]
+__all__ = ["build_task"]

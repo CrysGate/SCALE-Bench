@@ -8,7 +8,7 @@ from scale_bench.runtime.asset_grasps import load_asset_grasps
 from scale_bench.skills.context import GraspCandidate
 from scale_bench.skills.errors import SkillError
 from scale_bench.skills.models import Arm
-from scale_bench.tasks.common.rigid_object import RigidObjectTask
+from scale_bench.tasks.common.task import Task
 
 
 class IsaacLabGraspCandidates:
@@ -16,7 +16,7 @@ class IsaacLabGraspCandidates:
 
     def __init__(
         self,
-        task: RigidObjectTask,
+        task: Task,
         robot_configs: Mapping[Arm, RobotConfig],
     ) -> None:
         self._task = task

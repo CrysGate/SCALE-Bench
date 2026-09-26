@@ -19,7 +19,7 @@ from scale_bench.skills.context import (
 from scale_bench.skills.errors import FailureCode, SegmentError
 from scale_bench.skills.geometry import compose_pose, inverse_pose, relative_pose
 from scale_bench.skills.models import Arm, Pose
-from scale_bench.tasks.common.rigid_object import RigidObjectTask
+from scale_bench.tasks.common.task import Task
 
 from .environment import ScaleBenchEnv
 from .grasp_candidates import IsaacLabGraspCandidates
@@ -38,7 +38,7 @@ class IsaacLabSkillContext:
     def __init__(
         self,
         env: ScaleBenchEnv,
-        task: RigidObjectTask,
+        task: Task,
         scene_config: SceneConfig,
         robot_configs: Mapping[Arm, RobotConfig],
         *,

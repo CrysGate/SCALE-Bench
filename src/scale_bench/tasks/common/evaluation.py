@@ -5,7 +5,40 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Mapping
+from typing import Mapping, Protocol, TypeAlias
+
+from torch import Tensor
+
+from .placement import PlacementContext
+
+
+EvaluatorObservation: TypeAlias = Mapping[str, Tensor]
+BatchedEvaluatorObservation: TypeAlias = Mapping[str, Tensor]
+
+
+@dataclass(frozen=True, slots=True)
+class ObjectPositions:
+    """Environment-frame positions of the named rigid objects."""
+
+    object_names: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ObjectOrientations:
+    """Environment-frame XYZW orientations of the named rigid objects."""
+
+    object_names: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class FixedPositions:
+    """Task-provided environment-frame positions for fixed destinations."""
+
+    positions_env_m: tuple[tuple[float, float, float], ...]
+
+
+# The three observation sources consumed by the existing goals.
+ObservationSource: TypeAlias = ObjectPositions | ObjectOrientations | FixedPositions
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,4 +75,20 @@ class EvaluationResult:
         object.__setattr__(self, "metrics", MappingProxyType(dict(self.metrics)))
 
 
-__all__ = ["EpisodeEvaluatorSpec", "EvaluationResult"]
+class TaskGoal(Protocol):
+    """Pure goal semantics; adapters implement observation sources."""
+
+    def observation_sources(
+        self, context: PlacementContext,
+    ) -> Mapping[str, ObservationSource]: ...
+
+    def check_success(self, observation: BatchedEvaluatorObservation) -> Tensor: ...
+
+    def evaluate(self, observation: EvaluatorObservation) -> EvaluationResult: ...
+
+
+__all__ = [
+    "BatchedEvaluatorObservation", "EpisodeEvaluatorSpec", "EvaluationResult",
+    "EvaluatorObservation", "FixedPositions", "ObjectOrientations",
+    "ObjectPositions", "ObservationSource", "TaskGoal",
+]

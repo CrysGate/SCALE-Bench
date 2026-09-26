@@ -7,20 +7,16 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-# Kept lightweight so argparse can reject unknown tasks before Isaac Sim starts.
-SUPPORTED_TASK_IDS = (
-    "sort_dolls_by_size",
-    "single_object_pick_and_place",
-    "largest_pick_and_place",
-)
-
+from scale_bench.cli.tasks import add_task_overrides
 from scale_bench.config.loader import load_config
 from scale_bench.config.models.simulation import SimulationConfig
+from scale_bench.tasks.registry import TASKS, load_task
 
 from isaaclab.app import AppLauncher
 
 
 parser = argparse.ArgumentParser()
+add_task_overrides(parser)
 parser.add_argument("--config", type=Path, default=Path("configs/scene/default.yml"))
 parser.add_argument(
     "--asset-root",
@@ -101,7 +97,7 @@ parser.add_argument(
 AppLauncher.add_app_launcher_args(parser)
 parser.add_argument(
     "--task",
-    choices=SUPPORTED_TASK_IDS,
+    choices=TASKS,
     required=True,
     help="Task ID whose assets and evaluator are included in the preview.",
 )
@@ -168,20 +164,7 @@ from scale_bench.isaaclab.runtime.target_slot_visualization import (
     target_slot_line_groups,
 )
 from scale_bench.tasks.common.placement import PlacementContext
-from scale_bench.tasks.single_object_pick_and_place.config import (
-    SingleObjectPickAndPlaceConfig,
-)
-from scale_bench.tasks.single_object_pick_and_place.task import (
-    SingleObjectPickAndPlace,
-)
-from scale_bench.tasks.largest_pick_and_place.task import (
-    LargestPickAndPlace,
-)
-from scale_bench.tasks.largest_pick_and_place.config import (
-    LargestPickAndPlaceConfig,
-)
-from scale_bench.tasks.sort_dolls_by_size.config import SortDollsBySizeConfig
-from scale_bench.tasks.sort_dolls_by_size.task import SortDollsBySize
+from scale_bench.tasks.common.fixed_target import FixedPlacementGoal
 
 
 def _camera_frustum_lines(camera, length_m: float) -> list[Line]:
@@ -629,35 +612,16 @@ def main() -> None:
         asset_root=args.asset_root,
     )
     runtime_config = load_config(args.env_config, EnvironmentConfig)
-    if args.task == "single_object_pick_and_place":
-        task = SingleObjectPickAndPlace(
-            load_config(
-                PROJECT_ROOT
-                / "configs/tasks/single_object_pick_and_place.yml",
-                SingleObjectPickAndPlaceConfig,
-                asset_root=args.asset_root,
-            )
-        )
-    elif args.task == "largest_pick_and_place":
-        task = LargestPickAndPlace(
-            load_config(
-                PROJECT_ROOT
-                / "configs/tasks/largest_pick_and_place.yml",
-                LargestPickAndPlaceConfig,
-                asset_root=args.asset_root,
-            )
-        )
-    else:
-        task = SortDollsBySize(
-            load_config(
-                PROJECT_ROOT / "configs/tasks/sort_dolls_by_size.yml",
-                SortDollsBySizeConfig,
-                asset_root=args.asset_root,
-            )
-        )
-    target_layout = task.target_layout(placement_context)
+    task = load_task(
+        args.task, project_root=PROJECT_ROOT, asset_root=args.asset_root,
+        config_path=args.task_config, object_set_path=args.object_set,
+    )
+    target_placements_env = (
+        task.goal.target_placements(placement_context)
+        if isinstance(task.goal, FixedPlacementGoal) else {}
+    )
     target_positions_m = tuple(
-        placement.position_m for placement in target_layout.assets.values()
+        placement.position_m for placement in target_placements_env.values()
     )
     base_seed = None
     layouts = None
@@ -665,10 +629,7 @@ def main() -> None:
     if args.layout is None:
         base_seed = 0 if args.seed is None else args.seed
     else:
-        imported_layout = task.resolve_layout(
-            placement_context,
-            layout_path=args.layout,
-        )
+        imported_layout = task.load_layout(placement_context, args.layout)
         layouts = (imported_layout,)
 
     if args.export_layout is not None:

@@ -20,6 +20,7 @@ from scale_bench.config.models.robot import RobotConfig
 from scale_bench.config.models.scene import SceneConfig
 from scale_bench.config.models.simulation import SimulationConfig
 from scale_bench.isaaclab.builders.rigid_object_task import build_rigid_object_assets
+from scale_bench.isaaclab.builders.evaluation import build_evaluator_terms
 from scale_bench.isaaclab.builders.scene import build_scene_cfg
 from scale_bench.isaaclab.builders.simulation import build_simulation_cfg
 from scale_bench.isaaclab.managers.actions import (
@@ -36,7 +37,6 @@ from scale_bench.isaaclab.managers.recorders import build_recorders_cfg
 from scale_bench.isaaclab.mdp.events import ResetTaskLayout
 from scale_bench.tasks.common.layout import TaskLayout
 from scale_bench.tasks.common.placement import PlacementContext
-from scale_bench.tasks.common.rigid_object import RigidObjectTask
 from scale_bench.tasks.common.task import Task
 
 
@@ -71,8 +71,6 @@ def build_environment_cfg(
 ) -> ScaleBenchEnvCfg:
     """Build a complete native environment cfg from resolved inputs."""
 
-    if not isinstance(task, RigidObjectTask):
-        raise TypeError("task must be a RigidObjectTask")
     if (
         not environment_config.enable_cameras
         and recording_config is not None
@@ -110,7 +108,7 @@ def build_environment_cfg(
             },
         ),
     )
-    evaluator_terms = task.build_evaluator_terms(placement_context)
+    evaluator_terms = build_evaluator_terms(task, placement_context)
 
     observations = build_observations_cfg(
         left_robot_config=left_robot_config,

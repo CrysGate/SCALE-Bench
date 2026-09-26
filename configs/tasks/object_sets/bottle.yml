@@ -1,0 +1,9 @@
+name: bottle
+singular: bottle
+plural: bottles
+physics:
+  restitution: 0.0
+objects:
+  - name: bottle
+    usd_path: Assets/Object/Rigid/bottle/bottle.usd
+    metadata_path: Assets/Object/Rigid/bottle/bottle.json

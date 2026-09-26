@@ -19,6 +19,7 @@ from scale_bench.runtime import EpisodeState, TerminationReason
 from scale_bench.runtime.task_run import TaskRun
 from scale_bench.skills import Pick, PickAndPlace, Pose, SkillRequest
 from scale_bench.tasks.common.placement import PlacementContext
+from scale_bench.tasks.experts import placement_goal
 
 
 def main() -> int:
@@ -46,13 +47,14 @@ def main() -> int:
     def execute(run: TaskRun) -> int:
         from scale_bench.isaaclab.runtime.skill_runner import run_skill_episodes
 
-        object_name = args.object_name or run.task.target_object_order[0]
+        goal = placement_goal(run.task)
+        object_name = args.object_name or goal.object_names[0]
         if object_name not in run.task.metadata:
             raise ValueError(f"unknown --object-name: {object_name!r}")
         specs = run.episode_specs(
             base_seed=args.seed, episodes=1, max_steps=args.max_steps
         )
-        target_layout = run.task.target_layout(
+        target_placements_env = goal.target_placements(
             PlacementContext.from_scene_config(run.scene)
         )
 
@@ -60,7 +62,7 @@ def main() -> int:
             if args.program == "pick":
                 return iter((Pick(object_name, "auto"),))
             object_pose_env = Pose(
-                target_layout.assets[object_name].position_m,
+                target_placements_env[object_name].position_m,
                 state.spec.layout.assets[object_name].orientation_xyzw,
             )
             return iter((PickAndPlace(object_name, "auto", object_pose_env),))

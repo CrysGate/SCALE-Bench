@@ -9,6 +9,7 @@ from pathlib import Path
 
 from isaaclab.app import AppLauncher
 
+from scale_bench.cli.tasks import add_task_overrides
 from scale_bench.config.loader import load_config
 from scale_bench.config.models.environment import EnvironmentConfig
 from scale_bench.config.models.robot import RobotConfig
@@ -16,26 +17,7 @@ from scale_bench.config.models.scene import SceneConfig
 from scale_bench.config.models.simulation import SimulationConfig
 from scale_bench.runtime.logging import configure_logging
 from scale_bench.runtime.task_run import TaskRun
-from scale_bench.tasks.largest_pick_and_place.config import LargestPickAndPlaceConfig
-from scale_bench.tasks.largest_pick_and_place.task import LargestPickAndPlace
-from scale_bench.tasks.single_object_pick_and_place.config import (
-    SingleObjectPickAndPlaceConfig,
-)
-from scale_bench.tasks.single_object_pick_and_place.task import SingleObjectPickAndPlace
-from scale_bench.tasks.sort_dolls_by_size.config import SortDollsBySizeConfig
-from scale_bench.tasks.sort_dolls_by_size.task import SortDollsBySize
-
-TASKS = {
-    LargestPickAndPlace.TASK_ID: (
-        LargestPickAndPlaceConfig,
-        LargestPickAndPlace,
-    ),
-    SingleObjectPickAndPlace.TASK_ID: (
-        SingleObjectPickAndPlaceConfig,
-        SingleObjectPickAndPlace,
-    ),
-    SortDollsBySize.TASK_ID: (SortDollsBySizeConfig, SortDollsBySize),
-}
+from scale_bench.tasks.registry import TASKS, load_task
 
 
 def positive_int(value: str) -> int:
@@ -56,8 +38,9 @@ def add_simulation_arguments(
     parser: argparse.ArgumentParser, project_root: Path
 ) -> None:
     parser.add_argument(
-        "--task", choices=TASKS, default=SingleObjectPickAndPlace.TASK_ID
+        "--task", choices=TASKS, default="single_object_pick_and_place"
     )
+    add_task_overrides(parser)
     for name, relative_path in (
         ("scene", "scene/default.yml"),
         ("robot", "robots/piper.yml"),
@@ -117,13 +100,9 @@ def run_simulation(
             )
         }
     )
-    config_type, task_type = TASKS[args.task]
-    task = task_type(
-        load_config(
-            project_root / "configs/tasks" / f"{args.task}.yml",
-            config_type,
-            asset_root=project_root,
-        )
+    task = load_task(
+        args.task, project_root=project_root, asset_root=project_root,
+        config_path=args.task_config, object_set_path=args.object_set,
     )
     run = TaskRun(
         task=task,

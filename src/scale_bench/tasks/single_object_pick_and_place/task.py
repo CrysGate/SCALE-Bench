@@ -1,67 +1,22 @@
-"""Result aggregation for one-object pick-and-place."""
+"""Bind one object to an upright-placement goal."""
 
-from __future__ import annotations
-
-from typing import ClassVar
-
-from scale_bench.tasks.common.fixed_target import (
-    FixedTargetRigidObjectTask,
-    PlacementResult,
-)
-from scale_bench.tasks.common.task import EvaluatorObservation
-
-from .config import SingleObjectPickAndPlaceConfig
+from scale_bench.tasks.common.fixed_target import PlacementTaskConfig, make_placement_task
+from scale_bench.tasks.common.rigid_object import RigidObjects
+from scale_bench.tasks.common.task import Task
 
 
-class SingleObjectPickAndPlace(FixedTargetRigidObjectTask):
-    """Move one randomly initialized bottle to one fixed tabletop slot."""
-
-    TASK_ID: ClassVar[str] = "single_object_pick_and_place"
-
-    def __init__(self, config: SingleObjectPickAndPlaceConfig) -> None:
-        self._object_name = config.object.name
-        super().__init__(
-            config,
-            {config.object.name: config.object},
-            target_positions_env_xy_m=(config.target_slot.position_xy_m,),
-            target_placement_config=config.target_slot,
-        )
-
-    @property
-    def object_name(self) -> str:
-        return self._object_name
-
-    @property
-    def target_object_order(self) -> tuple[str, ...]:
-        """Return the only object in its only target slot."""
-
-        return (self.object_name,)
-
-    def evaluate(
-        self,
-        observation: EvaluatorObservation,
-    ) -> PlacementResult:
-        """Build the final success result and geometric diagnostics."""
-
-        statuses = self._placement_statuses(observation)
-        status = statuses[0]
-        return PlacementResult(
-            success=status.placed,
-            progress=float(status.placed),
-            metrics={
-                "position_error_m": status.position_error_m,
-                "height_error_m": status.height_error_m,
-                "upright_error_rad": status.upright_error_rad,
-            },
-            failure_reason=(
-                None
-                if status.placed
-                else f"{self.object_name} is outside the fixed target slot"
-            ),
-            statuses=statuses,
-        )
-
-
-__all__ = [
-    "SingleObjectPickAndPlace",
-]
+def build_task(
+    config: PlacementTaskConfig,
+    objects: RigidObjects,
+) -> Task:
+    if len(objects.assets) != 1:
+        raise ValueError("single-object pick-and-place requires exactly one object")
+    return make_placement_task(
+        instruction=(
+            f"Pick up the {objects.config.singular} and place it upright "
+            "in the fixed target slot."
+        ),
+        config=config,
+        objects=objects,
+        object_order=tuple(objects.assets),
+    )
