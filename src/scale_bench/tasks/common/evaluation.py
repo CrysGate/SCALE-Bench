@@ -45,7 +45,7 @@ ObservationSource: TypeAlias = ObjectPositions | ObjectOrientations | FixedPosit
 class EpisodeEvaluatorSpec:
     """Task-owned stateful success semantics."""
 
-    success_stability_steps: int = 1
+    success_stability_steps: int = 10
 
     def __post_init__(self) -> None:
         if self.success_stability_steps <= 0:
