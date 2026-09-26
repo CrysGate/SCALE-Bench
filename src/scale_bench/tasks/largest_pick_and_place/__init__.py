@@ -1,15 +1,5 @@
 """Pick and place the largest object in the scene."""
 
-from .config import (
-    PickObjectConfig,
-    LargestPickAndPlaceConfig,
-    TargetSlotConfig,
-)
-from .task import LargestPickAndPlace
+from .task import LargestPickAndPlaceTask
 
-__all__ = [
-    "LargestPickAndPlace",
-    "PickObjectConfig",
-    "LargestPickAndPlaceConfig",
-    "TargetSlotConfig",
-]
+__all__ = ["LargestPickAndPlaceTask"]

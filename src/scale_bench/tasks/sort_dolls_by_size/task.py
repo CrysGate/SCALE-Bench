@@ -1,77 +1,45 @@
-"""Rules and result aggregation for sorting dolls by physical size."""
+"""Order an object collection by height while retaining the public task ID."""
 
-from __future__ import annotations
+from collections.abc import Iterator
 
-from typing import ClassVar
-
+from scale_bench.config.models.scene import SceneConfig
+from scale_bench.skills.models import PickAndPlace, Pose, SkillRequest
 from scale_bench.tasks.common.fixed_target import (
-    FixedTargetRigidObjectTask,
-    PlacementResult,
+    PlacementTaskConfig,
+    make_placement_goal,
 )
-from scale_bench.tasks.common.task import EvaluatorObservation
+from scale_bench.tasks.common.layout import TaskLayout
+from scale_bench.tasks.common.placement import PlacementContext
+from scale_bench.tasks.common.rigid_object import RigidObjects
+from scale_bench.tasks.common.task import Task
 
-from .config import SortDollsBySizeConfig
 
+class SortDollsBySizeTask(Task):
+    """Place objects in slots ordered by increasing height."""
 
-class SortDollsBySize(FixedTargetRigidObjectTask):
-    """Order dolls by size and summarize their fixed-slot placements."""
-
-    TASK_ID: ClassVar[str] = "sort_dolls_by_size"
-
-    def __init__(self, config: SortDollsBySizeConfig) -> None:
-        assets = {f"doll_{doll.asset_id}": doll for doll in config.dolls}
-        target_positions_env_xy_m = tuple(
-            zip(
-                config.target_slots.x_positions_m,
-                config.target_slots.y_positions_m,
-                strict=True,
-            )
-        )
+    def __init__(self, config: PlacementTaskConfig, objects: RigidObjects) -> None:
+        heights_m = {name: metadata.size[2] for name, metadata in objects.metadata.items()}
+        target_positions_env_y_m = tuple(p[1] for p in config.target_positions_env_xy_m)
         super().__init__(
-            config,
-            assets,
-            target_positions_env_xy_m=target_positions_env_xy_m,
-            target_placement_config=config.target_slots,
+            task_id=config.task,
+            instruction=config.instruction,
+            config=config,
+            objects=objects,
+            goal=make_placement_goal(
+                config=config,
+                objects=objects,
+                object_order=tuple(sorted(heights_m, key=heights_m.__getitem__)),
+            ),
         )
 
-    @property
-    def target_object_order(self) -> tuple[str, ...]:
-        """Return stable scene object names from smallest to largest."""
-
-        return tuple(
-            sorted(
-                self.assets,
-                key=lambda name: self.metadata[name].size[2],
+    def expert(self, scene: SceneConfig, layout: TaskLayout) -> Iterator[SkillRequest]:
+        target_placements_env = self.goal.target_placements(PlacementContext.from_scene_config(scene))
+        for object_name in self.goal.object_names:
+            yield PickAndPlace(
+                object_name=object_name,
+                arm="auto",
+                target_object_pose_env=Pose(
+                    position_m=target_placements_env[object_name].position_m,
+                    orientation_xyzw=layout.assets[object_name].orientation_xyzw,
+                ),
             )
-        )
-
-    def evaluate(
-        self,
-        observation: EvaluatorObservation,
-    ) -> PlacementResult:
-        """Evaluate one environment's final evaluator observation."""
-
-        statuses = self._placement_statuses(observation)
-        placed_count = sum(status.placed for status in statuses)
-        succeeded = placed_count == len(statuses)
-        return PlacementResult(
-            success=succeeded,
-            progress=placed_count / len(statuses),
-            metrics={
-                "placed_count": float(placed_count),
-                "maximum_position_error_m": max(
-                    status.position_error_m for status in statuses
-                ),
-                "maximum_height_error_m": max(
-                    status.height_error_m for status in statuses
-                ),
-                "maximum_upright_error_rad": max(
-                    status.upright_error_rad for status in statuses
-                ),
-            },
-            failure_reason=(None if succeeded else "one or more dolls are misplaced"),
-            statuses=statuses,
-        )
-
-
-__all__ = ["SortDollsBySize"]

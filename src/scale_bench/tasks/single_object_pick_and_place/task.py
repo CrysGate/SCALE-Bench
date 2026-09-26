@@ -1,67 +1,43 @@
-"""Result aggregation for one-object pick-and-place."""
+"""Bind one object to an upright-placement goal."""
 
-from __future__ import annotations
+from collections.abc import Iterator
 
-from typing import ClassVar
-
+from scale_bench.config.models.scene import SceneConfig
+from scale_bench.skills.models import PickAndPlace, Pose, SkillRequest
 from scale_bench.tasks.common.fixed_target import (
-    FixedTargetRigidObjectTask,
-    PlacementResult,
+    PlacementTaskConfig,
+    make_placement_goal,
 )
-from scale_bench.tasks.common.task import EvaluatorObservation
+from scale_bench.tasks.common.layout import TaskLayout
+from scale_bench.tasks.common.placement import PlacementContext
+from scale_bench.tasks.common.rigid_object import RigidObjects
+from scale_bench.tasks.common.task import Task
 
-from .config import SingleObjectPickAndPlaceConfig
 
+class SingleObjectPickAndPlaceTask(Task):
+    """Place the single task object upright at its destination."""
 
-class SingleObjectPickAndPlace(FixedTargetRigidObjectTask):
-    """Move one randomly initialized bottle to one fixed tabletop slot."""
-
-    TASK_ID: ClassVar[str] = "single_object_pick_and_place"
-
-    def __init__(self, config: SingleObjectPickAndPlaceConfig) -> None:
-        self._object_name = config.object.name
+    def __init__(self, config: PlacementTaskConfig, objects: RigidObjects) -> None:
         super().__init__(
-            config,
-            {config.object.name: config.object},
-            target_positions_env_xy_m=(config.target_slot.position_xy_m,),
-            target_placement_config=config.target_slot,
-        )
-
-    @property
-    def object_name(self) -> str:
-        return self._object_name
-
-    @property
-    def target_object_order(self) -> tuple[str, ...]:
-        """Return the only object in its only target slot."""
-
-        return (self.object_name,)
-
-    def evaluate(
-        self,
-        observation: EvaluatorObservation,
-    ) -> PlacementResult:
-        """Build the final success result and geometric diagnostics."""
-
-        statuses = self._placement_statuses(observation)
-        status = statuses[0]
-        return PlacementResult(
-            success=status.placed,
-            progress=float(status.placed),
-            metrics={
-                "position_error_m": status.position_error_m,
-                "height_error_m": status.height_error_m,
-                "upright_error_rad": status.upright_error_rad,
-            },
-            failure_reason=(
-                None
-                if status.placed
-                else f"{self.object_name} is outside the fixed target slot"
+            task_id=config.task,
+            instruction=config.instruction,
+            config=config,
+            objects=objects,
+            goal=make_placement_goal(
+                config=config,
+                objects=objects,
+                object_order=tuple(objects.assets),
             ),
-            statuses=statuses,
         )
 
-
-__all__ = [
-    "SingleObjectPickAndPlace",
-]
+    def expert(self, scene: SceneConfig, layout: TaskLayout) -> Iterator[SkillRequest]:
+        object_name, = self.goal.object_names
+        target_placements_env = self.goal.target_placements(PlacementContext.from_scene_config(scene))
+        yield PickAndPlace(
+            object_name=object_name,
+            arm="auto",
+            target_object_pose_env=Pose(
+                position_m=target_placements_env[object_name].position_m,
+                orientation_xyzw=layout.assets[object_name].orientation_xyzw,
+            ),
+        )
