@@ -17,7 +17,7 @@ from .evaluation import (
 from .layout import AssetPlacement
 from .placement import PlacementContext
 from .rigid_object import RigidObjects
-from .task import Task, TaskConfig
+from .task import TaskConfig
 
 
 class PlacementTaskConfig(TaskConfig):
@@ -302,25 +302,19 @@ def _unbatched_observation_tensor(
     return value
 
 
-def make_placement_task(
+def make_placement_goal(
     *,
     config: PlacementTaskConfig,
     objects: RigidObjects,
     object_order: tuple[str, ...],
-) -> Task:
+) -> FixedPlacementGoal:
     """Bind a selection/order rule to a reusable placement goal."""
 
     if len(object_order) != len(config.target_positions_env_xy_m):
         raise ValueError("the number of selected objects must match the target slots")
-    return Task(
-        task_id=config.task,
-        instruction=config.instruction,
+    return FixedPlacementGoal(
+        object_names=object_order,
+        target_positions_env_xy_m=config.target_positions_env_xy_m,
+        object_heights_m=tuple(objects.metadata[name].size[2] for name in object_order),
         config=config,
-        objects=objects,
-        goal=FixedPlacementGoal(
-            object_names=object_order,
-            target_positions_env_xy_m=config.target_positions_env_xy_m,
-            object_heights_m=tuple(objects.metadata[name].size[2] for name in object_order),
-            config=config,
-        ),
     )

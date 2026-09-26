@@ -1,14 +1,17 @@
-"""A resolved tabletop task composes object data, layout settings, and a goal."""
+"""A resolved tabletop task composes object data, layout, a goal, and an expert."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from abc import ABC, abstractmethod
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 from torch import Tensor
 
 from scale_bench.config.base import ConfigReference, FrozenModel, Name, PositiveInt
+from scale_bench.config.models.scene import SceneConfig
+from scale_bench.skills.models import SkillRequest
 
 from .evaluation import (
     BatchedEvaluatorObservation,
@@ -42,7 +45,7 @@ class TaskConfig(FrozenModel):
 
 
 @dataclass(frozen=True, slots=True)
-class Task:
+class Task(ABC):
     """One configured task; goal semantics do not depend on its controller."""
 
     task_id: str
@@ -50,6 +53,10 @@ class Task:
     config: TaskConfig
     objects: RigidObjects
     goal: TaskGoal
+
+    @abstractmethod
+    def expert(self, scene: SceneConfig, layout: TaskLayout) -> Iterator[SkillRequest]:
+        """Yield this task's reference skill program for one episode."""
 
     @property
     def assets(self) -> Mapping[str, RigidObjectAssetConfig]:

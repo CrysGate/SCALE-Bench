@@ -5,7 +5,6 @@ import os
 import sys
 from collections.abc import Iterator
 from pathlib import Path
-from typing import cast
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
@@ -32,7 +31,8 @@ def main() -> int:
     parser.add_argument("--seed", type=nonnegative_int, default=100)
     parser.add_argument("--max-steps", type=positive_int, default=1200)
     parser.add_argument(
-        "--object-name", help="Omit to use the task's first target object."
+        "--object-name",
+        help="Omit to use the first placement target, or the first task object for other goals.",
     )
     parser.add_argument("--visualize-curobo", action="store_true")
     args = parser.parse_args()
@@ -48,20 +48,27 @@ def main() -> int:
     def execute(run: TaskRun) -> int:
         from scale_bench.isaaclab.runtime.skill_runner import run_skill_episodes
 
-        goal = cast(FixedPlacementGoal, run.task.goal)
-        object_name = args.object_name or goal.object_names[0]
+        goal = run.task.goal
+        object_name = args.object_name or (
+            goal.object_names[0] if isinstance(goal, FixedPlacementGoal)
+            else next(iter(run.task.assets))
+        )
         if object_name not in run.task.metadata:
             raise ValueError(f"unknown --object-name: {object_name!r}")
         specs = run.episode_specs(
             base_seed=args.seed, episodes=1, max_steps=args.max_steps
         )
-        target_placements_env = goal.target_placements(
-            PlacementContext.from_scene_config(run.scene)
-        )
 
         def expert_factory(state: EpisodeState) -> Iterator[SkillRequest]:
             if args.program == "pick":
                 return iter((Pick(object_name, "auto"),))
+            if not isinstance(goal, FixedPlacementGoal):
+                raise ValueError("pick-and-place debugging requires a fixed-placement goal")
+            target_placements_env = goal.target_placements(
+                PlacementContext.from_scene_config(run.scene)
+            )
+            if object_name not in target_placements_env:
+                raise ValueError(f"no placement target for --object-name: {object_name!r}")
             object_pose_env = Pose(
                 target_placements_env[object_name].position_m,
                 state.spec.layout.assets[object_name].orientation_xyzw,

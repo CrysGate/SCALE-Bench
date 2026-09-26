@@ -1,5 +1,5 @@
 """Single-object pick-and-place task package."""
 
-from .task import build_task
+from .task import SingleObjectPickAndPlaceTask
 
-__all__ = ["build_task"]
+__all__ = ["SingleObjectPickAndPlaceTask"]
