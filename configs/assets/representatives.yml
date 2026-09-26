@@ -1,0 +1,66 @@
+# Source versions are pinned; downloaded files and checksums live in Assets/Imported.
+mjcf_models:
+  fruit_bowl: source/fruit_bowl/FruitBowl003/model.xml
+assets:
+  - id: fruit_bowl
+    scene: kitchen
+    provider: huggingface_zip
+    repo: nvidia/PhysicalAI-Robotics-Manipulation-Objects-Kitchen-MJCF
+    revision: 420a04af939c34873e6839a586b70844baf28aab
+    path: objects_lightwheel/fruit_bowl.zip
+    sha256: 658b652e1dd41cc9bc7ea9dc73d2bf7c3cd37d0619eccab2f27210e17df1f322
+    license: CC-BY-4.0
+    attribution: NVIDIA / Lightwheel
+    source_url: https://huggingface.co/datasets/nvidia/PhysicalAI-Robotics-Manipulation-Objects-Kitchen-MJCF
+  - id: keyboard
+    scene: office
+    provider: huggingface_usd
+    repo: nvidia/PhysicalAI-SimReady-Warehouse-01
+    revision: c7fe115cb79c7ddbd0532630d7768b5736b0ecc4
+    path: Props/general/sm_keyboard_a01_01/sm_keyboard_a01_01.usd
+    license: CC-BY-4.0
+    attribution: NVIDIA
+    source_url: https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01
+  - id: mouse
+    scene: office
+    provider: huggingface_usd
+    repo: nvidia/PhysicalAI-SimReady-Warehouse-01
+    revision: c7fe115cb79c7ddbd0532630d7768b5736b0ecc4
+    path: Props/general/sm_officemouse_b01_01/sm_officemouse_b01_01.usd
+    license: CC-BY-4.0
+    attribution: NVIDIA
+    source_url: https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01
+  - id: ceramic_vase_01
+    scene: garden
+    provider: polyhaven
+    revision: 989b1a754be36032e5d643c9c333a08e218c65cf
+    resolution: 1k
+    license: CC0-1.0
+    attribution: James Ray Cock / Poly Haven
+    source_url: https://polyhaven.com/a/ceramic_vase_01
+  - id: planter_pot_clay
+    scene: garden
+    provider: polyhaven
+    revision: 9add1027ddc7f4f0bcc83024d2bdf7715dea8b5d
+    resolution: 1k
+    license: CC0-1.0
+    attribution: Amal Kumar / Poly Haven
+    source_url: https://polyhaven.com/a/planter_pot_clay
+  - id: lightwheel_kitchen
+    scene: kitchen
+    provider: github_zip
+    repo: LightwheelAI/Lightwheel_Kitchen
+    revision: 10b0f7a86135a27e8c2fba9c690f6bf5c4f06bb1
+    path: Lightwheel_Kitchen.zip
+    sha256: 721fb9e47d09b2c43a7db396c1d63c659e987d5925db0a5e78cf4fd40cd0b0b0
+    include:
+      - Collected_KitchenRoom/Kitchen_Cabinet001/
+      - Collected_KitchenRoom/Kitchen_InsularShelf/
+      - Collected_KitchenRoom/CoffeeMachine006/
+    models:
+      cabinet: source/Collected_KitchenRoom/Kitchen_Cabinet001/Kitchen_Cabinet001.usd
+      counter: source/Collected_KitchenRoom/Kitchen_InsularShelf/Kitchen_InsularShelf.usd
+      coffee_machine: source/Collected_KitchenRoom/CoffeeMachine006/CoffeeMachine006.usd
+    license: CC-BY-NC-4.0
+    attribution: Lightwheel
+    source_url: https://github.com/LightwheelAI/Lightwheel_Kitchen

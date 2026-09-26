@@ -1,0 +1,7 @@
+name: planter_pot_large
+physics:
+  restitution: 0.0
+objects:
+  - name: pot
+    usd_path: Assets/Imported/planter_pot_large/model.usdc
+    metadata_path: Assets/Imported/planter_pot_large/metadata.json

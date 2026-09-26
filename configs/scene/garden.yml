@@ -1,0 +1,73 @@
+room:
+  usd_path: Assets/Room/Simple_Room_nolight/simple_room_nolight.usd
+  scale: 0.5
+  room_position_env_m: [0.0, 0.0, 0.0]
+  yaw_env_rad: 0.0
+  excluded_prim_paths:
+    - simple_room/Towel_Room01_floor_bottom_218
+    - simple_room/Towel_Room01_florr_edge_262
+ground:
+  position_m: [0.0, 0.0, 0.015]
+  size_m: [5.0, 5.0, 0.01]
+  material_path: Assets/Material/material_0564/Wood_Tiles_Fineline.mdl
+  static_friction: 0.8
+  dynamic_friction: 0.8
+  restitution: 0.0
+table:
+  position_m: [0.0, -0.05, 0.74]
+  size_m: [1.4, 1.1, 0.05]
+  material_path: null
+  pbr:
+    base_color_texture: Assets/Material/material_0122/Mahogany_Planks_BaseColor.png
+    normal_texture: Assets/Material/material_0122/Mahogany_Planks_N.png
+    roughness:
+      path: Assets/Material/material_0122/Mahogany_Planks_ORM.png
+      channel: g
+    metallic:
+      path: Assets/Material/material_0122/Mahogany_Planks_ORM.png
+      channel: b
+    texture_size_m: [0.7, 0.7]
+  static_friction: 0.8
+  dynamic_friction: 0.8
+  restitution: 0.0
+robot_mounts:
+  left:
+    position_xy_m: [-0.3, -0.45]
+    orientation_xyzw: [0.0, 0.0, 0.70710678, 0.70710678]
+  right:
+    position_xy_m: [0.3, -0.45]
+    orientation_xyzw: [0.0, 0.0, 0.70710678, 0.70710678]
+manipulation:
+  lift_height_m: 0.10
+  place_approach_distance_m: 0.10
+  retreat_distance_m: 0.06
+  retreat_attempts: 3
+  planner_attempts: 3
+  grasp_attempts: 3
+  placement_retries: 2
+camera:
+  profile_path: ../cameras/d435.yml
+  stand_usd_path: Assets/Object/Geometry/camera_stand_aloha/aloha_front_camera_stand_realsense_d435.usd
+  stand_position_xy_m: [0.0, -0.47]
+  stand_orientation_xyzw: [0.0, 0.0, 0.70710678, 0.70710678]
+  sensor_local_position_m: [0.06376095, 0.0003435, 0.95816412]
+  sensor_local_orientation_xyzw: [0.12278780, -0.12278780, -0.69636424, 0.69636424]
+  convention: opengl
+lighting:
+  texture_path: Assets/Background/brown_photostudio_02_4k.hdr
+  intensity: 400.0
+  profile_path: ../lighting/side.yml
+task_object_placement_area:
+  x_range_m: [-0.6, 0.6]
+  y_range_m: [-0.08, 0.18]
+props:
+  - name: ceramic_vase_01
+    usd_path: Assets/Imported/ceramic_vase_01/model.usdc
+    metadata_path: Assets/Imported/ceramic_vase_01/metadata.json
+    support_position_env_m: [-0.46, 0.35, 0.765]
+    yaw_env_rad: 0.0
+  - name: planter_pot_clay
+    usd_path: Assets/Imported/planter_pot_clay/model.usdc
+    metadata_path: Assets/Imported/planter_pot_clay/metadata.json
+    support_position_env_m: [0.44, 0.35, 0.765]
+    yaw_env_rad: 0.0

@@ -1,0 +1,7 @@
+lights:
+  - name: softbox
+    light_position_env_m: [0.0, -0.3, 2.4]
+    light_orientation_env_xyzw: [0.0, 0.0, 0.0, 1.0]
+    radius_m: 0.8
+    intensity: 650.0
+    color: [1.0, 0.95, 0.88]
