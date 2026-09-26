@@ -4,6 +4,7 @@ import logging
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 from scale_bench.config.models.recording import RecordingConfig
 from scale_bench.runtime import EpisodeSpec, EpisodeState
@@ -11,8 +12,9 @@ from scale_bench.runtime.logging import record_skill_events
 from scale_bench.runtime.scheduler import BenchmarkRunResult
 from scale_bench.runtime.task_run import TaskRun
 from scale_bench.skills import SkillRequest
+from scale_bench.tasks.common.fixed_target import FixedPlacementGoal
 from scale_bench.tasks.common.placement import PlacementContext
-from scale_bench.tasks.experts import pick_and_place_expert, placement_goal
+from scale_bench.tasks.experts import pick_and_place_expert
 
 from .skill_runner import run_skill_episodes
 
@@ -41,11 +43,12 @@ def collect_expert_data(
     num_envs: int,
 ) -> CollectionResult:
     """Execute the placement reference program and close its dataset."""
-    placement_goal(run.task)
+    goal = cast(FixedPlacementGoal, run.task.goal)
     context = PlacementContext.from_scene_config(run.scene)
 
     def expert_factory(state: EpisodeState) -> Iterator[SkillRequest]:
-        return pick_and_place_expert(run.task, context, state.spec.layout)
+        run.task.validate_asset_layout(state.spec.layout)
+        return pick_and_place_expert(goal, context, state.spec.layout)
 
     with run.open_environment(specs, num_envs=num_envs, recording=recording) as env:
         LOGGER.info(

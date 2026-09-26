@@ -5,6 +5,7 @@ import os
 import sys
 from collections.abc import Iterator
 from pathlib import Path
+from typing import cast
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
@@ -18,8 +19,8 @@ from scale_bench.cli.simulation import (
 from scale_bench.runtime import EpisodeState, TerminationReason
 from scale_bench.runtime.task_run import TaskRun
 from scale_bench.skills import Pick, PickAndPlace, Pose, SkillRequest
+from scale_bench.tasks.common.fixed_target import FixedPlacementGoal
 from scale_bench.tasks.common.placement import PlacementContext
-from scale_bench.tasks.experts import placement_goal
 
 
 def main() -> int:
@@ -47,7 +48,7 @@ def main() -> int:
     def execute(run: TaskRun) -> int:
         from scale_bench.isaaclab.runtime.skill_runner import run_skill_episodes
 
-        goal = placement_goal(run.task)
+        goal = cast(FixedPlacementGoal, run.task.goal)
         object_name = args.object_name or goal.object_names[0]
         if object_name not in run.task.metadata:
             raise ValueError(f"unknown --object-name: {object_name!r}")
