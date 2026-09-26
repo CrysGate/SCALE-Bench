@@ -42,17 +42,6 @@ ObservationSource: TypeAlias = ObjectPositions | ObjectOrientations | FixedPosit
 
 
 @dataclass(frozen=True, slots=True)
-class EpisodeEvaluatorSpec:
-    """Task-owned stateful success semantics."""
-
-    success_stability_steps: int = 10
-
-    def __post_init__(self) -> None:
-        if self.success_stability_steps <= 0:
-            raise ValueError("success_stability_steps must be positive")
-
-
-@dataclass(frozen=True, slots=True)
 class EvaluationResult:
     """Success, progress, and diagnostics for one environment."""
 
@@ -88,7 +77,7 @@ class TaskGoal(Protocol):
 
 
 __all__ = [
-    "BatchedEvaluatorObservation", "EpisodeEvaluatorSpec", "EvaluationResult",
+    "BatchedEvaluatorObservation", "EvaluationResult",
     "EvaluatorObservation", "FixedPositions", "ObjectOrientations",
     "ObjectPositions", "ObservationSource", "TaskGoal",
 ]

@@ -13,7 +13,6 @@ from scale_bench.config.base import ConfigReference, FrozenModel, Name, Positive
 
 from .evaluation import (
     BatchedEvaluatorObservation,
-    EpisodeEvaluatorSpec,
     EvaluationResult,
     EvaluatorObservation,
     TaskGoal,
@@ -68,10 +67,6 @@ class Task:
     @property
     def metadata(self) -> Mapping[str, RigidObjectMetadata]:
         return self.objects.metadata
-
-    @property
-    def evaluator_spec(self) -> EpisodeEvaluatorSpec:
-        return EpisodeEvaluatorSpec(self.config.settings.success_stability_steps)
 
     def generate_layout(self, context: PlacementContext, seed: int) -> TaskLayout:
         return generate_tabletop_layout(
