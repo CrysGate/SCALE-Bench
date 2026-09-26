@@ -17,7 +17,7 @@ from .evaluation import (
 from .layout import AssetPlacement
 from .placement import PlacementContext
 from .rigid_object import RigidObjects
-from .task import ResolvedTaskConfig, Task, TaskConfig
+from .task import Task, TaskConfig
 
 
 class PlacementTaskConfig(TaskConfig):
@@ -315,7 +315,7 @@ def make_placement_task(
     return Task(
         task_id=config.task,
         instruction=config.instruction,
-        config=ResolvedTaskConfig(settings=config, object_set=objects.config),
+        config=config,
         objects=objects,
         goal=FixedPlacementGoal(
             object_names=object_order,

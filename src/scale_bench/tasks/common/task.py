@@ -6,7 +6,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from pydantic import SerializeAsAny
 from torch import Tensor
 
 from scale_bench.config.base import ConfigReference, FrozenModel, Name, PositiveInt
@@ -25,7 +24,6 @@ from .placement import (
     validate_tabletop_layout,
 )
 from .rigid_object import (
-    ObjectSetConfig,
     RigidObjectAssetConfig,
     RigidObjectMetadata,
     RigidObjects,
@@ -43,20 +41,13 @@ class TaskConfig(FrozenModel):
     success_stability_steps: PositiveInt = 10
 
 
-class ResolvedTaskConfig(FrozenModel):
-    """Complete inputs retained for collection and policy evaluation reports."""
-
-    settings: SerializeAsAny[TaskConfig]
-    object_set: ObjectSetConfig
-
-
 @dataclass(frozen=True, slots=True)
 class Task:
     """One configured task; goal semantics do not depend on its controller."""
 
     task_id: str
     instruction: str
-    config: ResolvedTaskConfig
+    config: TaskConfig
     objects: RigidObjects
     goal: TaskGoal
 
@@ -74,11 +65,11 @@ class Task:
             context=context,
             asset_sizes_m=self.objects.sizes_m,
             seed=seed,
-            **self.config.settings.layout.model_dump(),
+            **self.config.layout.model_dump(),
         )
 
     def validate_layout(self, context: PlacementContext, layout: TaskLayout) -> None:
-        settings = self.config.settings.layout
+        settings = self.config.layout
         validate_tabletop_layout(
             task_id=self.task_id,
             context=context,
