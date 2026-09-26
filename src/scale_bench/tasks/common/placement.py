@@ -20,7 +20,7 @@ class TabletopLayoutConfig(FrozenModel):
     """Sampling settings shared by tabletop task variants."""
 
     spawn_clearance_m: NonNegativeFloat = 0.003
-    minimum_object_gap_m: NonNegativeFloat = 0.02
+    minimum_object_gap_m: NonNegativeFloat = 0.06
     sampling_attempts_per_object: PositiveInt = 1000
     layout_sampling_attempts: PositiveInt = 32
 
