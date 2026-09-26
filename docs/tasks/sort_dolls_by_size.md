@@ -1,47 +1,23 @@
 ---
-description: 将五个套娃按尺寸从小到大排列，运行套娃排序任务并采集专家数据。
+description: 将五个套娃按高度排序到对应槽位，采集多物体抓取与放置轨迹。
 ---
-
-<p class="page-kicker">MANIPULATION / 多物体排序</p>
 
 # 套娃排序
 
-将五个套娃按尺寸从小到大排列到桌面上的固定槽位。
+将随机分布的五个套娃按高度从低到高放入对应槽位，默认沿桌面 Y 轴正方向排列。高度取自资产元数据；全部套娃同时满足各自槽位的[放置标准](index.md#success)才算成功。
 
-<div class="task-tags"><span>尺寸排序</span><span>依次放置</span><span>5 个套娃</span></div>
+[任务配置](https://github.com/CrysGate/SCALE-Bench/blob/main/configs/tasks/sort_dolls_by_size.yml)定义五个套娃资产及槽位位置。
 
-## 任务配置
+## 采集一条轨迹 { #collect }
 
-| 项目 | 配置 |
-| --- | --- |
-| 任务标识 | `sort_dolls_by_size` |
-| 操作物体 | 五个不同尺寸的套娃 |
-| 任务配置 | [sort_dolls_by_size.yml](https://github.com/CrysGate/SCALE-Bench/blob/main/configs/tasks/sort_dolls_by_size.yml) |
+完成[环境与资产准备](../getting-started.md#environment)后运行：
 
-!!! info "运行准备"
-
-    完成 [环境与资产准备](../getting-started.md#environment)，并准备任务配置引用的套娃资产及对应的 Piper 抓取数据。
-
-## 专家数据采集 { #collect }
-
-从仓库根目录采集一个 episode：
-
-```bash title="专家数据采集"
+```bash
 uv run python scripts/run_demo_generation.py \
   --task sort_dolls_by_size \
-  --num-envs 1 \
-  --episodes 1 \
-  --max-steps 1200 \
   --record-output outputs/sort-dolls \
   --dataset-name sort_dolls_by_size \
   --viz none
 ```
 
-## 检查结果
-
-结束日志会给出实际 HDF5 文件路径和成功率。数据写入 `outputs/sort-dolls/`，同名数据集已存在时会自动使用新文件名。
-
-成功与失败的 episode 都会保留。通过 [数据浏览与回放](../getting-started.md#inspect) 检查录制结果；回放时将 `--task` 设置为 `sort_dolls_by_size`。
-
-[加入 RGB-D 相机观测](../getting-started.md#collect){ .md-button }
-[浏览其他任务](index.md){ .md-button }
+按[数据浏览与回放](../getting-started.md#inspect)检查本次输出，回放时使用 `--task sort_dolls_by_size`。相机观测按[相机采集方式](../getting-started.md#collect)启用。

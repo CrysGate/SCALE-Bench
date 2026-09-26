@@ -1,6 +1,6 @@
 ---
 title: 项目概览
-description: SCALE-Bench 是配置驱动的 Isaac Lab 双臂操作项目，提供可复现任务、专家数据采集和 episode 回放。
+description: SCALE-Bench 是基于 Isaac Lab 的双臂操作基准，支持桌面操作任务、专家数据采集和回放。
 hide:
   - navigation
   - toc
@@ -11,6 +11,8 @@ hide:
 <div class="home-hero" markdown>
 
 # SCALE-Bench
+
+基于 Isaac Lab 的双臂操作基准，用于运行桌面操作任务和采集专家演示数据。通过 CuRobo 执行抓取与放置，保存轨迹和相机观测，并评测、浏览和回放结果。
 
 <div class="hero-actions" markdown>
 [开始使用 <span aria-hidden="true">↗</span>](getting-started.md){ .md-button .md-button--primary }
@@ -32,7 +34,7 @@ hide:
 
 ### [单物体抓取与放置](tasks/single_object_pick_and_place.md)
 
-抓起随机位置的 bottle，将其直立放入固定目标槽位。
+抓起随机位置的瓶子，将其直立放入固定目标槽位。
 
 <div class="task-id" markdown>
 `single_object_pick_and_place`
@@ -44,7 +46,7 @@ hide:
 
 ### [套娃排序](tasks/sort_dolls_by_size.md)
 
-将五个套娃按尺寸从小到大排列到桌面上的固定槽位。
+将五个套娃按高度从低到高排列到桌面上的固定槽位。
 
 <div class="task-id" markdown>
 `sort_dolls_by_size`
@@ -56,7 +58,7 @@ hide:
 
 ### [最大物体抓取与放置](tasks/largest_pick_and_place.md)
 
-从多个物体中选出最大的一个，并将其直立放入目标槽位。
+从多个物体中选出最高的一个，并将其直立放入目标槽位。
 
 <div class="task-id" markdown>
 `largest_pick_and_place`

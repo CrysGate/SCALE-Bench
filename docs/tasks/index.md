@@ -1,36 +1,28 @@
 ---
-description: SCALE-Bench 操作任务的目标定义、配置入口与专家数据采集方式。
+description: 选择 SCALE-Bench 操作任务，了解任务目标和成功条件。
 ---
-
-<p class="page-kicker">TASK LIBRARY / 操作任务</p>
 
 # 任务指南
 
-当前提供三个操作任务，均支持确定性 seed、layout 导入导出和最终状态评测。
+首次运行可从单物体抓取与放置开始；套娃排序增加了多物体操作，最大物体任务增加了目标选择。
 
-<div class="task-tags"><span>双臂 Piper</span><span>CuRobo 规划</span><span>HDF5 记录</span></div>
+| 任务 | 目标 |
+| --- | --- |
+| [单物体抓取与放置](single_object_pick_and_place.md) | 将瓶子直立放入固定槽位 |
+| [套娃排序](sort_dolls_by_size.md) | 将五个套娃按高度排序到对应槽位 |
+| [最大物体抓取与放置](largest_pick_and_place.md) | 将最高的物体直立放入目标槽位 |
 
-## 任务定义
+各任务页提供采集命令。环境、资产和相机采集的准备步骤见[开始使用](../getting-started.md)。
 
-| 任务 | `--task` 参数 | 操作目标 |
-| --- | --- | --- |
-| [套娃排序](sort_dolls_by_size.md) | `sort_dolls_by_size` | 五个套娃按尺寸排序到固定槽位 |
-| [单物体抓取与放置](single_object_pick_and_place.md) | `single_object_pick_and_place` | bottle 直立放入固定目标槽位 |
-| [最大物体抓取与放置](largest_pick_and_place.md) | `largest_pick_and_place` | 选择最大的物体并直立放入目标槽位 |
+## 成功判定 { #success }
 
-首次运行建议使用单物体抓取与放置任务。套娃排序涉及多个物体的依次放置；最大物体抓取与放置默认使用不同尺寸的奶茶杯资产。
+物体需要放到指定位置并保持直立。当前默认配置采用以下放置标准，任务页说明哪些物体必须满足这些条件：
 
-## 专家数据采集
+| 判定项 | 允许范围 |
+| --- | --- |
+| 水平位置误差 | 不超过 2.5 cm |
+| 高度误差 | 不超过 1.5 cm |
+| 偏离直立方向的角度 | 不超过 0.10 rad（约 5.7°） |
+| 成功验证 | 连续 10 个验证步满足条件，结束时仍满足 |
 
-所有任务使用 `scripts/run_demo_generation.py` 采集专家数据，通过 `--task` 选择任务。每个任务页提供完整命令，可按需调整并行环境数与 episode 数量。
-
-!!! info "运行准备"
-
-    先完成 [环境与资产准备](../getting-started.md#environment)。三个任务都需要任务配置引用的资产和对应的 Piper 抓取数据。
-
-1. **准备场景**：确认资产路径和抓取数据，使用固定 seed 或已保存的 layout 复现场景。
-2. **执行专家**：运行任务页的采集命令，保存关节状态、动作和评测结果；需要图像时加入 RGB-D 观测。
-3. **检查结果**：根据结束日志打开实际 HDF5 文件，浏览数据或回放 episode。
-
-[相机采集设置](../getting-started.md#collect){ .md-button }
-[数据检查与回放](../getting-started.md#inspect){ .md-button }
+调整标准时，在任务 YAML 的 `target_slot`（套娃为 `target_slots`）中设置 `position_tolerance_m`、`height_tolerance_m` 和 `upright_tolerance_rad`；连续验证步数由 `success_stability_steps` 设置。

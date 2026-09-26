@@ -1,21 +1,17 @@
 ---
-description: SCALE-Bench 资产的尺寸展示、物理属性与各机械臂抓取姿态数据状态。
+description: 浏览 SCALE-Bench 资产规格和各机械臂的抓取数据。
 ---
-
-<p class="page-kicker">ASSET LIBRARY / 资产图鉴</p>
 
 # 资产图鉴
 
-每种资产使用一个页面，集中展示不同尺寸（scale）的仿真资产图片、物理属性和抓取姿态数据状态。
+资产保存在 [ScaleBench-Data 的 Assets 目录](https://modelscope.cn/datasets/CrysGate/ScaleBench-Data/tree/master/Assets)，下载与链接方式见[资产准备](../getting-started.md#environment)。
 
-## 资产目录
-
-| 资产 | 标识 | 尺寸规格 |
+| 资产 | 规格 | 使用任务 |
 | --- | --- | --- |
-| [奶茶杯](bubble_tea_cup.md) | `bubble_tea_cup` | 300g、500g、800g |
+| [奶茶杯](bubble_tea_cup.md) | 300g、500g、800g | [最大物体抓取与放置](../tasks/largest_pick_and_place.md) |
 
-## 抓取数据标准
+## 抓取数据
 
-每种机械臂对每个物体需要 **1024 条抓取姿态数据**。不同尺寸规格分别对应独立的物体资产和抓取数据文件，因此按「尺寸规格 × 机械臂」逐项统计，不能跨规格或机械臂合并凑足数量。
+专家采集使用与物体 USD 同目录的 `grasps-<机器人名>.yaml`，例如 `grasps-piper.yaml`。抓取数据中的 TCP 和夹爪关节定义需与所选机器人配置一致。
 
-各资产页注明核对日期，按文件中实际可加载的候选数量记录进度。达到数量标准表示数据量达标，任务中的可达性、碰撞与执行结果仍由实际运行验证。
+每种规格、每种机械臂的抓取数据目标为 **1024 条**。资产页按核对日期记录可加载的候选数量；任务执行成功率需通过实际运行评测。

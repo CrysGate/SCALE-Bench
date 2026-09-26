@@ -2,142 +2,47 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md) | [在线文档](https://crysgate.github.io/SCALE-Bench/)
 
-SCALE-Bench 是一个配置驱动的 Isaac Lab 双臂操作项目。它把机器人、相机、场景、任务、仿真和环境参数保存在 YAML 中，并提供场景预览、任务评测、专家数据生成、策略运行和 episode 回放入口。
+SCALE-Bench 是基于 Isaac Lab 的双臂操作基准，用于运行桌面操作任务和采集专家演示数据。它提供场景预览、CuRobo 运动规划、任务成功评测，以及 HDF5 数据浏览和回放。
 
-当前包含三个任务：
+## 操作任务
 
-- `sort_dolls_by_size`：将五个套娃按尺寸排列到固定槽位。
-- `single_object_pick_and_place`：将随机位置的 bottle 直立放到固定槽位。
-- `largest_pick_and_place`：将最大的物体放入目标槽，默认配置使用奶茶杯资产。
+| 任务 | 目标 |
+| --- | --- |
+| [单物体抓取与放置](docs/tasks/single_object_pick_and_place.md) | 将随机位置的瓶子直立放入固定槽位 |
+| [套娃排序](docs/tasks/sort_dolls_by_size.md) | 将五个套娃按高度从低到高放入对应槽位 |
+| [最大物体抓取与放置](docs/tasks/largest_pick_and_place.md) | 选择最高的物体并放入目标槽位，默认使用奶茶杯 |
 
-三个任务都支持确定性 seed、layout 导入导出和最终状态评测。专家链路支持 CuRobo 规划，以及 AnyGrasp 在线抓取或机器人配置中的离线抓取 catalog。
+任务通过种子和布局文件复现场景，机器人、相机和任务配置使用 YAML 管理。
 
-## 环境
+## 开始使用
 
-- Python 3.12
-- Isaac Sim 6.0.1
-- Isaac Lab `release/3.0.0-beta2`（当前验证提交 `6a7acb0`）
-- CuRobo（当前验证提交 `8e734f3`）
-- CUDA 12.8 对应的 PyTorch 2.10
-- [`uv`](https://docs.astral.sh/uv/)
+先完成[环境与资产准备](https://crysgate.github.io/SCALE-Bench/getting-started/#environment)。资产托管在 [ScaleBench-Data](https://modelscope.cn/datasets/CrysGate/ScaleBench-Data)，通过项目根目录的 `Assets` 软链接使用。
 
-项目通过 `pyproject.toml` 引用本地 `third_parties/IsaacLab` 和 `third_parties/curobo`：
+预览单物体任务：
 
 ```bash
-mkdir -p third_parties
-git clone --branch release/3.0.0-beta2 \
-  https://github.com/isaac-sim/IsaacLab.git third_parties/IsaacLab
-git clone https://github.com/NVlabs/curobo.git third_parties/curobo
-git -C third_parties/IsaacLab checkout 6a7acb0
-git -C third_parties/curobo checkout 8e734f3
-
-uv sync --frozen
+uv run python scripts/preview_scene.py --task single_object_pick_and_place
 ```
 
-默认配置还依赖未纳入 Git 的 `Assets/` 资产包，包括 Piper USD/URDF、房间、材质、相机支架、HDR、套娃和 bottle。资产路径以 `configs/` 中的 YAML 为准；缺少资产时配置加载会报告具体字段和路径。
-
-## 快速开始
-
-预览任务场景：
-
-```bash
-uv run python scripts/preview_scene.py --task sort_dolls_by_size
-```
-
-使用固定 seed 做两步无界面运行检查：
-
-```bash
-uv run python scripts/preview_scene.py \
-  --task single_object_pick_and_place \
-  --seed 42 \
-  --viz none \
-  --max-steps 2
-```
-
-导出并恢复同一个布局：
-
-```bash
-uv run python scripts/preview_scene.py \
-  --task sort_dolls_by_size \
-  --seed 42 \
-  --export-layout layouts/sort_dolls_by_size/42.json
-
-uv run python scripts/preview_scene.py \
-  --task sort_dolls_by_size \
-  --layout layouts/sort_dolls_by_size/42.json
-```
-
-运行完整专家链路：
+采集一条专家轨迹：
 
 ```bash
 uv run python scripts/run_demo_generation.py \
   --task single_object_pick_and_place \
-  --robot-config configs/robots/piper.yml \
-  --num-envs 1 \
-  --episodes 1 \
-  --max-steps 1200 \
-  --record-output outputs/demonstrations \
+  --record-output outputs/bottle-pick-place \
+  --dataset-name bottle_pick_place \
   --viz none
 ```
 
-抓取候选读取自物体 USD 同目录的 `grasps-<机器人name>.yaml`，包括 TCP 定义和接近距离。
+结果保存为 HDF5，包含关节状态、动作和评测结果。后续操作见[相机采集、数据浏览与回放](https://crysgate.github.io/SCALE-Bench/getting-started/#collect)。
 
-## 主要入口
+## 更多用法
 
-| 入口 | 用途 |
-|---|---|
-| `scripts/preview_scene.py` | 预览场景、检查布局、执行有界运行。 |
-| `scripts/run_policy_rollout.py` | 验证 policy、fixed-batch 调度和记录链路。 |
-| `scripts/run_demo_generation.py` | 执行完整任务专家并采集 HDF5 数据。 |
-| `scripts/run_skill_debug.py` | 单步技能和 CuRobo 规划调试。 |
-| `scripts/replay_episode.py` | 恢复 HDF5 初态、重放 action 并重新评测。 |
-| `scripts/view_hdf5.py` | 在浏览器中检查录制的 episode、相机和状态。 |
-| `scripts/export_hdf5_camera_videos.py` | 导出 RGB 和深度视频。 |
-| `scripts/generate_curobo_robot_config.py` | 从机器人配置生成 CuRobo 碰撞配置。 |
-
-完整命令示例见 [scripts/README.md](scripts/README.md)。所有脚本都应从仓库根目录通过 `uv run` 启动；参数以各脚本的 `--help` 为准。
-
-## 配置边界
-
-- `configs/robots/`：关节、TCP、执行器、夹爪、相机挂载、URDF。
-- `configs/cameras/`：图像尺寸、输出类型、内参和裁剪范围。
-- `configs/scene/`：静态场景、机器人安装位、相机和光照。
-- `configs/tasks/`：任务资产、布局约束、目标槽位和成功阈值。
-- `configs/sim/`：物理步长、重力、渲染和必要的 PhysX 覆盖。
-- `configs/envs/`：环境数量、间距、控制频率、克隆和 reset 行为。
-
-配置模型严格拒绝未知字段。配置引用相对于所在配置文件解析；资产引用在传入 `asset_root` 时相对于该目录解析。距离单位为米，四元数顺序为 `xyzw`。
-
-## 运行时
-
-`scale_bench.api.create_env()` 是公共环境入口。调用方先启动 Isaac Sim，再传入已经加载的配置、具体 Task，以及 `base_seed` 或 `layouts`。`ScaleBenchEnv` 负责仿真、scene 和 manager 生命周期。
-
-Episode 运行时分为两条链路：
-
-- `PolicyRolloutRunner` 接收 policy observation，输出关节 action。
-- `DemoGenerationRunner` 将 task expert 展开为 skill request，经 planner 和 command executor 执行。
-
-两条链路共享调度、评测、终止和记录逻辑。HDF5 同时保存初始状态、action、评测结果和终止原因，可由 `replay_episode.py` 检查一致性。
-
-## 验证改动
-
-改动后运行对应的真实链路。最低限度先加载配置，再执行有界环境运行：
-
-```bash
-uv run python -c \
-  'from scale_bench.config.loader import load_config; from scale_bench.config.models.environment import EnvironmentConfig; print(load_config("configs/envs/default.yml", EnvironmentConfig))'
-
-uv run python scripts/preview_scene.py \
-  --task sort_dolls_by_size \
-  --viz none \
-  --max-steps 2
-```
-
-涉及 planner、抓取或 recorder 时，还应运行对应的 demo generation 和 replay 命令。
-
-## 进一步阅读
-
-- [OBJ 转 USD](src/assets_gen/README.zh-CN.md)
+- [任务指南](docs/tasks/index.md)：任务定义与成功条件。
+- [资产图鉴](docs/assets/index.md)：资产规格与抓取数据。
+- [脚本用法](scripts/README.md)：布局复现、批量采集、调试和视频导出。
+- [OBJ 转 USD](src/assets_gen/README.zh-CN.md)：转换自己的物体资产。
+- [文档规范](DOCUMENTATION.md)：内容取舍、页面分工和文档验证。
 
 ## 许可证
 
