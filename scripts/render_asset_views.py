@@ -273,6 +273,7 @@ def render(app: SimulationApp, assets: list[Asset], output_dir: Path, panel_size
     import omni.replicator.core as rep
     import omni.usd
 
+    output_dir.mkdir(parents=True, exist_ok=True)
     omni.usd.get_context().new_stage()
     stage = omni.usd.get_context().get_stage()
     span_m = max(
@@ -310,9 +311,9 @@ def render(app: SimulationApp, assets: list[Asset], output_dir: Path, panel_size
                     raise RuntimeError(f"No asset pixels rendered: {asset.path} ({view.name})")
                 image = Image.fromarray(pixels).convert("RGB")
                 annotate(image, asset, view, span_m, camera_transform_world)
+                image.save(output_dir / f"{index:02d}_{view.name}.png")
                 sheets[view.name].paste(image, ((index % columns) * panel_size, (index // columns) * panel_size))
                 print(f"Rendered {asset.label}: {view.name}, dimensions (m)={asset.size_object_m}", flush=True)
-        output_dir.mkdir(parents=True, exist_ok=True)
         for name, sheet in sheets.items():
             path = output_dir / f"{name}.png"
             sheet.save(path)
@@ -328,11 +329,16 @@ def main() -> None:
     from isaacsim import SimulationApp
 
     app = SimulationApp({"headless": True, "renderer": "RaytracedLighting"})
+    exit_code = 1
     try:
         assets = inspect_assets(args.usd_paths)
         render(app, assets, args.output_dir, args.panel_size)
+        exit_code = 0
+    except Exception:
+        import traceback
+        traceback.print_exc()
     finally:
-        app.close()
+        app.close(exit_code=exit_code)
 
 
 if __name__ == "__main__":

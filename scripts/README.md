@@ -6,6 +6,10 @@
 
 ## 场景预览
 
+厨房、办公和园艺预设的下载、转换与切换方式见[场景物品](../docs/assets/scene_props.md)。预览通过 `--config` 选择场景；采集和回放通过 `--scene-config` 选择。
+
+`prepare_manipulation_assets.py` 生成开放空盒、小规格花盆及 Piper 抓取数据；`inspect_scene_assets.py` 检查双环境 RGB-D、容器接触和材质、局部灯的修改隔离。[准备与验收命令](../docs/assets/scene_props.md)包含所需场景、物品集合与目标位配置。
+
 预览任务中的机械臂、物体和目标槽位：
 
 ```bash

@@ -1,0 +1,7 @@
+lights:
+  - name: overhead
+    light_position_env_m: [0.0, 0.0, 2.2]
+    light_orientation_env_xyzw: [0.0, 0.0, 0.0, 1.0]
+    radius_m: 0.3
+    intensity: 2200.0
+    color: [0.92, 0.96, 1.0]

@@ -9,6 +9,7 @@ description: 浏览 SCALE-Bench 资产规格和各机械臂的抓取数据。
 | 资产 | 规格 | 使用任务 |
 | --- | --- | --- |
 | [奶茶杯](bubble_tea_cup.md) | 300g、500g、800g | [最大物体抓取与放置](../tasks/largest_pick_and_place.md) |
+| [场景物品](scene_props.md) | 厨房模块、果碗、键盘、鼠标、花瓶、双规格空盒与花盆 | 三场景背景及代表物品抓取放置 |
 
 ## 抓取数据
 

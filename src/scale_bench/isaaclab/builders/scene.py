@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import MISSING
+import math
 
 import isaaclab.sim as sim_utils
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg
@@ -17,6 +18,7 @@ from scale_bench.config.models.environment import EnvironmentConfig
 from scale_bench.config.models.robot import RobotConfig
 from scale_bench.config.models.scene import (
     LightingConfig,
+    LightingProfileConfig,
     OverheadCameraConfig,
     RobotMountConfig,
     RoomConfig,
@@ -29,6 +31,8 @@ from scale_bench.isaaclab.builders.robot import (
     build_robot_cfg,
 )
 from scale_bench.isaaclab.spawners.uv_cuboid import UvCuboidCfg
+from scale_bench.isaaclab.spawners.room import RoomUsdCfg
+from scale_bench.isaaclab.spawners.lighting import EnvironmentDiskLightCfg
 
 
 @configclass
@@ -108,6 +112,28 @@ def build_scene_cfg(
         ),
         environment_light=_light_cfg(scene_config.lighting),
     )
+    for prop in scene_config.props:
+        setattr(scene_cfg, f"prop_{prop.name}", AssetBaseCfg(
+            prim_path=f"{{ENV_REGEX_NS}}/Props/{prop.name}",
+            init_state=AssetBaseCfg.InitialStateCfg(
+                pos=prop.object_position_env_m,
+                rot=(0.0, 0.0, math.sin(prop.yaw_env_rad / 2), math.cos(prop.yaw_env_rad / 2)),
+            ),
+            spawn=sim_utils.UsdFileCfg(usd_path=prop.usd_path),
+        ))
+    if scene_config.lighting.profile_path is not None:
+        profile = load_config(scene_config.lighting.profile_path, LightingProfileConfig)
+        for light in profile.lights:
+            setattr(scene_cfg, f"light_{light.name}", AssetBaseCfg(
+                prim_path=f"{{ENV_REGEX_NS}}/Lights/{light.name}",
+                init_state=AssetBaseCfg.InitialStateCfg(
+                    pos=light.light_position_env_m,
+                    rot=light.light_orientation_env_xyzw,
+                ),
+                spawn=EnvironmentDiskLightCfg(
+                    radius=light.radius_m, intensity=light.intensity, color=light.color,
+                ),
+            ))
     return scene_cfg
 
 
@@ -130,9 +156,14 @@ def _apply_environment_overrides(
 def _room_cfg(spec: RoomConfig) -> AssetBaseCfg:
     return AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Room",
-        spawn=sim_utils.UsdFileCfg(
+        init_state=AssetBaseCfg.InitialStateCfg(
+            pos=spec.room_position_env_m,
+            rot=(0.0, 0.0, math.sin(spec.yaw_env_rad / 2), math.cos(spec.yaw_env_rad / 2)),
+        ),
+        spawn=RoomUsdCfg(
             usd_path=spec.usd_path,
             scale=(spec.scale, spec.scale, spec.scale),
+            excluded_prim_paths=spec.excluded_prim_paths,
         ),
     )
 
@@ -144,6 +175,7 @@ def _surface_cfg(prim_path: str, spec: SurfaceConfig) -> AssetBaseCfg:
         spawn=UvCuboidCfg(
             size=spec.size_m,
             uv_scale=spec.uv_scale,
+            pbr=spec.pbr,
             collision_props=sim_utils.PhysxCollisionPropertiesCfg(
                 collision_enabled=True
             ),

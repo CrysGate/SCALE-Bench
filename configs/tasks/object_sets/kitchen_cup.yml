@@ -1,0 +1,7 @@
+name: kitchen_cup
+physics:
+  restitution: 0.0
+objects:
+  - name: cup
+    usd_path: Assets/Object/Rigid/bubble_tea_cup/300g/Aligned.usd
+    metadata_path: Assets/Object/Rigid/bubble_tea_cup/300g/metadata.json
