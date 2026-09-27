@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Mapping
 from dataclasses import asdict
 
@@ -57,6 +58,17 @@ class IsaacLabSkillContext:
             scene_config.table.size_m,
         )
         self._camera_stand = camera_stand_collision_objects_env(scene_config)
+        self._props = tuple(
+            SceneObject(
+                f"background/{prop.name}",
+                Pose(
+                    prop.object_position_env_m,
+                    (0.0, 0.0, math.sin(prop.yaw_env_rad / 2), math.cos(prop.yaw_env_rad / 2)),
+                ),
+                prop.size_object_m,
+            )
+            for prop in scene_config.props
+        )
         self._tcp_body_indices = {}
         self._arm_joint_indices = {}
         self._gripper_joint_indices = {}
@@ -115,7 +127,7 @@ class IsaacLabSkillContext:
             right_robot=self._robot_state("right"),
             table=self._table,
             camera_stand=self._camera_stand,
-            objects=tuple(
+            objects=self._props + tuple(
                 SceneObject(object_name, self._object_pose_env(object_name), size_m)
                 for object_name, size_m in self._object_sizes_m.items()
             ),

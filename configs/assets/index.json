@@ -1,0 +1,160 @@
+{
+  "assets": [
+    {
+      "id": "ceramic_vase_01",
+      "role": "background",
+      "usd_path": "Assets/Imported/ceramic_vase_01/model.usdc",
+      "size_object_m": [
+        0.20487193763256073,
+        0.20637669414281845,
+        0.401379804010503
+      ],
+      "metadata_sha256": "fb7c4c6261ebde4444f3b23d1ef2bdaaa6aa83143107aecf486c4d17701c76fe",
+      "usd_sha256": "a0c12a24f4e0443a0b2b0a43863ad2f562dd5ef7dd7c2debc5a101579aa48768",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "fruit_bowl",
+      "role": "background",
+      "usd_path": "Assets/Imported/fruit_bowl/model.usdc",
+      "size_object_m": [
+        0.37106800079345703,
+        0.37106800079345703,
+        0.20773400366306305
+      ],
+      "metadata_sha256": "141c27a12144e5f2790a309b969806590a046f6fa632ed1ab488872a68e824e7",
+      "usd_sha256": "92e247b8ad65cf128f3c86345e1a0f673ac9e00739d1fa3236bc51722dc376cd",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "keyboard",
+      "role": "background",
+      "usd_path": "Assets/Imported/keyboard/model.usdc",
+      "size_object_m": [
+        0.4420000358968966,
+        0.1420005718916527,
+        0.0202164171925336
+      ],
+      "metadata_sha256": "936acd31ed294fe1ec53b24932b589d5eae4f4fb4fd295f13c04b2bbf7811636",
+      "usd_sha256": "466a4c368c964948610a4b4d844b9475d6ff7d442bb02340b46a2d1a3a820fd3",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "mouse",
+      "role": "background",
+      "usd_path": "Assets/Imported/mouse/model.usdc",
+      "size_object_m": [
+        0.2540001621693337,
+        0.19055219224351222,
+        0.040765257675805536
+      ],
+      "metadata_sha256": "95686f4d4532a1ab5eb4f780957176454df300b108cd68f9413029c26f28adf9",
+      "usd_sha256": "09714539f5718a0e86b8910c41d15b028f84bb22f6c65be5a952e79edf8c5adc",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "packing_box_large",
+      "role": "manipulation",
+      "usd_path": "Assets/Imported/packing_box_large/model.usdc",
+      "size_object_m": [
+        0.0800000001899898,
+        0.0800000001899898,
+        0.08000000143423677
+      ],
+      "metadata_sha256": "a2f98cae443b70361d586ddcde538aa986695e94886a0c3f0b04e1a6183b6d98",
+      "usd_sha256": "1157926cdc5d5fc5e8c57ca4d85fa8aeb3268d2f33d8e1c070090ee0519478ef",
+      "license": "MIT"
+    },
+    {
+      "id": "packing_box_small",
+      "role": "manipulation",
+      "usd_path": "Assets/Imported/packing_box_small/model.usdc",
+      "size_object_m": [
+        0.0650000001899898,
+        0.0650000001899898,
+        0.06499999927356839
+      ],
+      "metadata_sha256": "056c6ab2288db72bab6bca7ea54dcdfa4f8af52b7f5ed431c37c913f76892793",
+      "usd_sha256": "0bdfb914da57b16380415bcbf972102c597831cc55d19d19db8c63f6259395b6",
+      "license": "MIT"
+    },
+    {
+      "id": "planter_pot_clay",
+      "role": "background",
+      "usd_path": "Assets/Imported/planter_pot_clay/model.usdc",
+      "size_object_m": [
+        0.2659967243671417,
+        0.2634630501270294,
+        0.22187034250237048
+      ],
+      "metadata_sha256": "9919e03373c88401b50aeb24b65c2fdff814269563f8a89f5737d6f8c349b50c",
+      "usd_sha256": "5c208a6eb8a1d5dbc340fec6abff9bb433e38e2f293cf3e7866563bccc737226",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "planter_pot_large",
+      "role": "manipulation",
+      "usd_path": "Assets/Imported/planter_pot_large/model.usdc",
+      "size_object_m": [
+        0.07979902048107057,
+        0.07903891817883313,
+        0.06656110539561173
+      ],
+      "metadata_sha256": "9f8ffefb79dd6db6466bff099be29077e8471d902c87fb8d83aa9e76ca8c8e76",
+      "usd_sha256": "de40f37ded773c9f7e10c28f43064039e88847c17af828f88cf1c274e22cc611",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "planter_pot_small",
+      "role": "manipulation",
+      "usd_path": "Assets/Imported/planter_pot_small/model.usdc",
+      "size_object_m": [
+        0.06649918109178543,
+        0.06586576253175735,
+        0.05546758562559262
+      ],
+      "metadata_sha256": "57fac8e6b474d0f5b5711d00b7a2edc824ad848875db9f040b5d14599f65c591",
+      "usd_sha256": "21fe35e5bdf948ee8f8252556e45a71d787be41501ae9edbfd2593488d022f59",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "lightwheel_kitchen/cabinet",
+      "role": "background",
+      "usd_path": "Assets/Imported/lightwheel_kitchen/cabinet/model.usdc",
+      "size_object_m": [
+        2.3408642795978705,
+        0.6215580824996338,
+        2.3968913555145264
+      ],
+      "metadata_sha256": "985ff103c4f4dec56b18b03593903625467983fd4944dccbf7b61ee150591374",
+      "usd_sha256": "6ed3622bb26ef9ced5dbf54db09202d91af81289edb6bfde9ae72f2fdf53b2c4",
+      "license": "CC-BY-NC-4.0"
+    },
+    {
+      "id": "lightwheel_kitchen/coffee_machine",
+      "role": "background",
+      "usd_path": "Assets/Imported/lightwheel_kitchen/coffee_machine/model.usdc",
+      "size_object_m": [
+        0.30950207495312193,
+        0.3045781141986374,
+        0.38060778720808514
+      ],
+      "metadata_sha256": "c1cfb78ccb9326fdc8a4797e2026da2911b0432dd1daecb58369fc7097c46876",
+      "usd_sha256": "c2cc62665a25fe5abb1ba1d9f756b35aab45212180d9a6d200150d9cdc3d71ae",
+      "license": "CC-BY-NC-4.0"
+    },
+    {
+      "id": "lightwheel_kitchen/counter",
+      "role": "background",
+      "usd_path": "Assets/Imported/lightwheel_kitchen/counter/model.usdc",
+      "size_object_m": [
+        1.1496275206413933,
+        0.7613429947108294,
+        0.8584497570991516
+      ],
+      "metadata_sha256": "8cbe2369aff7b935b3d2f190b3fc62404f7eb90bec169b51cdad34678b7f9278",
+      "usd_sha256": "3082311e63b0a7bcba7a5f467a4b2e753dc8f831b738b90743fc6083d8d8f7a2",
+      "license": "CC-BY-NC-4.0"
+    }
+  ]
+}

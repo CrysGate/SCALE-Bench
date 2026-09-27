@@ -1,0 +1,7 @@
+name: packing_box_small
+physics:
+  restitution: 0.0
+objects:
+  - name: box
+    usd_path: Assets/Imported/packing_box_small/model.usdc
+    metadata_path: Assets/Imported/packing_box_small/metadata.json

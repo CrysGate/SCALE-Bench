@@ -1,0 +1,7 @@
+lights:
+  - name: side
+    light_position_env_m: [-1.0, 0.0, 1.6]
+    light_orientation_env_xyzw: [0.0, -0.3826834324, 0.0, 0.9238795325]
+    radius_m: 0.35
+    intensity: 1800.0
+    color: [1.0, 0.95, 0.88]

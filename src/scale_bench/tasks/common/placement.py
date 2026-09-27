@@ -9,7 +9,9 @@ from typing import Self
 
 from pydantic import field_validator
 
-from scale_bench.config.base import FiniteFloat, FrozenModel, NonNegativeFloat, PositiveInt
+from scale_bench.config.base import (
+    FiniteFloat, FrozenModel, NonNegativeFloat, Position2, PositiveFloat, PositiveInt,
+)
 from scale_bench.config.models.scene import SceneConfig
 from scale_bench.skills.geometry import quaternion_xyzw_from_rpy
 
@@ -25,12 +27,36 @@ class TabletopLayoutConfig(FrozenModel):
     layout_sampling_attempts: PositiveInt = 32
 
 
+class PlacementObstacle(FrozenModel):
+    """The upright footprint of a static scene prop."""
+
+    name: str
+    object_position_env_xy_m: Position2
+    size_object_xy_m: tuple[PositiveFloat, PositiveFloat]
+    yaw_env_rad: FiniteFloat
+
+    def overlaps(self, object_position_env_xy_m: Position2, clearance_m: float) -> bool:
+        delta_x_env_m, delta_y_env_m = (
+            value - center for value, center in zip(
+                object_position_env_xy_m, self.object_position_env_xy_m, strict=True,
+            )
+        )
+        cosine, sine = math.cos(self.yaw_env_rad), math.sin(self.yaw_env_rad)
+        point_x_object_m = cosine * delta_x_env_m + sine * delta_y_env_m
+        point_y_object_m = -sine * delta_x_env_m + cosine * delta_y_env_m
+        gap_x_object_m = max(abs(point_x_object_m) - self.size_object_xy_m[0] / 2, 0)
+        gap_y_object_m = max(abs(point_y_object_m) - self.size_object_xy_m[1] / 2, 0)
+        return math.hypot(gap_x_object_m, gap_y_object_m) < clearance_m
+
+
 class PlacementContext(FrozenModel):
     """Scene-derived values needed by task placement algorithms."""
 
     table_top_z_m: FiniteFloat
     x_range_m: tuple[FiniteFloat, FiniteFloat]
     y_range_m: tuple[FiniteFloat, FiniteFloat]
+    # The original empty worktable has no obstacles; themed presets supply props.
+    obstacles: tuple[PlacementObstacle, ...] = ()
 
     @field_validator("x_range_m", "y_range_m")
     @classmethod
@@ -48,6 +74,16 @@ class PlacementContext(FrozenModel):
             table_top_z_m=scene_config.table_top_z_m,
             x_range_m=area.x_range_m,
             y_range_m=area.y_range_m,
+            obstacles=tuple(
+                PlacementObstacle(
+                    name=prop.name,
+                    object_position_env_xy_m=prop.support_position_env_m[:2],
+                    size_object_xy_m=prop.size_object_m[:2],
+                    yaw_env_rad=prop.yaw_env_rad,
+                )
+                for prop in scene_config.props
+                if prop.support_position_env_m[2] + prop.size_object_m[2] > scene_config.table_top_z_m
+            ),
         )
 
 
@@ -123,6 +159,11 @@ def _sample_object_placement(
         x_env_m = rng.uniform(*x_range_m)
         y_env_m = rng.uniform(*y_range_m)
         if any(
+            obstacle.overlaps((x_env_m, y_env_m), radius + minimum_object_gap_m)
+            for obstacle in context.obstacles
+        ):
+            continue
+        if any(
             math.hypot(
                 x_env_m - previous.position_m[0],
                 y_env_m - previous.position_m[1],
@@ -173,6 +214,12 @@ def validate_tabletop_layout(
     for name, placement in layout.assets.items():
         x_range, y_range = _center_ranges(context, name, radii[name])
         x_m, y_m, z_m = placement.position_m
+        for obstacle in context.obstacles:
+            if obstacle.overlaps((x_m, y_m), radii[name] + minimum_object_gap_m):
+                raise ValueError(
+                    f"{name} overlaps scene prop {obstacle.name!r} "
+                    "or violates minimum_object_gap_m"
+                )
         if not x_range[0] <= x_m <= x_range[1]:
             raise ValueError(
                 f"{name} is outside task_object_placement_area on the X axis"
