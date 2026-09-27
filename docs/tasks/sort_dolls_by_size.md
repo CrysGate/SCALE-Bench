@@ -6,7 +6,7 @@ description: 将五个套娃按高度排序到对应槽位，采集多物体抓�
 
 将随机分布的五个套娃按高度从低到高放入对应槽位，默认沿桌面 Y 轴正方向排列。高度取自资产元数据；全部套娃同时满足各自槽位的[放置标准](index.md#success)才算成功。
 
-[任务配置](https://github.com/CrysGate/SCALE-Bench/blob/main/configs/tasks/sort_dolls_by_size.yml)定义五个套娃资产及槽位位置。
+[默认配置](https://github.com/CrysGate/SCALE-Bench/blob/main/configs/tasks/sort_dolls_by_size/default.yml)引用五个套娃的物体集合并定义布局、槽位位置和成功条件。排序规则也可用于其他高度不同的物体，见[选择任务配置与物体](index.md#variants)。
 
 ## 采集一条轨迹 { #collect }
 

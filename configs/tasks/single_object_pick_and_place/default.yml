@@ -1,0 +1,12 @@
+name: bottle
+task: single_object_pick_and_place
+instruction: Pick up the object and place it upright in the fixed target slot.
+object_set: ../object_sets/bottle.yml
+layout:
+  minimum_object_gap_m: 0.02
+target_positions_env_xy_m:
+  - [0.0, -0.275]
+success_stability_steps: 10
+position_tolerance_m: 0.025
+height_tolerance_m: 0.015
+upright_tolerance_rad: 0.10

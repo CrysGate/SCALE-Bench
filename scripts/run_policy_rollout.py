@@ -12,11 +12,15 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from scale_bench.config.loader import load_config
 from scale_bench.config.models.simulation import SimulationConfig
+from scale_bench.cli.simulation import add_task_overrides
+from scale_bench.tasks.registry import TASKS, load_task
 
 from isaaclab.app import AppLauncher
 
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--task", choices=TASKS, default="sort_dolls_by_size")
+add_task_overrides(parser)
 parser.add_argument("--num-envs", type=int, default=1)
 parser.add_argument("--episodes", type=int, default=1)
 parser.add_argument("--base-seed", type=int, default=100)
@@ -88,8 +92,6 @@ from scale_bench.runtime import (
     TerminationReason,
 )
 from scale_bench.tasks.common.placement import PlacementContext
-from scale_bench.tasks.sort_dolls_by_size.config import SortDollsBySizeConfig
-from scale_bench.tasks.sort_dolls_by_size.task import SortDollsBySize
 from scale_bench.isaaclab.runtime.command_adapter import (
     build_command_action_layout,
 )
@@ -246,12 +248,10 @@ def main() -> int:
         }
     )
     environment_config = load_config(args.env_config, EnvironmentConfig)
-    task_config = load_config(
-        PROJECT_ROOT / "configs/tasks/sort_dolls_by_size.yml",
-        SortDollsBySizeConfig,
-        asset_root=asset_root,
+    task = load_task(
+        args.task, project_root=PROJECT_ROOT, asset_root=asset_root,
+        config_path=args.task_config, object_set_path=args.object_set,
     )
-    task = SortDollsBySize(task_config)
     placement_context = PlacementContext.from_scene_config(scene_config)
     specs = tuple(
         EpisodeSpec(

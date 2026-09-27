@@ -36,7 +36,6 @@ from scale_bench.isaaclab.managers.recorders import build_recorders_cfg
 from scale_bench.isaaclab.mdp.events import ResetTaskLayout
 from scale_bench.tasks.common.layout import TaskLayout
 from scale_bench.tasks.common.placement import PlacementContext
-from scale_bench.tasks.common.rigid_object import RigidObjectTask
 from scale_bench.tasks.common.task import Task
 
 
@@ -71,8 +70,6 @@ def build_environment_cfg(
 ) -> ScaleBenchEnvCfg:
     """Build a complete native environment cfg from resolved inputs."""
 
-    if not isinstance(task, RigidObjectTask):
-        raise TypeError("task must be a RigidObjectTask")
     if (
         not environment_config.enable_cameras
         and recording_config is not None

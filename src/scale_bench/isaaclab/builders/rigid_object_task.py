@@ -7,11 +7,11 @@ from isaaclab.assets import RigidObjectCfg
 from isaaclab.sim.spawners.materials import RigidBodyMaterialBaseCfg
 
 from scale_bench.tasks.common.layout import AssetPlacement, TaskLayout
-from scale_bench.tasks.common.rigid_object import RigidObjectTask
+from scale_bench.tasks.common.task import Task
 
 
 def build_rigid_object_assets(
-    task: RigidObjectTask,
+    task: Task,
     layout: TaskLayout,
 ) -> dict[str, RigidObjectCfg]:
     """Convert pure task data into fresh Isaac Lab rigid-object cfgs."""
@@ -23,13 +23,13 @@ def build_rigid_object_assets(
 
 
 def _build_asset_cfg(
-    task: RigidObjectTask,
+    task: Task,
     name: str,
     placement: AssetPlacement,
 ) -> RigidObjectCfg:
     asset = task.assets[name]
     metadata = task.metadata[name]
-    physics = task.config.physics
+    physics = task.objects.config.physics
     return RigidObjectCfg(
         prim_path=f"{{ENV_REGEX_NS}}/Task/Objects/{name}",
         init_state=RigidObjectCfg.InitialStateCfg(

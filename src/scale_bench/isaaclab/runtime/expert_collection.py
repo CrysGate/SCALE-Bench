@@ -11,7 +11,6 @@ from scale_bench.runtime.logging import record_skill_events
 from scale_bench.runtime.scheduler import BenchmarkRunResult
 from scale_bench.runtime.task_run import TaskRun
 from scale_bench.skills import SkillRequest
-from scale_bench.tasks.common.placement import PlacementContext
 
 from .skill_runner import run_skill_episodes
 
@@ -39,15 +38,11 @@ def collect_expert_data(
     recording: RecordingConfig,
     num_envs: int,
 ) -> CollectionResult:
-    """Execute task-owned experts and return after the dataset is closed."""
-    target_layout = run.task.target_layout(
-        PlacementContext.from_scene_config(run.scene)
-    )
+    """Execute the task's reference program and close its dataset."""
 
     def expert_factory(state: EpisodeState) -> Iterator[SkillRequest]:
-        return run.task.expert(
-            source_layout=state.spec.layout, target_layout=target_layout
-        )
+        run.task.validate_asset_layout(state.spec.layout)
+        return run.task.expert(run.scene, state.spec.layout)
 
     with run.open_environment(specs, num_envs=num_envs, recording=recording) as env:
         LOGGER.info(

@@ -2,6 +2,8 @@
 
 第一次运行先完成[安装与资产准备](https://crysgate.github.io/SCALE-Bench/getting-started/#environment)。
 
+预览、采集、调试、策略链路验证和回放共用 `--task`、`--task-config` 与 `--object-set`；具体用法见[选择任务配置与物体](../docs/tasks/index.md#variants)。回放时使用采集时相同的配置。
+
 ## 场景预览
 
 预览任务中的机械臂、物体和目标槽位：

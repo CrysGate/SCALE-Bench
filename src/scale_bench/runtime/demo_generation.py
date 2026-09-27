@@ -199,7 +199,7 @@ class DemoGenerationRunner:
                     if not program.verification_started:
                         command = Hold(
                             steps=(
-                                self._env.task.evaluator_spec.success_stability_steps + 1
+                                self._env.task.config.success_stability_steps + 1
                             ),
                             label="verify_success",
                         )

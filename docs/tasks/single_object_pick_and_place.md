@@ -6,7 +6,7 @@ description: 将随机位置的瓶子直立放入固定槽位，采集单物体�
 
 抓起桌面上随机位置和朝向的瓶子，将其直立放入固定目标槽位。瓶子满足[放置标准](index.md#success)即为成功，适合作为第一次运行的任务。
 
-[任务配置](https://github.com/CrysGate/SCALE-Bench/blob/main/configs/tasks/single_object_pick_and_place.yml)定义瓶子资产和目标槽位。
+[默认配置](https://github.com/CrysGate/SCALE-Bench/blob/main/configs/tasks/single_object_pick_and_place/default.yml)引用瓶子的物体集合并定义布局、目标槽位和成功条件。使用其他单物体集合时见[选择任务配置与物体](index.md#variants)。
 
 ## 采集一条轨迹 { #collect }
 

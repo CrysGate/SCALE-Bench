@@ -13,7 +13,7 @@ from scale_bench.config.models.recording import RecordingConfig
 from scale_bench.config.models.robot import RobotConfig
 from scale_bench.config.models.scene import SceneConfig
 from scale_bench.config.models.simulation import SimulationConfig
-from scale_bench.tasks.common.fixed_target import FixedTargetRigidObjectTask
+from scale_bench.tasks.common.task import Task
 from scale_bench.tasks.common.placement import PlacementContext
 
 from .episodes import EpisodeSpec
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 class TaskRun:
     """Resolved inputs for one task, independent of command-line arguments."""
 
-    task: FixedTargetRigidObjectTask
+    task: Task
     scene: SceneConfig
     robot: RobotConfig
     simulation: SimulationConfig

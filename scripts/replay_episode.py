@@ -10,22 +10,19 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-SUPPORTED_TASK_IDS = (
-    "largest_pick_and_place",
-    "sort_dolls_by_size",
-    "single_object_pick_and_place",
-)
-
+from scale_bench.cli.simulation import add_task_overrides
 from scale_bench.config.loader import load_config
 from scale_bench.config.models.simulation import SimulationConfig
+from scale_bench.tasks.registry import TASKS, load_task
 
 from isaaclab.app import AppLauncher
 
 
 parser = argparse.ArgumentParser()
+add_task_overrides(parser)
 parser.add_argument(
     "--task",
-    choices=SUPPORTED_TASK_IDS,
+    choices=TASKS,
     default="sort_dolls_by_size",
     help="Task used to rebuild the episode layout and recompute success.",
 )
@@ -93,16 +90,6 @@ from scale_bench.config.models.robot import RobotConfig
 from scale_bench.config.models.scene import SceneConfig
 from scale_bench.runtime import EpisodeReplayRunner, RecordedEpisode
 from scale_bench.tasks.common.placement import PlacementContext
-from scale_bench.tasks.largest_pick_and_place.config import LargestPickAndPlaceConfig
-from scale_bench.tasks.largest_pick_and_place.task import LargestPickAndPlace
-from scale_bench.tasks.single_object_pick_and_place.config import (
-    SingleObjectPickAndPlaceConfig,
-)
-from scale_bench.tasks.single_object_pick_and_place.task import (
-    SingleObjectPickAndPlace,
-)
-from scale_bench.tasks.sort_dolls_by_size.config import SortDollsBySizeConfig
-from scale_bench.tasks.sort_dolls_by_size.task import SortDollsBySize
 
 
 def main() -> int:
@@ -149,31 +136,10 @@ def main() -> int:
         }
     )
     environment_config = load_config(args.env_config, EnvironmentConfig)
-    if args.task == "largest_pick_and_place":
-        task = LargestPickAndPlace(
-            load_config(
-                PROJECT_ROOT / "configs/tasks/largest_pick_and_place.yml",
-                LargestPickAndPlaceConfig,
-                asset_root=PROJECT_ROOT,
-            )
-        )
-    elif args.task == "single_object_pick_and_place":
-        task = SingleObjectPickAndPlace(
-            load_config(
-                PROJECT_ROOT
-                / "configs/tasks/single_object_pick_and_place.yml",
-                SingleObjectPickAndPlaceConfig,
-                asset_root=PROJECT_ROOT,
-            )
-        )
-    else:
-        task = SortDollsBySize(
-            load_config(
-                PROJECT_ROOT / "configs/tasks/sort_dolls_by_size.yml",
-                SortDollsBySizeConfig,
-                asset_root=PROJECT_ROOT,
-            )
-        )
+    task = load_task(
+        args.task, project_root=PROJECT_ROOT, asset_root=PROJECT_ROOT,
+        config_path=args.task_config, object_set_path=args.object_set,
+    )
     layout = task.generate_layout(
         PlacementContext.from_scene_config(scene_config),
         seed,
@@ -236,8 +202,8 @@ def main() -> int:
         for status in getattr(result.evaluation, "statuses", ()):
             print(
                 f"object={status.object_name} placed={status.placed} "
-                f"position={status.position_m} "
-                f"target={status.target_position_m} "
+                f"position={status.object_position_env_m} "
+                f"target={status.target_position_env_m} "
                 f"xy_error={status.position_error_m:.6f} "
                 f"z_error={status.height_error_m:.6f} "
                 f"upright_error={status.upright_error_rad:.6f}",

@@ -60,7 +60,7 @@ class TaskEpisodeEvaluator:
         )
         newly_stable = (
             self._consecutive_successes
-            >= self._task.evaluator_spec.success_stability_steps
+            >= self._task.config.success_stability_steps
         )
         self._success |= self._tracked & newly_stable
         return self._success.clone()
@@ -89,7 +89,7 @@ class TaskEpisodeEvaluator:
                     success=confirmed_success,
                     failure_reason=(
                         "success condition was not stable for "
-                        f"{self._task.evaluator_spec.success_stability_steps} "
+                        f"{self._task.config.success_stability_steps} "
                         "verification steps"
                     ),
                 )
