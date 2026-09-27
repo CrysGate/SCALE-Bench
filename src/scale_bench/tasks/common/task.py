@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from torch import Tensor
 
@@ -17,6 +17,9 @@ from .evaluation import (
     BatchedEvaluatorObservation,
     EvaluationResult,
     EvaluatorObservation,
+    FixedPositions,
+    ObjectOrientations,
+    ObjectPositions,
     TaskGoal,
 )
 from .layout import TaskLayout
@@ -32,6 +35,9 @@ from .rigid_object import (
     RigidObjects,
 )
 
+if TYPE_CHECKING:
+    from isaaclab.managers import ObservationTermCfg
+
 
 class TaskConfig(FrozenModel):
     """One task variant, including objects, layout, and success settings."""
@@ -45,7 +51,7 @@ class TaskConfig(FrozenModel):
 
 
 @dataclass(frozen=True, slots=True)
-class Task(ABC):
+class Task:
     """One configured task; goal semantics do not depend on its controller."""
 
     task_id: str
@@ -54,9 +60,9 @@ class Task(ABC):
     objects: RigidObjects
     goal: TaskGoal
 
-    @abstractmethod
     def expert(self, scene: SceneConfig, layout: TaskLayout) -> Iterator[SkillRequest]:
         """Yield this task's reference skill program for one episode."""
+        raise NotImplementedError(f"{type(self).__name__} must implement expert()")
 
     @property
     def assets(self) -> Mapping[str, RigidObjectAssetConfig]:
@@ -99,6 +105,41 @@ class Task(ABC):
 
     def check_success(self, observation: BatchedEvaluatorObservation) -> Tensor:
         return self.goal.check_success(observation)
+
+    def build_evaluator_terms(
+        self, context: PlacementContext,
+    ) -> dict[str, ObservationTermCfg]:
+        """Build goal observation terms; override for task-specific observations.
+
+        Import Isaac Lab only when constructing the simulation environment.
+        """
+        from isaaclab.managers import ObservationTermCfg, SceneEntityCfg
+
+        from scale_bench.isaaclab.mdp.observations import (
+            fixed_positions, rigid_object_root_pos, rigid_object_root_quat,
+        )
+
+        terms: dict[str, ObservationTermCfg] = {}
+        for name, source in self.goal.observation_sources(context).items():
+            match source:
+                case ObjectPositions(object_names):
+                    term = ObservationTermCfg(
+                        func=rigid_object_root_pos,
+                        params={"asset_cfgs": tuple(SceneEntityCfg(name) for name in object_names)},
+                    )
+                case ObjectOrientations(object_names):
+                    term = ObservationTermCfg(
+                        func=rigid_object_root_quat,
+                        params={"asset_cfgs": tuple(SceneEntityCfg(name) for name in object_names)},
+                    )
+                case FixedPositions(positions_env_m):
+                    term = ObservationTermCfg(
+                        func=fixed_positions, params={"positions_m": positions_env_m},
+                    )
+                case _:
+                    raise TypeError(f"unsupported evaluator observation source: {source!r}")
+            terms[name] = term
+        return terms
 
     def evaluate(self, observation: EvaluatorObservation) -> EvaluationResult:
         return self.goal.evaluate(observation)
