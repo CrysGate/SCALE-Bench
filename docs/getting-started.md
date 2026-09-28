@@ -57,7 +57,7 @@ uv run python scripts/preview_scene.py \
 
 ## 采集专家数据 { #collect }
 
-先采集一次抓取与放置，即一个 episode。默认保存关节状态、动作和评测结果：
+先在 GPU 0 上采集一次抓取与放置，即一个 episode。默认保存关节状态、动作和评测结果；使用其他卡时通过 `--gpus` 指定 `nvidia-smi` 中的编号：
 
 ```bash
 uv run python scripts/run_demo_generation.py \
@@ -73,16 +73,14 @@ uv run python scripts/run_demo_generation.py \
 HEADLESS=1 uv run python scripts/run_demo_generation.py \
   --task single_object_pick_and_place \
   --record-output outputs/bottle-pick-place \
-  --dataset-name bottle_pick_place \
+  --dataset-name bottle_pick_place_rgbd \
   --viz kit \
   --record-camera-observations
 ```
 
 ## 检查数据与回放 { #inspect }
 
-结束日志给出成功率和实际 HDF5 路径。成功与失败的 episode 都会保留，使用数据时按 `success` 区分。退出码为 `0` 表示全部成功，非零表示有任务失败或运行异常。
-
-首次运行的数据路径如下；重复运行会自动增加文件名后缀，后续命令使用日志中的实际路径。
+第一条关节数据采集命令的输出如下:
 
 ```bash
 uv run python scripts/view_hdf5.py \

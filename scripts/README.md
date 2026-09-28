@@ -45,6 +45,7 @@ uv run python scripts/preview_scene.py \
 ```bash
 uv run python scripts/run_demo_generation.py \
   --task single_object_pick_and_place \
+  --gpus 0 \
   --num-envs 2 \
   --episodes 10 \
   --base-seed 101 \
@@ -54,6 +55,24 @@ uv run python scripts/run_demo_generation.py \
 ```
 
 根据显存容量调整并行环境数，采集总数由 `--episodes` 决定。[相机录制与结果说明](https://crysgate.github.io/SCALE-Bench/getting-started/#collect)涵盖 RGB-D 采集、成功标记和输出路径。
+
+单卡和多卡共用 `--gpus`，默认使用 GPU 0。使用全部 GPU 采集：
+
+```bash
+uv run python scripts/run_demo_generation.py \
+  --gpus all \
+  --task single_object_pick_and_place \
+  --num-envs 2 \
+  --episodes 4 \
+  --base-seed 100 \
+  --record-output outputs/bottle-pick-place \
+  --dataset-name multi_gpu \
+  --viz none
+```
+
+`all` 使用 `nvidia-smi` 列出的全部 GPU；也可用 `--gpus 0,1` 指定其中的编号。
+
+所有轨迹合并为 `<record-output>/<dataset-name>.hdf5`，同目录保存 `.segments.jsonl` 和 `.summary.json`，各 GPU 的日志保存在 `<dataset-name>.logs/`。
 
 更换机械臂时使用 `--robot-config` 指定[机器人配置](../configs/robots/)。对应物体需包含与该机械臂匹配的[抓取文件](../docs/assets/index.md)。
 
