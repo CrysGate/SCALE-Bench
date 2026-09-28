@@ -21,7 +21,7 @@ class RecordingConfig(FrozenModel):
         "all",
         "succeeded_only",
         "succeeded_failed_separate",
-    ] = "all"
+    ] = "succeeded_only"
     compression: StrictBool = True
     overwrite_existing: StrictBool = False
     record_initial_state: StrictBool = True
