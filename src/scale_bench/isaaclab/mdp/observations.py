@@ -56,7 +56,7 @@ def camera_image(
     """Return an unmodified camera output tensor in HWC layout."""
 
     sensor: Camera = env.scene.sensors[sensor_cfg.name]
-    return sensor.data.output[data_type].torch.clone()
+    return sensor.data.output[data_type].torch
 
 
 @generic_io_descriptor(
