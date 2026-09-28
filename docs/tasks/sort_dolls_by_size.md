@@ -1,5 +1,5 @@
 ---
-description: 将五个套娃按高度排序到对应槽位，采集多物体抓取与放置轨迹。
+description: 将五个套娃按高度排序到对应槽位，批量采集多物体抓取与放置轨迹。
 ---
 
 # 套娃排序
@@ -8,16 +8,18 @@ description: 将五个套娃按高度排序到对应槽位，采集多物体抓�
 
 [默认配置](https://github.com/CrysGate/SCALE-Bench/blob/main/configs/tasks/sort_dolls_by_size/default.yml)引用五个套娃的物体集合并定义布局、槽位位置和成功条件。排序规则也可用于其他高度不同的物体，见[选择任务配置与物体](index.md#variants)。
 
-## 采集一条轨迹 { #collect }
+## 批量采集 50 条轨迹 { #collect }
 
-完成[环境与资产准备](../getting-started.md#environment)后运行：
+完成[环境与资产准备](../getting-started.md#environment)后，使用 25 个并行环境运行 50 个 episode：
 
 ```bash
 uv run python scripts/run_demo_generation.py \
   --task sort_dolls_by_size \
+  --num-envs 25 \
+  --episodes 50 \
   --record-output outputs/sort-dolls \
   --dataset-name sort_dolls_by_size \
   --viz none
 ```
 
-按[数据浏览与回放](../getting-started.md#inspect)检查本次输出，回放时使用 `--task sort_dolls_by_size`。相机观测按[相机采集方式](../getting-started.md#collect)启用。
+按[数据浏览与回放](../getting-started.md#inspect)检查输出，回放时使用 `--task sort_dolls_by_size`。相机观测按[相机采集方式](../getting-started.md#collect)启用。
