@@ -34,7 +34,7 @@ HEADLESS=1 uv run python scripts/run_demo_generation.py \
   --gpus all \
   --task largest_pick_and_place \
   --num-envs 40 \
-  --episodes  \
+  --episodes 800 \
   --record-output outputs/largest_pick_and_place \
   --dataset-name largest_pick_and_place \
   --viz kit \
