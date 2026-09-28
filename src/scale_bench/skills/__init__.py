@@ -15,7 +15,14 @@ from .context import (
     SkillContext,
     ToolState,
 )
-from .errors import FailureCode, PlanningError, SegmentError, SkillError, StartStateError
+from .errors import (
+    FailureCode,
+    PlanningError,
+    SegmentError,
+    SkillError,
+    StartStateError,
+)
+from .evaluation import SkillEvaluation
 from .executor import (
     CommandActionLayout,
     CommandBatch,
@@ -27,11 +34,13 @@ from .models import (
     ArmSelection,
     Pick,
     PickAndPlace,
+    Place,
     Pose,
     SkillRequest,
 )
-from .pick import pick
+from .pick import PickSkill, pick
 from .pick_and_place import pick_and_place
+from .place import PlaceSkill, place
 from .planner import SkillMotionPlanner
 from .session import SkillSession, SkillSettings
 
@@ -54,23 +63,28 @@ __all__ = [
     "MoveToPose",
     "Pick",
     "PickAndPlace",
+    "PickSkill",
+    "Place",
+    "PlaceSkill",
     "PlanningError",
     "PlanningScene",
     "Pose",
     "RobotState",
     "SceneObject",
     "SceneSnapshot",
-    "SetGripper",
     "SegmentError",
+    "SetGripper",
     "SkillCommand",
     "SkillContext",
     "SkillError",
+    "SkillEvaluation",
     "SkillMotionPlanner",
+    "SkillRequest",
     "SkillSession",
     "SkillSettings",
-    "SkillRequest",
     "StartStateError",
     "ToolState",
     "pick",
     "pick_and_place",
+    "place",
 ]

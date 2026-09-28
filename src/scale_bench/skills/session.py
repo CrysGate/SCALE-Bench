@@ -12,6 +12,7 @@ from scale_bench.config.models.scene import ManipulationConfig
 from .commands import MoveToJoints, MoveToPose, SkillCommand
 from .context import GraspState, JointState, PlanningScene, SkillContext
 from .errors import FailureCode, SegmentError
+from .evaluation import SkillEvaluation
 from .geometry import quaternion_angular_distance_rad
 from .models import Arm, Pose
 from .planner import SkillMotionPlanner
@@ -164,5 +165,14 @@ class SkillSession:
             extra={"event": "RECOVERY", "event_fields": {
                 "arm": error.arm, "stage": error.stage, "result": error.code,
                 "reason": error.reason, "recovery_attempt": attempt,
+            }},
+        )
+
+    def record_evaluation(self, skill: str, object_name: str, arm: Arm, result: SkillEvaluation) -> None:
+        LOGGER.info(
+            "%s success=%s failed_checks=%s", skill, result.success, result.failed_checks,
+            extra={"event": "SKILL-EVALUATION", "event_fields": {
+                "evaluated_skill": skill, "object": object_name, "arm": arm,
+                "success": result.success, **asdict(result),
             }},
         )

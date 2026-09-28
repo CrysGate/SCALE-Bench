@@ -47,7 +47,33 @@ class PickAndPlace:
     release_settle_steps: int = 5
 
 
-SkillRequest: TypeAlias = Pick | PickAndPlace
+@dataclass(frozen=True, slots=True)
+class Place:
+    """Place an already held object using its holding arm and grasp approach axis.
+
+    As in PickAndPlace, target yaw is free; placement chooses a reachable yaw.
+    The approach axis comes from the active grasp, not a new grasp selection.
+    Standalone calls use the default settling times; the composite forwards
+    its configured grasp/release settling times to preserve its timing.
+    """
+
+    object_name: str
+    arm: Arm
+    target_object_pose_env: Pose
+    approach_axis_tcp: tuple[float, float, float]
+    support_settle_steps: int = 5
+    release_settle_steps: int = 5
+
+    def __post_init__(self) -> None:
+        if self.arm not in ("left", "right"):
+            raise ValueError("Place requires the arm already holding the object")
+        if not math.isclose(math.hypot(*self.approach_axis_tcp), 1.0, abs_tol=1.0e-6):
+            raise ValueError("grasp approach axis must be a unit vector")
+        if self.support_settle_steps < 1 or self.release_settle_steps < 1:
+            raise ValueError("placement settling requires at least one step")
+
+
+SkillRequest: TypeAlias = Pick | Place | PickAndPlace
 
 
 __all__ = [
@@ -55,6 +81,7 @@ __all__ = [
     "ArmSelection",
     "Pick",
     "PickAndPlace",
+    "Place",
     "Pose",
     "SkillRequest",
 ]

@@ -15,16 +15,18 @@ from scale_bench.skills import (
     Hold,
     Pick,
     PickAndPlace,
+    Place,
+    SegmentError,
     SkillCommand,
     SkillContext,
     SkillError,
-    SegmentError,
     SkillMotionPlanner,
+    SkillRequest,
     SkillSession,
     SkillSettings,
-    SkillRequest,
     pick,
     pick_and_place,
+    place,
 )
 
 from .driver import DriverEnvironment, EpisodeDriver
@@ -273,6 +275,10 @@ async def _next_command(program: _ProgramState) -> SkillCommand | None:
                 request,
             )
             program.skill_name = "pick_and_place"
+            program.subgoal = request.object_name
+        elif isinstance(request, Place):
+            program.commands = place(program.session, request)
+            program.skill_name = "place"
             program.subgoal = request.object_name
         else:
             raise SkillError(

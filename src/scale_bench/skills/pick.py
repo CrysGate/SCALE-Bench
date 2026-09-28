@@ -1,11 +1,25 @@
 """Observe, approach, grasp and lift, replanning after every physical action."""
 
+import math
 from collections.abc import AsyncIterator
 
 from .commands import Hold, SetGripper, SkillCommand
+from .context import GraspState, SceneSnapshot
 from .errors import FailureCode, PlanningError, SegmentError
-from .geometry import approach_start_pose, rotate_vector_xyzw
-from .grasp_selection import SelectedGrasp, feasible_grasps, grasp_tcp_pose_env, log_candidate, select_arm
+from .evaluation import SkillEvaluation
+from .geometry import (
+    approach_start_pose,
+    quaternion_angular_distance_rad,
+    relative_pose,
+    rotate_vector_xyzw,
+)
+from .grasp_selection import (
+    SelectedGrasp,
+    feasible_grasps,
+    grasp_tcp_pose_env,
+    log_candidate,
+    select_arm,
+)
 from .manipulation_geometry import raised_tcp_pose_env
 from .models import Pick, Pose
 from .scene import contact_scene, held_object_scene, world_scene
@@ -13,13 +27,74 @@ from .session import SkillSession
 
 
 class PickSkill:
-    """Reusable acquisition state machine shared by pick and pick-and-place."""
+    """Acquisition shared by pick and pick-and-place.
+
+    Standalone pick passes no destination (None). Pick-and-place supplies the
+    destination to screen grasp candidates for placement reachability.
+    """
 
     def __init__(self, session: SkillSession, request: Pick, target_object_pose_env: Pose | None) -> None:
         self.session = session
         self.request = request
         self.target_object_pose_env = target_object_pose_env
         self.selected: SelectedGrasp
+
+    def evaluate_success(
+        self, before_lift: GraspState, snapshots: tuple[SceneSnapshot, ...],
+    ) -> SkillEvaluation:
+        """Check measured lift and grasp drift over the final observation window.
+
+        before_lift is measured after closing, before lifting. Observations are
+        consecutive control steps after lifting, rather than repeated reads of
+        the same simulator state. Insufficient observations report failure.
+        """
+        config = self.session.config
+        thresholds = {
+            "lift_error_m": config.grasp_slip_tolerance_m,
+            "grasp_translation_drift_m": config.grasp_slip_tolerance_m,
+            "grasp_rotation_drift_rad": config.tracking_orientation_tolerance_rad,
+            "holding_translation_drift_m": config.skill_stability_position_tolerance_m,
+            "holding_rotation_drift_rad": config.skill_stability_orientation_tolerance_rad,
+        }
+        if len(snapshots) < config.skill_evaluation_steps:
+            return SkillEvaluation({}, thresholds, ("insufficient_observations",))
+        object_poses_env = tuple(snapshot.object(self.request.object_name).pose_env for snapshot in snapshots)
+        tcp_poses_object = tuple(
+            relative_pose(object_pose_env, snapshot.robot(before_lift.arm).tcp_pose_env)
+            for object_pose_env, snapshot in zip(object_poses_env, snapshots, strict=True)
+        )
+        object_lifts_m = tuple(
+            object_pose_env.position_m[2] - before_lift.object_pose_env.position_m[2]
+            for object_pose_env in object_poses_env
+        )
+        metrics = {
+            "minimum_object_lift_m": min(object_lifts_m),
+            "lift_error_m": max(abs(height_m - config.lift_height_m) for height_m in object_lifts_m),
+            "grasp_translation_drift_m": max(
+                math.dist(before_lift.tcp_pose_object.position_m, tcp_pose_object.position_m)
+                for tcp_pose_object in tcp_poses_object
+            ),
+            "grasp_rotation_drift_rad": max(
+                quaternion_angular_distance_rad(
+                    before_lift.tcp_pose_object.orientation_xyzw, tcp_pose_object.orientation_xyzw,
+                ) for tcp_pose_object in tcp_poses_object
+            ),
+            "holding_translation_drift_m": max(
+                math.dist(tcp_poses_object[0].position_m, tcp_pose_object.position_m)
+                for tcp_pose_object in tcp_poses_object
+            ),
+            "holding_rotation_drift_rad": max(
+                quaternion_angular_distance_rad(
+                    tcp_poses_object[0].orientation_xyzw, tcp_pose_object.orientation_xyzw,
+                ) for tcp_pose_object in tcp_poses_object
+            ),
+        }
+        failed_checks = tuple(name for name, limit in thresholds.items() if not metrics[name] <= limit)
+        if not metrics["minimum_object_lift_m"] > config.support_height_tolerance_m:
+            failed_checks += ("object_not_lifted",)
+        return SkillEvaluation(
+            metrics, {**thresholds, "minimum_object_lift_m": config.support_height_tolerance_m}, failed_checks,
+        )
 
     async def run(self) -> AsyncIterator[SkillCommand]:
         session, request = self.session, self.request
@@ -137,6 +212,13 @@ class PickSkill:
                     raise
                 continue
             self.selected = selected
+            snapshots: list[SceneSnapshot] = []
+            for _ in range(session.config.skill_evaluation_steps):
+                yield Hold(steps=1, label="evaluate_pick")
+                snapshots.append(session.context.snapshot())
+            session.record_evaluation(
+                "pick", request.object_name, arm, self.evaluate_success(grasp, tuple(snapshots)),
+            )
             return
 
 

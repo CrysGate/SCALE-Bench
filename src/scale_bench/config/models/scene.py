@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from typing import Self
-from pydantic import field_validator, model_validator
+
+from pydantic import Field, field_validator, model_validator
 
 from scale_bench.config.base import (
     AssetReference,
@@ -22,6 +23,8 @@ from scale_bench.config.base import (
     UnitIntervalFloat,
     require_unit_quaternion,
 )
+
+
 class RoomConfig(FrozenModel):
     usd_path: AssetReference
     scale: PositiveFloat = 0.5
@@ -67,6 +70,9 @@ class ManipulationConfig(FrozenModel):
     placement_position_tolerance_m: PositiveFloat = 0.025
     support_height_tolerance_m: PositiveFloat = 0.015
     release_joint_tolerance_m: PositiveFloat = 0.005
+    skill_evaluation_steps: PositiveInt = Field(default=5, ge=2)
+    skill_stability_position_tolerance_m: PositiveFloat = 0.005
+    skill_stability_orientation_tolerance_rad: PositiveFloat = 0.05
 
 
 class OverheadCameraConfig(FrozenModel):
