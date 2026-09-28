@@ -176,7 +176,8 @@ def record_skill_events(path: Path) -> Iterator[None]:
     handler.setFormatter(_JsonEventFormatter())
     handler.addFilter(_EpisodeContextFilter())
     handler.addFilter(lambda record: getattr(record, "event", "") in {
-        "MOTION-PLAN", "MOTION-VERIFY", "RECOVERY", "GRASP-CANDIDATE", "SKILL-FAIL", "EPISODE",
+        "MOTION-PLAN", "MOTION-VERIFY", "RECOVERY", "GRASP-CANDIDATE", "SKILL-FAIL",
+        "SKILL-EVALUATION", "EPISODE",
     })
     logger = logging.getLogger("scale_bench")
     previous_level = logger.level
