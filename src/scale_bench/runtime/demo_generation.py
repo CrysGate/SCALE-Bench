@@ -127,8 +127,9 @@ class DemoGenerationRunner:
                 for env_id, program in self._programs.items():
                     if program.verification_started and env_id not in terminations:
                         success_verification_mask[env_id] = True
-                command_mask = active_mask.clone()
+                command_mask = active_mask
                 if terminations:
+                    command_mask = active_mask.clone()
                     command_mask[
                         torch.tensor(
                             tuple(terminations),

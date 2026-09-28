@@ -139,7 +139,7 @@ def fixed_positions(
         device=env.device,
         dtype=torch.float32,
     )
-    return values.unsqueeze(0).expand(env.num_envs, -1, -1).clone()
+    return values.unsqueeze(0).expand(env.num_envs, -1, -1)
 
 
 __all__ = [

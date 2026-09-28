@@ -167,7 +167,6 @@ class EpisodeDriver:
         if not self.is_active:
             return self._snapshot(completed)
 
-        stepped_mask = self._active_mask.clone()
         self._env.set_step_semantics(semantic_events or {})
         try:
             observation, _ = self._env.step(action)
@@ -175,7 +174,7 @@ class EpisodeDriver:
             self.abort()
             raise
         self._observation = observation
-        self._step_counts += stepped_mask.to(dtype=torch.long)
+        self._step_counts += self._active_mask
 
         inactive_env_ids = torch.nonzero(
             ~self._active_mask,

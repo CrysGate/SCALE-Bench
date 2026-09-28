@@ -714,7 +714,7 @@ class CuroboMotionPlanner:
             interpolated.position.reshape(
                 -1,
                 interpolated.position.shape[-1],
-            )[:, indices].contiguous().clone()
+            )[:, indices]
         )
         return JointTrajectory(positions)
 

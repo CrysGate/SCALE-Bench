@@ -23,7 +23,9 @@ from isaaclab.utils.configclass import configclass
 from scale_bench.config.models.recording import RecordingConfig
 from scale_bench.isaaclab.managers.observations import ObservationsCfg
 from scale_bench.isaaclab.mdp.observations import camera_image, gripper_joint_pos
-from scale_bench.isaaclab.mdp.recorders import PolicyObservationsRecorder, SemanticEventsRecorder
+from scale_bench.isaaclab.mdp.recorders import (
+    PolicyObservationsRecorder, ProcessedActionsRecorder, SemanticEventsRecorder,
+)
 
 _EXPORT_MODES = {
     "all": DatasetExportMode.EXPORT_ALL,
@@ -96,7 +98,7 @@ def build_recorders_cfg(
             else None
         ),
         processed_actions=(
-            PostStepProcessedActionsRecorderCfg()
+            PostStepProcessedActionsRecorderCfg(class_type=ProcessedActionsRecorder)
             if recording_config.record_processed_actions
             else None
         ),

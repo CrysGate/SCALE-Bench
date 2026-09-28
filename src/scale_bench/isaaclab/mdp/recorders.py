@@ -29,6 +29,17 @@ class PolicyObservationsRecorder(RecorderTerm):
         }
 
 
+class ProcessedActionsRecorder(RecorderTerm):
+    """Assemble processed action terms once in their action-manager order."""
+
+    def record_post_step(self):
+        manager = self._env.action_manager
+        return "processed_actions", torch.cat(
+            tuple(manager.get_term(name).processed_actions for name in manager.active_terms),
+            dim=-1,
+        )
+
+
 class SemanticEventsRecorder(RecorderTerm):
     """Record UTF-8 skill, command, and subgoal text for every action frame."""
 
@@ -72,4 +83,4 @@ def _encode_semantic_text(
     return encoded
 
 
-__all__ = ["PolicyObservationsRecorder", "SemanticEventsRecorder"]
+__all__ = ["PolicyObservationsRecorder", "ProcessedActionsRecorder", "SemanticEventsRecorder"]

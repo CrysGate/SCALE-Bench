@@ -185,7 +185,6 @@ class IsaacLabSkillContext:
                 self._arm_joint_indices[arm],
             ]
             .detach()
-            .clone()
         )
         return RobotState(
             JointState(joints),

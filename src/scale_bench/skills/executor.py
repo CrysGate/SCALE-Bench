@@ -67,7 +67,9 @@ class CommandEnvironment(Protocol):
     num_envs: int
     device: str
 
-    def hold_action(self) -> Tensor: ...
+    def hold_action(self) -> Tensor:
+        """Return fresh absolute targets that the executor may modify in place."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,16 +119,19 @@ class CommandExecutor:
         return self._layout
 
     def begin(self, env_id: int, command: SkillCommand) -> None:
-        hold = self._env.hold_action()
         # The first command runs after the environment has reset its joints.
-        for arm in ("left", "right"):
-            if (env_id, arm) not in self._arm_targets:
+        missing_arms = tuple(
+            arm for arm in ("left", "right") if (env_id, arm) not in self._arm_targets
+        )
+        if missing_arms:
+            hold = self._env.hold_action()
+            for arm in missing_arms:
                 start, stop = self._layout.arm_range(arm)
                 self._arm_targets[(env_id, arm)] = hold[env_id, start:stop].clone()
         if isinstance(command, Hold):
             execution: _Execution = _HoldExecution(command)
         elif isinstance(command, SetGripper):
-            target = hold.new_tensor(
+            target = self._arm_targets[(env_id, command.arm)].new_tensor(
                 self._layout.gripper_target(command.arm, closed=command.closed)
             )
             self._gripper_targets[(env_id, command.arm)] = target
@@ -137,7 +142,7 @@ class CommandExecutor:
         self._executions[env_id] = execution
 
     def next_actions(self, active_mask: Tensor) -> CommandBatch:
-        action = self._env.hold_action().clone()
+        action = self._env.hold_action()
 
         completed = torch.zeros_like(active_mask)
         labels: dict[int, str] = {}
