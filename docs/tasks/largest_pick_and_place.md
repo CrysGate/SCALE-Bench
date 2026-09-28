@@ -16,6 +16,7 @@ description: 选择最高的奶茶杯并直立放入目标槽位，批量采集�
 
 ```bash
 uv run python scripts/run_demo_generation.py \
+  --gpus all \
   --task largest_pick_and_place \
   --num-envs 25 \
   --episodes 50 \
@@ -24,4 +25,18 @@ uv run python scripts/run_demo_generation.py \
   --viz none
 ```
 
-按[数据浏览与回放](../getting-started.md#inspect)检查输出，回放时使用 `--task largest_pick_and_place`。相机观测按[相机采集方式](../getting-started.md#collect)启用。
+按[数据浏览与回放](../getting-started.md#inspect)检查输出，回放时使用 `--task largest_pick_and_place`。
+
+## 采集相机观测
+
+```bash
+HEADLESS=1 uv run python scripts/run_demo_generation.py \
+  --gpus all \
+  --task largest_pick_and_place \
+  --num-envs 40 \
+  --episodes  \
+  --record-output outputs/largest_pick_and_place \
+  --dataset-name largest_pick_and_place \
+  --viz kit \
+  --record-camera-observations
+```
