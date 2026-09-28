@@ -19,7 +19,7 @@ table:
   restitution: 0.0
 
 task_object_placement_area:
-  x_range_m: [-0.6, 0.6]
+  x_range_m: [-0.55, 0.55]
   y_range_m: [-0.20, 0.18]
 
 robot_mounts:
