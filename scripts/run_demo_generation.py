@@ -40,11 +40,12 @@ def _merge_recordings(workers: list[dict[str, Any]], dataset_path: Path) -> dict
     pending_segments = segments_path.with_suffix(".jsonl.partial")
     if len(workers) == 1:
         result = workers[0]["result"]
-        with h5py.File(result["dataset_path"], "r") as source:
+        with h5py.File(result["dataset_path"], "r") as source, h5py.File(pending_dataset, "x") as merged:
+            merged.attrs.update(source.attrs)
+            # Copy live data so discarded camera chunks do not occupy the final file.
+            source.copy("data", merged)
             episode_count = len(source["data"])
             total_samples = int(source["data"].attrs["total"])
-        # Shards share the output filesystem; links retain them until publication succeeds.
-        pending_dataset.hardlink_to(result["dataset_path"])
         pending_segments.hardlink_to(result["segments_path"])
     else:
         total_samples = 0
@@ -307,12 +308,18 @@ def main() -> int:
         action="store_true",
         help="Include wrist and overhead RGB-D; omit for joint/action data only.",
     )
+    parser.add_argument(
+        "--record-camera-buffer-mib", type=positive_int,
+        default=RecordingConfig.model_fields["camera_buffer_mib"].default,
+        help="Total pinned CPU image-buffer budget per GPU, in MiB.",
+    )
     args = parser.parse_args()
     args.enable_cameras = args.enable_cameras or args.record_camera_observations
     recording = RecordingConfig(
         output_dir=args.record_output.resolve(),
         dataset_name=args.dataset_name,
         record_camera_observations=args.record_camera_observations,
+        camera_buffer_mib=args.record_camera_buffer_mib,
     )
     if not args._gpu_worker:
         return _run_on_gpus(args, parser)

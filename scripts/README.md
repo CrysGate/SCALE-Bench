@@ -56,6 +56,8 @@ uv run python scripts/run_demo_generation.py \
 
 根据显存容量调整并行环境数，采集总数由 `--episodes` 决定。[相机录制与结果说明](https://crysgate.github.io/SCALE-Bench/getting-started/#collect)涵盖 RGB-D 采集、成功标记和输出路径。
 
+使用 `--record-camera-buffer-mib` 设置每张 GPU 的图像双缓冲总预算，默认 2048 MiB。
+
 单卡和多卡共用 `--gpus`，默认使用 GPU 0。使用全部 GPU 采集：
 
 ```bash

@@ -135,6 +135,7 @@ class ScaleBenchEnv(ManagerBasedEnv):
                 strict=True,
             ):
                 self.recorder_manager.get_episode(env_id).seed = layout_seed
+                self.recorder_manager.get_episode(env_id).env_id = env_id
         return observation, info
 
     def export_episodes(
@@ -209,7 +210,13 @@ class ScaleBenchEnv(ManagerBasedEnv):
             env_id_tensor,
             success_tensor,
         )
+        # Camera recording is optional; its final partial chunk precedes export.
+        camera_recorder = self.recorder_manager._terms.get("camera_observations")
+        if camera_recorder is not None:
+            camera_recorder.flush()
         self.recorder_manager.export_episodes(env_id_tensor, demo_ids=demo_ids)
+        if camera_recorder is not None:
+            camera_recorder.reset(resolved_env_ids)
 
     def discard_episode_buffers(
         self,
@@ -230,6 +237,9 @@ class ScaleBenchEnv(ManagerBasedEnv):
 
         try:
             if not self._is_closed and hasattr(self, "recorder_manager"):
+                camera_recorder = self.recorder_manager._terms.get("camera_observations")
+                if camera_recorder is not None:
+                    camera_recorder.finish_transfers()
                 self.recorder_manager.close()
         finally:
             super().close()

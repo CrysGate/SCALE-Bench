@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Annotated, Literal
-from pydantic import Field, StrictBool, model_validator
+from pydantic import Field, PositiveInt, StrictBool, model_validator
 
 from scale_bench.config.base import FrozenModel
 
@@ -29,6 +29,9 @@ class RecordingConfig(FrozenModel):
     record_processed_actions: StrictBool = True
     record_joint_observations: StrictBool = True
     record_camera_observations: StrictBool = False
+    camera_buffer_mib: PositiveInt = Field(
+        default=2048, description="Total pinned CPU image-buffer budget per worker, in MiB."
+    )
     record_scene_state: StrictBool = False
     record_semantic_events: StrictBool = True
 

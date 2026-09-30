@@ -24,7 +24,12 @@ from scale_bench.config.models.recording import RecordingConfig
 from scale_bench.isaaclab.managers.observations import ObservationsCfg
 from scale_bench.isaaclab.mdp.observations import camera_image, gripper_joint_pos
 from scale_bench.isaaclab.mdp.recorders import (
-    PolicyObservationsRecorder, ProcessedActionsRecorder, SemanticEventsRecorder,
+    CameraObservationsRecorder, PolicyObservationsRecorder,
+    ProcessedActionsRecorder, SemanticEventsRecorder,
+)
+from scale_bench.isaaclab.runtime.streaming_recording import (
+    EpisodeHDF5DatasetFileHandler,
+    StreamingHDF5DatasetFileHandler,
 )
 
 _EXPORT_MODES = {
@@ -44,6 +49,14 @@ class PolicyObservationsRecorderCfg(RecorderTermCfg):
 
 
 @configclass
+class CameraObservationsRecorderCfg(PolicyObservationsRecorderCfg):
+    """Bound camera history by a CPU memory budget."""
+
+    class_type: type[CameraObservationsRecorder] = CameraObservationsRecorder
+    buffer_mib: int = MISSING
+
+
+@configclass
 class SemanticEventsRecorderCfg(RecorderTermCfg):
     """Configuration for per-frame skill and command text."""
 
@@ -58,6 +71,7 @@ class RecordersCfg(RecorderManagerBaseCfg):
     actions: PreStepActionsRecorderCfg | None = None
     processed_actions: PostStepProcessedActionsRecorderCfg | None = None
     policy_observations: PolicyObservationsRecorderCfg | None = None
+    camera_observations: CameraObservationsRecorderCfg | None = None
     scene_state: PostStepStatesRecorderCfg | None = None
     semantic_events: SemanticEventsRecorderCfg | None = None
 
@@ -78,9 +92,14 @@ def build_recorders_cfg(
     policy_observation_names = _policy_observation_names(
         observations_cfg,
         include_joints=recording_config.record_joint_observations,
-        include_cameras=recording_config.record_camera_observations,
+        include_cameras=False,
     )
     return RecordersCfg(
+        dataset_file_handler_class_type=(
+            StreamingHDF5DatasetFileHandler
+            if recording_config.record_camera_observations
+            else EpisodeHDF5DatasetFileHandler
+        ),
         dataset_export_dir_path=str(output_dir),
         dataset_filename=dataset_name,
         dataset_export_mode=_EXPORT_MODES[recording_config.export_mode],
@@ -107,6 +126,16 @@ def build_recorders_cfg(
                 observation_names=policy_observation_names
             )
             if policy_observation_names
+            else None
+        ),
+        camera_observations=(
+            CameraObservationsRecorderCfg(
+                observation_names=_policy_observation_names(
+                    observations_cfg, include_joints=False, include_cameras=True,
+                ),
+                buffer_mib=recording_config.camera_buffer_mib,
+            )
+            if recording_config.record_camera_observations
             else None
         ),
         scene_state=(
