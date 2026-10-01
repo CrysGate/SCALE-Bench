@@ -724,13 +724,14 @@ def build_curobo_motion_planners(
     left_robot_config: RobotConfig,
     right_robot_config: RobotConfig,
     scene_config: SceneConfig,
+    scene_cuboid_count: int,
     device: str,
     dtype: torch.dtype,
     interpolation_dt_s: float,
     visualize: bool,
     env_origin_world_m: tuple[float, float, float],
 ) -> Mapping[Arm, CuroboMotionPlanner]:
-    """Build one environment; matching arms share its sequential backend."""
+    """Reserve all scene cuboids; matching arms share a sequential backend."""
 
     backends: dict[tuple[Path, str, TcpConfig, tuple[str, ...]], MotionPlanner] = {}
     visualizer = None
@@ -766,6 +767,7 @@ def build_curobo_motion_planners(
         if backend is None:
             backend = _build_backend(
                 robot_config,
+                scene_cuboid_count=scene_cuboid_count,
                 device=device,
                 dtype=dtype,
                 interpolation_dt_s=interpolation_dt_s,
@@ -788,15 +790,24 @@ def build_curobo_motion_planners(
 def _build_backend(
     robot_config: RobotConfig,
     *,
+    scene_cuboid_count: int,
     device: str,
     dtype: torch.dtype,
     interpolation_dt_s: float,
 ) -> MotionPlanner:
     device_cfg = DeviceCfg(device=device, dtype=dtype)
+    collision_robot_config = _load_collision_robot_config(robot_config)
+    # Match _other_robot_cuboids: exclude attachment slots and invalid spheres.
+    other_robot_cuboid_count = sum(
+        sphere["radius"] > 0.0
+        for link_name, spheres in collision_robot_config["kinematics"]["collision_spheres"].items()
+        if link_name != "attached_object"
+        for sphere in spheres
+    )
     cfg = MotionPlannerCfg.create(
-        _load_collision_robot_config(robot_config),
+        collision_robot_config,
         device_cfg=device_cfg,
-        collision_cache={"cuboid": 96},
+        collision_cache={"cuboid": scene_cuboid_count + other_robot_cuboid_count},
         self_collision_check=True,
         num_ik_seeds=64,
         num_trajopt_seeds=4,

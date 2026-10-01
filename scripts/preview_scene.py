@@ -140,6 +140,8 @@ from isaaclab.scene import InteractiveScene
 if preview_overlays_enabled:
     import torch
     from isaacsim.core.experimental.utils.app import enable_extension
+    from isaacsim.core.experimental.utils.backend import use_backend
+    from isaacsim.core.experimental.utils.xform import get_world_pose
     from curobo.kinematics import Kinematics, KinematicsCfg
     from curobo.types import DeviceCfg, JointState as CuroboJointState
     from curobo.types import Pose as CuroboPose
@@ -167,43 +169,26 @@ from scale_bench.tasks.common.placement import PlacementContext
 from scale_bench.tasks.common.fixed_target import FixedPlacementGoal
 
 
-def _camera_frustum_lines(camera, length_m: float) -> list[Line]:
-    """Build world-space frustum lines from an Isaac Lab camera sensor."""
-
-    height, width = camera.data.image_shape
-    lines: list[Line] = []
-    for position, quaternion, intrinsic in zip(
-        camera.data.pos_w.torch.tolist(),
-        camera.data.quat_w_world.torch.tolist(),
-        camera.data.intrinsic_matrices.torch.tolist(),
-        strict=True,
-    ):
-        fx, fy = intrinsic[0][0], intrinsic[1][1]
-        cx, cy = intrinsic[0][2], intrinsic[1][2]
-        rotation = Gf.Quatd(quaternion[3], Gf.Vec3d(*quaternion[:3]))
-
-        corners: list[Point] = []
-        for u, v in ((0.0, 0.0), (width, 0.0), (width, height), (0.0, height)):
-            local_corner = Gf.Vec3d(
-                length_m,
-                -(u - cx) * length_m / fx,
-                -(v - cy) * length_m / fy,
-            )
-            offset = rotation.Transform(local_corner)
-            corners.append(tuple(position[index] + offset[index] for index in range(3)))
-
-        origin = tuple(position)
-        lines.extend((origin, corner) for corner in corners)
-        lines.extend((corners[index], corners[(index + 1) % 4]) for index in range(4))
-    return lines
-
-
-def _usd_camera_frustum_lines(camera, length_m: float) -> list[Line]:
-    """Read authoring poses from USD after stopping invalidates sensor views."""
+def _camera_frustum_lines(camera, length_m: float, use_fabric: bool) -> list[Line]:
+    """Read camera optics from USD and poses from the active scene backend."""
 
     lines: list[Line] = []
     for camera_prim in find_matching_prims(camera.cfg.prim_path):
         frustum = UsdGeom.Camera(camera_prim).GetCamera(Usd.TimeCode.Default()).frustum
+        if use_fabric:
+            # Sensor pose buffers and USD transforms can retain the loading pose.
+            with use_backend("usdrt"):
+                camera_translation_world_m, camera_orientation_world_wxyz = get_world_pose(
+                    str(camera_prim.GetPath()), device="cpu"
+                )
+            frustum.position = Gf.Vec3d(*camera_translation_world_m.numpy().tolist())
+            camera_orientation_world_xyzw = camera_orientation_world_wxyz.numpy()[[1, 2, 3, 0]].tolist()
+            frustum.rotation = Gf.Rotation(
+                Gf.Quatd(
+                    camera_orientation_world_xyzw[3],
+                    Gf.Vec3d(*camera_orientation_world_xyzw[:3]),
+                )
+            )
         camera_position_world_m = tuple(frustum.position)
         corners_world_m = [
             tuple(corner_world_m)
@@ -433,11 +418,13 @@ class ScenePreviewOverlay:
         workspace_samples: int,
         workspace_opacity: float,
         kinematics_device: str,
+        use_fabric: bool,
     ) -> None:
         self._scene = scene
         self._scene_config = scene_config
         self._target_positions_m = target_positions_m
         self._frustum_length_m = frustum_length_m
+        self._use_fabric = use_fabric
         self._area_model = omni.ui.SimpleBoolModel(True)
         self._target_slots_model = omni.ui.SimpleBoolModel(True)
         self._frustum_model = omni.ui.SimpleBoolModel(True)
@@ -536,10 +523,8 @@ class ScenePreviewOverlay:
                 if camera is not None:
                     groups.append(
                         (
-                            (
-                                _usd_camera_frustum_lines(camera, self._frustum_length_m)
-                                if args.physics_inspector
-                                else _camera_frustum_lines(camera, self._frustum_length_m)
+                            _camera_frustum_lines(
+                                camera, self._frustum_length_m, self._use_fabric
                             ),
                             color,
                             2.0,
@@ -664,6 +649,7 @@ def main() -> None:
                 args.workspace_samples,
                 args.workspace_opacity,
                 sim_config.device,
+                sim_config.use_fabric,
             )
             if preview_overlays_enabled
             else None
@@ -710,18 +696,18 @@ def main() -> None:
         action = env.action_manager.action.new_zeros(
             (env.num_envs, env.action_manager.total_action_dim)
         )
-        gripper_profiles = {
-            "left_gripper": left_profile.gripper,
-            "right_gripper": right_profile.gripper,
+        action_profiles = {
+            "left_arm": left_profile,
+            "left_gripper": left_profile,
+            "right_arm": right_profile,
+            "right_gripper": right_profile,
         }
         for descriptor in io_descriptors["actions"]:
-            gripper = gripper_profiles.get(descriptor["name"])
-            if gripper is None:
-                continue
+            profile = action_profiles[descriptor["name"]]
             action_slice = slice(*descriptor["slice"])
             action[:, action_slice] = action.new_tensor(
                 [
-                    gripper.open_positions[joint_name]
+                    profile.initial_joint_positions[joint_name]
                     for joint_name in descriptor["joint_names"]
                 ]
             )
