@@ -12,7 +12,12 @@ from scale_bench.runtime import (
 from scale_bench.runtime.demo_generation import ExpertFactory
 from scale_bench.runtime.scheduler import BenchmarkRunResult
 from scale_bench.runtime.task_run import TaskRun
-from scale_bench.skills import CommandExecutor, SkillMotionPlanner, SkillContext, SkillSettings
+from scale_bench.skills import (
+    CommandExecutor,
+    SkillContext,
+    SkillMotionPlanner,
+    SkillSettings,
+)
 from scale_bench.skills.models import Arm
 
 from .command_adapter import build_command_action_layout
@@ -23,6 +28,7 @@ from .curobo_parallel import (
 )
 from .curobo_planner import CuroboMotionPlanner, build_curobo_motion_planners
 from .environment import ScaleBenchEnv
+from .robot_geometry import camera_stand_collision_objects_env
 from .skill_context import IsaacLabSkillContext
 
 
@@ -46,12 +52,16 @@ def run_skill_episodes(
             ("right", run.scene.robot_mounts.right),
         )
     }
+    scene_cuboid_count = (
+        1 + len(camera_stand_collision_objects_env(run.scene)) + len(run.task.metadata)
+    )
 
     def build_env_planners(env_id: int) -> Mapping[Arm, CuroboMotionPlanner]:
         return build_curobo_motion_planners(
             left_robot_config=run.robot,
             right_robot_config=run.robot,
             scene_config=run.scene,
+            scene_cuboid_count=scene_cuboid_count,
             device=env.device,
             dtype=env.hold_action().dtype,
             interpolation_dt_s=float(env.step_dt),
