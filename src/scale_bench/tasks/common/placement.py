@@ -33,28 +33,20 @@ class PlacementContext(TaskObjectPlacementArea):
     def from_configs(
         cls,
         scene_config: SceneConfig,
-        left_robot_config: RobotConfig,
-        right_robot_config: RobotConfig,
+        robot_config: RobotConfig,
     ) -> Self:
-        """Use the shared sampling bounds when the arms use different profiles."""
+        """Combine scene table height with the dual-arm robot's sampling bounds."""
 
-        left_area = left_robot_config.task_object_placement_area
-        right_area = right_robot_config.task_object_placement_area
+        area = robot_config.task_object_placement_area
         context = cls(
             table_top_z_m=scene_config.table_top_z_m,
-            x_range_m=(
-                max(left_area.x_range_m[0], right_area.x_range_m[0]),
-                min(left_area.x_range_m[1], right_area.x_range_m[1]),
-            ),
-            y_range_m=(
-                max(left_area.y_range_m[0], right_area.y_range_m[0]),
-                min(left_area.y_range_m[1], right_area.y_range_m[1]),
-            ),
+            x_range_m=area.x_range_m,
+            y_range_m=area.y_range_m,
         )
         table = scene_config.table
         mounts = (
-            left_robot_config.robot_mounts.left,
-            right_robot_config.robot_mounts.right,
+            robot_config.robot_mounts.left,
+            robot_config.robot_mounts.right,
         )
         for axis, bounds_env_m in enumerate((context.x_range_m, context.y_range_m)):
             table_lower_env_m = table.position_m[axis] - table.size_m[axis] / 2.0

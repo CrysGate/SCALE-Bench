@@ -35,7 +35,7 @@ class TaskRun:
     def episode_specs(
         self, *, base_seed: int, episodes: int, max_steps: int
     ) -> tuple[EpisodeSpec, ...]:
-        context = PlacementContext.from_configs(self.scene, self.robot, self.robot)
+        context = PlacementContext.from_configs(self.scene, self.robot)
         return tuple(
             EpisodeSpec(
                 episode_id=f"demo-seed-{seed}",
@@ -62,8 +62,7 @@ class TaskRun:
         """
         layouts = tuple(spec.layout for spec in specs[:num_envs])
         env = create_env(
-            left_robot_config=self.robot,
-            right_robot_config=self.robot,
+            robot_config=self.robot,
             scene_config=self.scene,
             simulation_config=self.simulation,
             environment_config=self.environment,

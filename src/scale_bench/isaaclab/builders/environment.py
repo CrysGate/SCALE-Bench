@@ -55,8 +55,7 @@ class ScaleBenchEnvCfg(ManagerBasedEnvCfg):
 
 def build_environment_cfg(
     *,
-    left_robot_config: RobotConfig,
-    right_robot_config: RobotConfig,
+    robot_config: RobotConfig,
     scene_config: SceneConfig,
     simulation_config: SimulationConfig,
     environment_config: EnvironmentConfig,
@@ -79,16 +78,13 @@ def build_environment_cfg(
     if (task_layout_seed is None) == (task_layouts is None):
         raise ValueError("task requires exactly one of task_layout_seed or task_layouts")
     scene_cfg = build_scene_cfg(
-        left_robot_config=left_robot_config,
-        right_robot_config=right_robot_config,
+        robot_config=robot_config,
         scene_config=scene_config,
         environment_config=environment_config,
         num_envs=num_envs,
         env_spacing_m=env_spacing_m,
     )
-    placement_context = PlacementContext.from_configs(
-        scene_config, left_robot_config, right_robot_config,
-    )
+    placement_context = PlacementContext.from_configs(scene_config, robot_config)
     layouts = _prepare_task_layouts(
         task=task,
         context=placement_context,
@@ -112,8 +108,7 @@ def build_environment_cfg(
     evaluator_terms = task.build_evaluator_terms(placement_context)
 
     observations = build_observations_cfg(
-        left_robot_config=left_robot_config,
-        right_robot_config=right_robot_config,
+        robot_config=robot_config,
         scene_cfg=scene_cfg,
         evaluator_terms=evaluator_terms,
     )
@@ -123,8 +118,7 @@ def build_environment_cfg(
         decimation=environment_config.control_decimation,
         arm_action_mode=environment_config.arm_action_mode,
         actions=build_actions_cfg(
-            left_robot_config=left_robot_config,
-            right_robot_config=right_robot_config,
+            robot_config=robot_config,
             arm_action_mode=environment_config.arm_action_mode,
         ),
         observations=observations,

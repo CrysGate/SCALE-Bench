@@ -40,11 +40,7 @@ def run_skill_episodes(
     expert_factory: ExpertFactory,
     visualize_curobo: bool,
 ) -> BenchmarkRunResult:
-    action_layout = build_command_action_layout(
-        env,
-        left_robot_config=run.robot,
-        right_robot_config=run.robot,
-    )
+    action_layout = build_command_action_layout(env, robot_config=run.robot)
     arm_base_positions_env_m = {
         arm: (*mount.position_xy_m, run.scene.table_top_z_m)
         for arm, mount in (
@@ -58,8 +54,7 @@ def run_skill_episodes(
 
     def build_env_planners(env_id: int) -> Mapping[Arm, CuroboMotionPlanner]:
         return build_curobo_motion_planners(
-            left_robot_config=run.robot,
-            right_robot_config=run.robot,
+            robot_config=run.robot,
             scene_config=run.scene,
             scene_cuboid_count=scene_cuboid_count,
             device=env.device,
@@ -91,7 +86,7 @@ def run_skill_episodes(
                 env,
                 run.task,
                 run.scene,
-                {"left": run.robot, "right": run.robot},
+                run.robot,
                 env_id=state.env_id,
             )
             return QueuedSkillContext(context, pool)

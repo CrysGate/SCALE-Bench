@@ -1,6 +1,5 @@
 """Load object-local grasp candidates for skill consumers."""
 
-from collections.abc import Mapping
 from pathlib import Path
 
 from scale_bench.config.models.robot import RobotConfig
@@ -17,22 +16,21 @@ class IsaacLabGraspCandidates:
     def __init__(
         self,
         task: Task,
-        robot_configs: Mapping[Arm, RobotConfig],
+        robot_config: RobotConfig,
     ) -> None:
         self._task = task
-        self._robot_configs = dict(robot_configs)
-        self._asset_grasps: dict[tuple[Arm, str], tuple[GraspCandidate, ...]] = {}
+        self._robot_config = robot_config
+        self._asset_grasps: dict[str, tuple[GraspCandidate, ...]] = {}
 
     def candidates(
         self, object_name: str, arm: Arm,
     ) -> tuple[GraspCandidate, ...]:
-        key = (arm, object_name)
-        if key not in self._asset_grasps:
-            self._asset_grasps[key] = load_asset_grasps(
+        if object_name not in self._asset_grasps:
+            self._asset_grasps[object_name] = load_asset_grasps(
                 Path(self._task.assets[object_name].usd_path),
-                self._robot_configs[arm],
+                self._robot_config,
             )
-        candidates = self._asset_grasps[key]
+        candidates = self._asset_grasps[object_name]
         if not candidates:
             raise SkillError(
                 f"no valid {object_name!r} grasp for {arm} arm "
