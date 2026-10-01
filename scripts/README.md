@@ -195,7 +195,7 @@ uv run python scripts/render_asset_views.py \
 
 ## 生成 CuRobo 机器人配置
 
-根据机器人配置和 URDF 生成碰撞配置，需要 CUDA：
+根据机器人配置和 URDF 生成 YAML 碰撞配置，需要 CUDA：
 
 ```bash
 uv run python scripts/generate_curobo_robot_config.py \
@@ -203,6 +203,8 @@ uv run python scripts/generate_curobo_robot_config.py \
   --output configs/robots/curobo/piper.yml \
   --refit-link link8:2.0
 ```
+
+检查碰撞球拟合质量时加 `--export-metrics`，对接使用 XRDF 的工具时加 `--export-xrdf`。
 
 Panda 使用 URDF 碰撞网格拟合，D435 按 USD 中的凸包碰撞形状处理：
 

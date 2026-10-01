@@ -44,6 +44,16 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--robot-config", type=Path, default=DEFAULT_PROFILE)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument(
+        "--export-xrdf",
+        action="store_true",
+        help="Also export XRDF beside the output YAML for tools that consume XRDF.",
+    )
+    parser.add_argument(
+        "--export-metrics",
+        action="store_true",
+        help="Also export sphere-fit metrics beside the output YAML for inspection.",
+    )
+    parser.add_argument(
         "--export-asset-configs",
         action="store_true",
         help="Also export RoboDojo curobo.yml and curobo_tmp.yml beside the URDF.",
@@ -250,32 +260,34 @@ def main() -> int:
     if args.export_asset_configs:
         _export_asset_configs(document, Path(robot_config.urdf_path))
 
-    xrdf_path = output.with_suffix(".xrdf")
-    write_yaml(convert_curobo_to_xrdf(document), str(xrdf_path))
-    metrics_path = output.with_suffix(".metrics.json")
-    metrics_path.write_text(
-        json.dumps(
-            _metrics_document(
-                link_metrics,
-                document,
-                robot_config,
-                args,
-                source_generated=source_generated,
-                cuda_load_validated=cuda_load_validated,
-            ),
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
     print(
         f"generated {output.relative_to(PROJECT_ROOT)} with "
         f"{sum(len(value) for value in document['kinematics']['collision_spheres'].values())} "
         "fitted spheres; planner joint contract validated"
     )
-    print(f"wrote {xrdf_path.relative_to(PROJECT_ROOT)}")
-    print(f"wrote {metrics_path.relative_to(PROJECT_ROOT)}")
+    if args.export_xrdf:
+        xrdf_path = output.with_suffix(".xrdf")
+        write_yaml(convert_curobo_to_xrdf(document), str(xrdf_path))
+        print(f"wrote {xrdf_path.relative_to(PROJECT_ROOT)}")
+    if args.export_metrics:
+        metrics_path = output.with_suffix(".metrics.json")
+        metrics_path.write_text(
+            json.dumps(
+                _metrics_document(
+                    link_metrics,
+                    document,
+                    robot_config,
+                    args,
+                    source_generated=source_generated,
+                    cuda_load_validated=cuda_load_validated,
+                ),
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        print(f"wrote {metrics_path.relative_to(PROJECT_ROOT)}")
     return 0
 
 
