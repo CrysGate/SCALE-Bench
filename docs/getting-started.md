@@ -15,7 +15,7 @@ description: 安装 SCALE-Bench、获取资产，采集第一条专家轨迹并�
 | Python | 3.12 |
 | Isaac Sim | 6.0.1 |
 | Isaac Lab | `release/3.0.0-beta2`，提交 `6a7acb0` |
-| CuRobo | 提交 `8e734f3` |
+| CuRobo | 提交 `78fd485` |
 | PyTorch / CUDA | 2.10 / 12.8 |
 
 ```bash
@@ -27,7 +27,7 @@ git clone --branch release/3.0.0-beta2 \
   https://github.com/isaac-sim/IsaacLab.git third_parties/IsaacLab
 git clone https://github.com/NVlabs/curobo.git third_parties/curobo
 git -C third_parties/IsaacLab checkout 6a7acb0
-git -C third_parties/curobo checkout 8e734f3
+git -C third_parties/curobo checkout 78fd485
 
 uv sync --frozen
 ```
