@@ -86,7 +86,9 @@ def build_environment_cfg(
         num_envs=num_envs,
         env_spacing_m=env_spacing_m,
     )
-    placement_context = PlacementContext.from_scene_config(scene_config)
+    placement_context = PlacementContext.from_configs(
+        scene_config, left_robot_config, right_robot_config,
+    )
     layouts = _prepare_task_layouts(
         task=task,
         context=placement_context,

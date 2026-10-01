@@ -7,9 +7,8 @@ import random
 from collections.abc import Mapping
 from typing import Self
 
-from pydantic import field_validator
-
 from scale_bench.config.base import FiniteFloat, FrozenModel, NonNegativeFloat, PositiveInt
+from scale_bench.config.models.robot import RobotConfig, TaskObjectPlacementArea
 from scale_bench.config.models.scene import SceneConfig
 from scale_bench.skills.geometry import quaternion_xyzw_from_rpy
 
@@ -25,30 +24,52 @@ class TabletopLayoutConfig(FrozenModel):
     layout_sampling_attempts: PositiveInt = 32
 
 
-class PlacementContext(FrozenModel):
-    """Scene-derived values needed by task placement algorithms."""
+class PlacementContext(TaskObjectPlacementArea):
+    """Table height and robot-dependent sampling bounds in env."""
 
     table_top_z_m: FiniteFloat
-    x_range_m: tuple[FiniteFloat, FiniteFloat]
-    y_range_m: tuple[FiniteFloat, FiniteFloat]
-
-    @field_validator("x_range_m", "y_range_m")
-    @classmethod
-    def _validate_range(cls, value: tuple[float, float]) -> tuple[float, float]:
-        if value[0] >= value[1]:
-            raise ValueError("lower bound must be less than upper bound")
-        return value
 
     @classmethod
-    def from_scene_config(cls, scene_config: SceneConfig) -> Self:
-        """Extract placement-only values from a scene configuration."""
+    def from_configs(
+        cls,
+        scene_config: SceneConfig,
+        left_robot_config: RobotConfig,
+        right_robot_config: RobotConfig,
+    ) -> Self:
+        """Use the shared sampling bounds when the arms use different profiles."""
 
-        area = scene_config.task_object_placement_area
-        return cls(
+        left_area = left_robot_config.task_object_placement_area
+        right_area = right_robot_config.task_object_placement_area
+        context = cls(
             table_top_z_m=scene_config.table_top_z_m,
-            x_range_m=area.x_range_m,
-            y_range_m=area.y_range_m,
+            x_range_m=(
+                max(left_area.x_range_m[0], right_area.x_range_m[0]),
+                min(left_area.x_range_m[1], right_area.x_range_m[1]),
+            ),
+            y_range_m=(
+                max(left_area.y_range_m[0], right_area.y_range_m[0]),
+                min(left_area.y_range_m[1], right_area.y_range_m[1]),
+            ),
         )
+        table = scene_config.table
+        mounts = (
+            left_robot_config.robot_mounts.left,
+            right_robot_config.robot_mounts.right,
+        )
+        for axis, bounds_env_m in enumerate((context.x_range_m, context.y_range_m)):
+            table_lower_env_m = table.position_m[axis] - table.size_m[axis] / 2.0
+            table_upper_env_m = table.position_m[axis] + table.size_m[axis] / 2.0
+            if not (
+                table_lower_env_m <= bounds_env_m[0]
+                < bounds_env_m[1] <= table_upper_env_m
+            ):
+                raise ValueError("task_object_placement_area must fit on the tabletop")
+            if any(
+                not table_lower_env_m <= mount.position_xy_m[axis] <= table_upper_env_m
+                for mount in mounts
+            ):
+                raise ValueError("robot_mounts must lie on the tabletop")
+        return context
 
 
 def generate_tabletop_layout(

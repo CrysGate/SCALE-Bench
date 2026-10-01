@@ -6,6 +6,18 @@ fixed_base: true
 disable_gravity: false
 self_collisions: false
 
+robot_mounts:
+  left:
+    position_xy_m: [-0.45, -0.45]
+    orientation_xyzw: [0.0, 0.0, 0.70710678, 0.70710678]
+  right:
+    position_xy_m: [0.45, -0.45]
+    orientation_xyzw: [0.0, 0.0, 0.70710678, 0.70710678]
+
+task_object_placement_area:
+  x_range_m: [-0.80, 0.80]
+  y_range_m: [-0.25, 0.20]
+
 initial_joint_positions:
   panda_joint1: 0.0
   panda_joint2: -1.0

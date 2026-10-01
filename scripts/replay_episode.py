@@ -141,7 +141,7 @@ def main() -> int:
         config_path=args.task_config, object_set_path=args.object_set,
     )
     layout = task.generate_layout(
-        PlacementContext.from_scene_config(scene_config),
+        PlacementContext.from_configs(scene_config, robot_config, robot_config),
         seed,
     )
 

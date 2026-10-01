@@ -9,7 +9,6 @@ from scale_bench.tasks.common.fixed_target import (
     make_placement_goal,
 )
 from scale_bench.tasks.common.layout import TaskLayout
-from scale_bench.tasks.common.placement import PlacementContext
 from scale_bench.tasks.common.rigid_object import RigidObjects
 from scale_bench.tasks.common.task import Task
 
@@ -37,7 +36,7 @@ class LargestPickAndPlaceTask(Task):
 
     def expert(self, scene: SceneConfig, layout: TaskLayout) -> Iterator[SkillRequest]:
         object_name, = self.goal.object_names
-        target_placements_env = self.goal.target_placements(PlacementContext.from_scene_config(scene))
+        target_placements_env = self.goal.target_placements(scene.table_top_z_m)
         yield PickAndPlace(
             object_name=object_name,
             arm="auto",

@@ -1,11 +1,11 @@
-"""Robot joints, actuators, gripper, TCP, and mounted-camera configuration."""
+"""Robot layout, joints, actuators, gripper, TCP, and camera configuration."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Annotated, Self, TypeAlias
 
-from pydantic import Field, StrictBool, model_validator
+from pydantic import Field, StrictBool, field_validator, model_validator
 
 from scale_bench.config.base import (
     AssetReference,
@@ -17,6 +17,7 @@ from scale_bench.config.base import (
     NonNegativeFloat,
     OptionalAssetReference,
     PositiveFloat,
+    Position2,
     Position3,
     Quaternion,
     require_unique,
@@ -28,6 +29,37 @@ RelativePrimPath = Annotated[str, Field(pattern=r"^[A-Za-z_][A-Za-z0-9_]*(/[A-Za
 PrimName = Annotated[str, Field(pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")]
 JointNames = Annotated[tuple[Name, ...], Field(min_length=1)]
 ActuatorValue: TypeAlias = NonNegativeFloat | dict[str, NonNegativeFloat] | None
+
+
+class RobotMountConfig(FrozenModel):
+    """Base XY position and orientation in env; Z follows the tabletop."""
+
+    position_xy_m: Position2
+    orientation_xyzw: Quaternion
+
+    @model_validator(mode="after")
+    def _validate_orientation(self) -> Self:
+        require_unit_quaternion(self.orientation_xyzw, "orientation_xyzw")
+        return self
+
+
+class RobotMountsConfig(FrozenModel):
+    left: RobotMountConfig
+    right: RobotMountConfig
+
+
+class TaskObjectPlacementArea(FrozenModel):
+    """Tabletop sampling bounds in env for this robot's dual-arm layout."""
+
+    x_range_m: tuple[FiniteFloat, FiniteFloat]
+    y_range_m: tuple[FiniteFloat, FiniteFloat]
+
+    @field_validator("x_range_m", "y_range_m")
+    @classmethod
+    def _validate_range(cls, value: tuple[float, float]) -> tuple[float, float]:
+        if value[0] >= value[1]:
+            raise ValueError("lower bound must be less than upper bound")
+        return value
 
 
 class TcpConfig(FrozenModel):
@@ -153,6 +185,8 @@ class RobotConfig(FrozenModel):
     usd_path: AssetReference
     urdf_path: OptionalAssetReference = None
     curobo_config_path: ConfigReference
+    robot_mounts: RobotMountsConfig
+    task_object_placement_area: TaskObjectPlacementArea
     fixed_base: StrictBool = True
     disable_gravity: StrictBool = False
     self_collisions: StrictBool = False

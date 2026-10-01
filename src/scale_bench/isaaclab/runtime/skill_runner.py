@@ -48,8 +48,8 @@ def run_skill_episodes(
     arm_base_positions_env_m = {
         arm: (*mount.position_xy_m, run.scene.table_top_z_m)
         for arm, mount in (
-            ("left", run.scene.robot_mounts.left),
-            ("right", run.scene.robot_mounts.right),
+            ("left", run.robot.robot_mounts.left),
+            ("right", run.robot.robot_mounts.right),
         )
     }
     scene_cuboid_count = (

@@ -12,23 +12,11 @@ ground:
 
 table:
   position_m: [0.0, -0.05, 0.74]
-  size_m: [1.4, 1.1, 0.05]
+  size_m: [2.0, 1.6, 0.05]
   material_path: Assets/Material/material_0122/Mahogany_Planks.mdl
   static_friction: 0.8
   dynamic_friction: 0.8
   restitution: 0.0
-
-task_object_placement_area:
-  x_range_m: [-0.55, 0.55]
-  y_range_m: [-0.20, 0.18]
-
-robot_mounts:
-  left:
-    position_xy_m: [-0.3, -0.45]
-    orientation_xyzw: [0.0, 0.0, 0.70710678, 0.70710678]
-  right:
-    position_xy_m: [0.3, -0.45]
-    orientation_xyzw: [0.0, 0.0, 0.70710678, 0.70710678]
 
 manipulation:
   lift_height_m: 0.10

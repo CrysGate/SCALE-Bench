@@ -14,11 +14,10 @@ from isaaclab.utils.configclass import configclass
 from scale_bench.config.loader import load_config
 from scale_bench.config.models.camera import CameraConfig
 from scale_bench.config.models.environment import EnvironmentConfig
-from scale_bench.config.models.robot import RobotConfig
+from scale_bench.config.models.robot import RobotConfig, RobotMountConfig
 from scale_bench.config.models.scene import (
     LightingConfig,
     OverheadCameraConfig,
-    RobotMountConfig,
     RoomConfig,
     SceneConfig,
     SurfaceConfig,
@@ -76,13 +75,13 @@ def build_scene_cfg(
         left_robot=_mounted_robot_cfg(
             build_robot_cfg(left_robot_config),
             "{ENV_REGEX_NS}/LeftRobot",
-            scene_config.robot_mounts.left,
+            left_robot_config.robot_mounts.left,
             table_top_z_m,
         ),
         right_robot=_mounted_robot_cfg(
             build_robot_cfg(right_robot_config),
             "{ENV_REGEX_NS}/RightRobot",
-            scene_config.robot_mounts.right,
+            right_robot_config.robot_mounts.right,
             table_top_z_m,
         ),
         left_robot_camera=(

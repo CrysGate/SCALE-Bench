@@ -23,8 +23,8 @@ from curobo.types import JointState as CuroboJointState
 from curobo.types import Pose as CuroboPose
 from torch import Tensor
 
-from scale_bench.config.models.robot import RobotConfig, TcpConfig
-from scale_bench.config.models.scene import RobotMountConfig, SceneConfig
+from scale_bench.config.models.robot import RobotConfig, RobotMountConfig, TcpConfig
+from scale_bench.config.models.scene import SceneConfig
 from scale_bench.skills.context import (
     EmptyTool,
     HeldObject,
@@ -746,14 +746,14 @@ def build_curobo_motion_planners(
         (
             "left",
             left_robot_config,
-            scene_config.robot_mounts.left,
-            scene_config.robot_mounts.right,
+            left_robot_config.robot_mounts.left,
+            right_robot_config.robot_mounts.right,
         ),
         (
             "right",
             right_robot_config,
-            scene_config.robot_mounts.right,
-            scene_config.robot_mounts.left,
+            right_robot_config.robot_mounts.right,
+            left_robot_config.robot_mounts.left,
         ),
     ):
         joint_names = tuple(robot_config.kinematics.arm_joint_names)

@@ -157,8 +157,8 @@ if preview_overlays_enabled:
 
 from scale_bench.api import create_env
 from scale_bench.config.models.environment import EnvironmentConfig
-from scale_bench.config.models.robot import RobotConfig
-from scale_bench.config.models.scene import RobotMountConfig, SceneConfig
+from scale_bench.config.models.robot import RobotConfig, RobotMountConfig
+from scale_bench.config.models.scene import SceneConfig
 from scale_bench.isaaclab.runtime.target_slot_visualization import (
     Color,
     Line,
@@ -422,6 +422,9 @@ class ScenePreviewOverlay:
     ) -> None:
         self._scene = scene
         self._scene_config = scene_config
+        self._placement_context = PlacementContext.from_configs(
+            scene_config, robot_configs["left"], robot_configs["right"],
+        )
         self._target_positions_m = target_positions_m
         self._frustum_length_m = frustum_length_m
         self._use_fabric = use_fabric
@@ -438,7 +441,7 @@ class ScenePreviewOverlay:
             arm: _sample_tcp_positions_world_m(
                 self._scene[f"{arm}_robot"],
                 robot_configs[arm],
-                getattr(scene_config.robot_mounts, arm),
+                getattr(robot_configs[arm].robot_mounts, arm),
                 scene_config.table_top_z_m,
                 env_origins_world_m,
                 workspace_samples,
@@ -486,7 +489,7 @@ class ScenePreviewOverlay:
         groups: list[tuple[list[Line], Color, float]] = []
 
         if self._area_model.as_bool:
-            area = self._scene_config.task_object_placement_area
+            area = self._placement_context
             z_m = self._scene_config.table_top_z_m + 0.003
             area_lines: list[Line] = []
             for origin in self._scene.env_origins.tolist():
@@ -585,7 +588,6 @@ class ScenePreviewOverlay:
 
 def main() -> None:
     scene_config = load_config(args.config, SceneConfig, asset_root=args.asset_root)
-    placement_context = PlacementContext.from_scene_config(scene_config)
     left_profile = load_config(
         args.left_robot_config,
         RobotConfig,
@@ -596,13 +598,16 @@ def main() -> None:
         RobotConfig,
         asset_root=args.asset_root,
     )
+    placement_context = PlacementContext.from_configs(
+        scene_config, left_profile, right_profile,
+    )
     runtime_config = load_config(args.env_config, EnvironmentConfig)
     task = load_task(
         args.task, project_root=PROJECT_ROOT, asset_root=args.asset_root,
         config_path=args.task_config, object_set_path=args.object_set,
     )
     target_placements_env = (
-        task.goal.target_placements(placement_context)
+        task.goal.target_placements(placement_context.table_top_z_m)
         if isinstance(task.goal, FixedPlacementGoal) else {}
     )
     target_positions_m = tuple(
