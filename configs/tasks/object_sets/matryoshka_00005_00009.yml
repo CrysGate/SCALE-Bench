@@ -1,0 +1,19 @@
+name: matryoshka_00005_00009
+physics:
+  restitution: 0.01
+objects:
+  - name: doll_00005
+    usd_path: Assets/Object/Rigid/matryoshka_dolls/00005/object.usdz
+    metadata_path: Assets/Object/Rigid/matryoshka_dolls/00005/metadata.json
+  - name: doll_00006
+    usd_path: Assets/Object/Rigid/matryoshka_dolls/00006/object.usdz
+    metadata_path: Assets/Object/Rigid/matryoshka_dolls/00006/metadata.json
+  - name: doll_00007
+    usd_path: Assets/Object/Rigid/matryoshka_dolls/00007/object.usdz
+    metadata_path: Assets/Object/Rigid/matryoshka_dolls/00007/metadata.json
+  - name: doll_00008
+    usd_path: Assets/Object/Rigid/matryoshka_dolls/00008/object.usdz
+    metadata_path: Assets/Object/Rigid/matryoshka_dolls/00008/metadata.json
+  - name: doll_00009
+    usd_path: Assets/Object/Rigid/matryoshka_dolls/00009/object.usdz
+    metadata_path: Assets/Object/Rigid/matryoshka_dolls/00009/metadata.json

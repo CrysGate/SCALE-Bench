@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import MISSING
 
 from isaaclab.envs import ManagerBasedEnvCfg
-from isaaclab.assets import RigidObjectCfg
+from isaaclab.assets import AssetBaseCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import CameraCfg
@@ -22,6 +22,7 @@ from scale_bench.config.models.simulation import SimulationConfig
 from scale_bench.isaaclab.builders.rigid_object_task import build_rigid_object_assets
 from scale_bench.isaaclab.builders.scene import build_scene_cfg
 from scale_bench.isaaclab.builders.simulation import build_simulation_cfg
+from scale_bench.isaaclab.builders.target_mat import build_target_mat_assets
 from scale_bench.isaaclab.managers.actions import (
     ActionsCfg,
     ArmActionMode,
@@ -37,6 +38,7 @@ from scale_bench.isaaclab.mdp.events import ResetTaskLayout
 from scale_bench.tasks.common.layout import TaskLayout
 from scale_bench.tasks.common.placement import PlacementContext
 from scale_bench.tasks.common.task import Task
+from scale_bench.tasks.largest_pick_and_place.task import LargestPickAndPlaceTask
 
 
 @configclass
@@ -94,6 +96,8 @@ def build_environment_cfg(
     )
     asset_cfgs = build_rigid_object_assets(task, layouts[0])
     _add_task_assets(scene_cfg, asset_cfgs)
+    if isinstance(task, LargestPickAndPlaceTask):
+        _add_task_assets(scene_cfg, build_target_mat_assets(task, scene_config))
     events = EventsCfg(
         task_layout=EventTerm(
             func=ResetTaskLayout,
@@ -136,7 +140,7 @@ def build_environment_cfg(
 
 def _add_task_assets(
     scene_cfg: InteractiveSceneCfg,
-    asset_cfgs: Mapping[str, RigidObjectCfg],
+    asset_cfgs: Mapping[str, AssetBaseCfg],
 ) -> None:
     conflicts = [name for name in asset_cfgs if hasattr(scene_cfg, name)]
     if conflicts:

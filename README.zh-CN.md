@@ -10,7 +10,7 @@ SCALE-Bench 是基于 Isaac Lab 的双臂操作基准，用于运行桌面操作
 | --- | --- |
 | [单物体抓取与放置](docs/tasks/single_object_pick_and_place.md) | 将随机位置的瓶子直立放入固定槽位 |
 | [套娃排序](docs/tasks/sort_dolls_by_size.md) | 将五个套娃按高度从低到高放入对应槽位 |
-| [最大物体抓取与放置](docs/tasks/largest_pick_and_place.md) | 选择最高的物体并放入目标槽位，默认使用奶茶杯 |
+| [最大物体抓取与放置](docs/tasks/largest_pick_and_place.md) | 选择最高的物体并直立放到可见的蓝色交付垫中央，支持奶茶杯和套娃 |
 
 任务通过种子和布局文件复现场景，机器人、相机和任务配置使用 YAML 管理。
 

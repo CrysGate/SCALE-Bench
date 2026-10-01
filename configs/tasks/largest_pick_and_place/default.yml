@@ -1,11 +1,17 @@
 name: bubble_tea_cups
 task: largest_pick_and_place
-instruction: Pick up the largest object and place it upright in the fixed target slot.
+instruction: Select the largest object from the collection and place it upright at the center of the blue delivery mat.
 object_set: ../object_sets/bubble_tea_cups_5.yml
 layout:
   minimum_object_gap_m: 0.08
 target_positions_env_xy_m:
-  - [0.0, -0.25]
+  - [0.0, -0.32]
+minimum_source_target_gap_m: 0.16
+target_mat:
+  edge_margin_m: 0.01
+  surface_offset_m: 0.0005
+  color_rgb: [0.0, 0.02, 0.85]
+  center_color_rgb: [1.0, 1.0, 1.0]
 success_stability_steps: 10
 position_tolerance_m: 0.025
 height_tolerance_m: 0.015

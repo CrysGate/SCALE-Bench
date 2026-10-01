@@ -58,7 +58,7 @@ hide:
 
 ### [最大物体抓取与放置](tasks/largest_pick_and_place.md)
 
-从多个物体中选出最高的一个，并将其直立放入目标槽位。
+从同类物体中选出最高的一个，并将其直立放到可见的蓝色交付垫中央。
 
 <div class="task-id" markdown>
 `largest_pick_and_place`
