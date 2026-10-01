@@ -78,11 +78,9 @@ uv run python scripts/run_demo_generation.py \
 
 更换机械臂时使用 `--robot-config` 指定[机器人配置](../configs/robots/)。对应物体需包含与该机械臂匹配的[抓取文件](../docs/assets/index.md)。
 
-双臂共用 `--robot-config` 指定的机器人配置，其中 `robot_mounts` 设置左右臂底座在 `env` 坐标系中的 XY 位置和朝向，安装高度跟随桌面。`task_object_placement_area` 设置同一坐标系中的物体采样范围。场景配置中的 `table.size_m` 控制桌面大小，需覆盖底座和采样范围。
-
 ## 使用 Franka Panda
 
-`configs/robots/franka_panda.yml` 使用 `Assets/Robots/franka_panda/` 中的原装双指夹爪和腕部 D435，双臂底座间距为 1.0 m，物体采样范围比 Piper、X5 更大。默认桌面为 2.0 × 1.6 m。预览时指定机器人配置：
+`configs/robots/franka_panda.yml` 使用 `Assets/Robots/franka_panda/` 中的原装双指夹爪和腕部 D435。默认桌面为 2.0 × 1.6 m。预览时指定机器人配置：
 
 ```bash
 uv run python scripts/preview_scene.py \
