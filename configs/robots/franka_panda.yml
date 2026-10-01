@@ -1,0 +1,67 @@
+name: franka_panda
+usd_path: Assets/Robots/franka_panda/franka.usd
+urdf_path: Assets/Robots/franka_panda/franka_panda_description/urdf/franka.urdf
+curobo_config_path: curobo/franka_panda.yml
+fixed_base: true
+disable_gravity: false
+self_collisions: false
+
+initial_joint_positions:
+  panda_joint1: 0.0
+  panda_joint2: -0.569
+  panda_joint3: 0.0
+  panda_joint4: -2.810
+  panda_joint5: 0.0
+  panda_joint6: 3.037
+  panda_joint7: 0.741
+  panda_finger_joint1: 0.04
+  panda_finger_joint2: 0.04
+
+kinematics:
+  base_body: panda_link0
+  arm_joint_names: [panda_joint1, panda_joint2, panda_joint3, panda_joint4, panda_joint5, panda_joint6, panda_joint7]
+  ee_body: panda_hand
+  tcp:
+    # Match the asset's palm tool frame; approach is +Z and finger opening is +Y.
+    parent_frame: panda_hand
+    position_m: [0.0, 0.0, 0.0]
+    orientation_xyzw: [0.0, 0.0, 0.0, 1.0]
+
+actuators:
+  arm:
+    joint_names: [panda_joint1, panda_joint2, panda_joint3, panda_joint4, panda_joint5, panda_joint6, panda_joint7]
+    # Preserve the drive gains and physical limits authored in the USD.
+    stiffness: null
+    damping: null
+    effort_limit_sim: null
+    velocity_limit_sim: null
+  gripper:
+    joint_names: [panda_finger_joint1, panda_finger_joint2]
+    stiffness: null
+    damping: null
+    effort_limit_sim: null
+    velocity_limit_sim: null
+
+gripper:
+  joint_names: [panda_finger_joint1, panda_finger_joint2]
+  command_joint_names: [panda_finger_joint1]
+  finger_body_names: [panda_leftfinger, panda_rightfinger]
+  min_aperture_m: 0.0
+  max_aperture_m: 0.08
+  aperture_joint_multipliers:
+    panda_finger_joint1: 1.0
+    panda_finger_joint2: 1.0
+  minimum_grasp_aperture_m: 0.002
+  closed_positions:
+    panda_finger_joint1: 0.0
+  open_positions:
+    panda_finger_joint1: 0.04
+
+camera:
+  profile_path: ../cameras/d435.yml
+  parent_prim_path: panda_hand/camera_base/camera
+  sensor_prim_name: D435Sensor
+  position_m: [0.001, 0.0, 0.0]
+  # OpenGL -Z looks along camera-link +X; image up is camera-link +Z.
+  orientation_xyzw: [0.5, -0.5, -0.5, 0.5]
+  convention: opengl

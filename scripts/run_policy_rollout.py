@@ -4,19 +4,17 @@ from __future__ import annotations
 
 import argparse
 import sys
-import traceback
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from scale_bench.config.loader import load_config
-from scale_bench.config.models.simulation import SimulationConfig
-from scale_bench.cli.simulation import add_task_overrides
-from scale_bench.tasks.registry import TASKS, load_task
-
 from isaaclab.app import AppLauncher
 
+from scale_bench.cli.simulation import add_task_overrides
+from scale_bench.config.loader import load_config
+from scale_bench.config.models.simulation import SimulationConfig
+from scale_bench.tasks.registry import TASKS, load_task
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--task", choices=TASKS, default="sort_dolls_by_size")
@@ -38,6 +36,12 @@ parser.add_argument(
     help="Enable HDF5 recording in this directory.",
 )
 parser.add_argument("--dataset-name", default="policy_rollout_smoke")
+parser.add_argument(
+    "--robot-config",
+    type=Path,
+    default=Path("configs/robots/piper.yml"),
+    help="Robot profile used for both arms.",
+)
 parser.add_argument(
     "--camera-config",
     type=Path,
@@ -83,6 +87,9 @@ from scale_bench.config.models.environment import EnvironmentConfig
 from scale_bench.config.models.recording import RecordingConfig
 from scale_bench.config.models.robot import RobotConfig
 from scale_bench.config.models.scene import SceneConfig
+from scale_bench.isaaclab.runtime.command_adapter import (
+    build_command_action_layout,
+)
 from scale_bench.runtime import (
     BenchmarkScheduler,
     EpisodeContext,
@@ -91,17 +98,13 @@ from scale_bench.runtime import (
     PolicyRolloutRunner,
     TerminationReason,
 )
-from scale_bench.tasks.common.placement import PlacementContext
-from scale_bench.isaaclab.runtime.command_adapter import (
-    build_command_action_layout,
-)
 from scale_bench.skills import (
     CommandExecutor,
     JointState,
     JointTrajectory,
     MoveToJoints,
 )
-
+from scale_bench.tasks.common.placement import PlacementContext
 
 MAX_JOINT_STEP_RAD = 0.02
 
@@ -226,7 +229,7 @@ def main() -> int:
         asset_root=asset_root,
     )
     robot_config = load_config(
-        PROJECT_ROOT / "configs/robots/piper.yml",
+        args.robot_config,
         RobotConfig,
         asset_root=asset_root,
     )
@@ -274,6 +277,9 @@ def main() -> int:
         else RecordingConfig(
             output_dir=args.record_output,
             dataset_name=args.dataset_name,
+            # Hold/joint-motion checks do not complete the manipulation task.
+            export_mode="all",
+            record_camera_observations=True,
         )
     )
     print("[policy-smoke] creating ScaleBenchEnv", flush=True)
@@ -354,9 +360,6 @@ if __name__ == "__main__":
     exit_code = 1
     try:
         exit_code = main()
-    except BaseException:
-        traceback.print_exc()
-        exit_code = 1
     finally:
         try:
             simulation_app.close(exit_code=exit_code)

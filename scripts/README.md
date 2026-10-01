@@ -78,6 +78,31 @@ uv run python scripts/run_demo_generation.py \
 
 更换机械臂时使用 `--robot-config` 指定[机器人配置](../configs/robots/)。对应物体需包含与该机械臂匹配的[抓取文件](../docs/assets/index.md)。
 
+## 使用 Franka Panda
+
+`configs/robots/franka_panda.yml` 使用 `Assets/Robots/franka_panda/` 中的原装双指夹爪和腕部 D435。预览时分别指定左右臂配置：
+
+```bash
+uv run python scripts/preview_scene.py \
+  --task single_object_pick_and_place \
+  --left-robot-config configs/robots/franka_panda.yml \
+  --right-robot-config configs/robots/franka_panda.yml
+```
+
+无界面验证关节动作和 RGB-D 录制：
+
+```bash
+uv run python scripts/run_policy_rollout.py \
+  --task single_object_pick_and_place \
+  --robot-config configs/robots/franka_panda.yml \
+  --left-joint4-offset-rad 0.1 \
+  --record-output outputs/franka-panda-smoke \
+  --dataset-name joint_motion \
+  --viz none
+```
+
+该命令只执行关节动作，episode 的 `success` 为 `false`，轨迹仍会保留。专家采集还需要在各物体 USD 旁准备 `grasps-franka_panda.yaml`：TCP 为 `panda_hand` 原点，姿态为单位四元数，接近方向为手掌坐标系的 `+Z`，夹爪沿 `Y` 轴开合，最大开口为 0.08 m。抓取数据须包含 `panda_finger_joint1` 和 `panda_finger_joint2` 的闭合位置。
+
 ## 浏览与回放数据
 
 在浏览器中检查关节轨迹、逐帧数据和相机观测：
@@ -152,6 +177,8 @@ uv run python scripts/run_policy_rollout.py \
   --viz none
 ```
 
+指定 `--record-output` 时保存全部 episode 的轨迹和三路 RGB-D，包括未完成操作任务的 episode。默认使用 160×120 的相机配置以降低验证开销。
+
 需要检查关节动作时，可加入 `--left-joint4-offset-rad 0.1`，使左臂第四关节移动指定角度。
 
 ## 生成资产三视图
@@ -175,5 +202,16 @@ uv run python scripts/render_asset_views.py \
 ```bash
 uv run python scripts/generate_curobo_robot_config.py \
   --robot-config configs/robots/piper.yml \
-  --output configs/robots/curobo/piper.yml
+  --output configs/robots/curobo/piper.yml \
+  --refit-link link8:2.0
+```
+
+Panda 使用 URDF 碰撞网格拟合，D435 按 USD 中的凸包碰撞形状处理：
+
+```bash
+uv run python scripts/generate_curobo_robot_config.py \
+  --robot-config configs/robots/franka_panda.yml \
+  --output configs/robots/curobo/franka_panda.yml \
+  --use-collision-mesh --sphere-density 2 \
+  --convex-fit-link camera
 ```

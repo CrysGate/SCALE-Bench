@@ -793,10 +793,17 @@ def _build_backend(
     interpolation_dt_s: float,
 ) -> MotionPlanner:
     device_cfg = DeviceCfg(device=device, dtype=dtype)
+    collision_robot_config = _load_collision_robot_config(robot_config)
+    # The other arm contributes one world cuboid per fitted collision sphere.
+    # Keep the scene-obstacle budget in addition to this robot-dependent count.
+    other_robot_cuboid_count = sum(
+        len(spheres)
+        for spheres in collision_robot_config["kinematics"]["collision_spheres"].values()
+    )
     cfg = MotionPlannerCfg.create(
-        _load_collision_robot_config(robot_config),
+        collision_robot_config,
         device_cfg=device_cfg,
-        collision_cache={"cuboid": 96},
+        collision_cache={"cuboid": 96 + other_robot_cuboid_count},
         self_collision_check=True,
         num_ik_seeds=64,
         num_trajopt_seeds=4,
