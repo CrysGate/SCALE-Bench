@@ -101,8 +101,6 @@ uv run python scripts/run_policy_rollout.py \
   --viz none
 ```
 
-该命令只执行关节动作，episode 的 `success` 为 `false`，轨迹仍会保留。专家采集还需要在各物体 USD 旁准备 `grasps-franka_panda.yaml`：TCP 为 `panda_hand` 原点，姿态为单位四元数，接近方向为手掌坐标系的 `+Z`，夹爪沿 `Y` 轴开合，最大开口为 0.08 m。抓取数据须包含 `panda_finger_joint1` 和 `panda_finger_joint2` 的闭合位置。
-
 ## 浏览与回放数据
 
 在浏览器中检查关节轨迹、逐帧数据和相机观测：
