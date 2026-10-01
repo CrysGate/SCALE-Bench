@@ -19,7 +19,6 @@ from scale_bench.runtime import EpisodeState, TerminationReason
 from scale_bench.runtime.task_run import TaskRun
 from scale_bench.skills import Pick, PickAndPlace, Pose, SkillRequest
 from scale_bench.tasks.common.fixed_target import FixedPlacementGoal
-from scale_bench.tasks.common.placement import PlacementContext
 
 
 def main() -> int:
@@ -65,7 +64,7 @@ def main() -> int:
             if not isinstance(goal, FixedPlacementGoal):
                 raise ValueError("pick-and-place debugging requires a fixed-placement goal")
             target_placements_env = goal.target_placements(
-                PlacementContext.from_scene_config(run.scene)
+                run.scene.table_top_z_m
             )
             if object_name not in target_placements_env:
                 raise ValueError(f"no placement target for --object-name: {object_name!r}")

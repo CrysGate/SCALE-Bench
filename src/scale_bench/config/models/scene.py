@@ -1,15 +1,14 @@
-"""Room, surfaces, mounts, cameras, and lighting configuration."""
+"""Room, surfaces, cameras, and lighting configuration."""
 
 from __future__ import annotations
 
 from typing import Self
-from pydantic import field_validator, model_validator
+from pydantic import model_validator
 
 from scale_bench.config.base import (
     AssetReference,
     CameraConvention,
     ConfigReference,
-    FiniteFloat,
     FrozenModel,
     NonNegativeFloat,
     NonNegativeInt,
@@ -22,6 +21,8 @@ from scale_bench.config.base import (
     UnitIntervalFloat,
     require_unit_quaternion,
 )
+
+
 class RoomConfig(FrozenModel):
     usd_path: AssetReference
     scale: PositiveFloat = 0.5
@@ -35,21 +36,6 @@ class SurfaceConfig(FrozenModel):
     static_friction: NonNegativeFloat
     dynamic_friction: NonNegativeFloat
     restitution: UnitIntervalFloat
-
-
-class RobotMountConfig(FrozenModel):
-    position_xy_m: Position2
-    orientation_xyzw: Quaternion
-
-    @model_validator(mode="after")
-    def _validate_orientation(self) -> Self:
-        require_unit_quaternion(self.orientation_xyzw, "orientation_xyzw")
-        return self
-
-
-class RobotMountsConfig(FrozenModel):
-    left: RobotMountConfig
-    right: RobotMountConfig
 
 
 class ManipulationConfig(FrozenModel):
@@ -96,26 +82,12 @@ class LightingConfig(FrozenModel):
     intensity: NonNegativeFloat
 
 
-class TaskObjectPlacementArea(FrozenModel):
-    x_range_m: tuple[FiniteFloat, FiniteFloat]
-    y_range_m: tuple[FiniteFloat, FiniteFloat]
-
-    @field_validator("x_range_m", "y_range_m")
-    @classmethod
-    def _validate_range(cls, value: tuple[float, float]) -> tuple[float, float]:
-        if value[0] >= value[1]:
-            raise ValueError("lower bound must be less than upper bound")
-        return value
-
-
 class SceneConfig(FrozenModel):
     """Static scene description, excluding environment lifecycle settings."""
 
     room: RoomConfig
     ground: SurfaceConfig
     table: SurfaceConfig
-    task_object_placement_area: TaskObjectPlacementArea
-    robot_mounts: RobotMountsConfig
     manipulation: ManipulationConfig
     camera: OverheadCameraConfig
     lighting: LightingConfig

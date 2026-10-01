@@ -16,8 +16,7 @@ from scale_bench.tasks.common.task import Task
 
 def create_env(
     *,
-    left_robot_config: RobotConfig,
-    right_robot_config: RobotConfig,
+    robot_config: RobotConfig,
     scene_config: SceneConfig,
     simulation_config: SimulationConfig,
     environment_config: EnvironmentConfig,
@@ -35,8 +34,7 @@ def create_env(
     from scale_bench.isaaclab.runtime.environment import ScaleBenchEnv
 
     cfg = build_environment_cfg(
-        left_robot_config=left_robot_config,
-        right_robot_config=right_robot_config,
+        robot_config=robot_config,
         scene_config=scene_config,
         simulation_config=simulation_config,
         environment_config=environment_config,

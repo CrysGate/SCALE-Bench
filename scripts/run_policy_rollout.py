@@ -255,7 +255,7 @@ def main() -> int:
         args.task, project_root=PROJECT_ROOT, asset_root=asset_root,
         config_path=args.task_config, object_set_path=args.object_set,
     )
-    placement_context = PlacementContext.from_scene_config(scene_config)
+    placement_context = PlacementContext.from_configs(scene_config, robot_config)
     specs = tuple(
         EpisodeSpec(
             episode_id=f"policy-seed-{seed}",
@@ -284,8 +284,7 @@ def main() -> int:
     )
     print("[policy-smoke] creating ScaleBenchEnv", flush=True)
     env = create_env(
-        left_robot_config=robot_config,
-        right_robot_config=robot_config,
+        robot_config=robot_config,
         scene_config=scene_config,
         simulation_config=sim_config,
         environment_config=environment_config,
@@ -317,8 +316,7 @@ def main() -> int:
                     env,
                     build_command_action_layout(
                         env,
-                        left_robot_config=robot_config,
-                        right_robot_config=robot_config,
+                        robot_config=robot_config,
                     ),
                 ),
                 joint_offset_rad=args.left_joint4_offset_rad,

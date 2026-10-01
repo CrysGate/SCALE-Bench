@@ -23,8 +23,8 @@ from curobo.types import JointState as CuroboJointState
 from curobo.types import Pose as CuroboPose
 from torch import Tensor
 
-from scale_bench.config.models.robot import RobotConfig, TcpConfig
-from scale_bench.config.models.scene import RobotMountConfig, SceneConfig
+from scale_bench.config.models.robot import RobotConfig, RobotMountConfig, TcpConfig
+from scale_bench.config.models.scene import SceneConfig
 from scale_bench.skills.context import (
     EmptyTool,
     HeldObject,
@@ -721,8 +721,7 @@ class CuroboMotionPlanner:
 
 def build_curobo_motion_planners(
     *,
-    left_robot_config: RobotConfig,
-    right_robot_config: RobotConfig,
+    robot_config: RobotConfig,
     scene_config: SceneConfig,
     scene_cuboid_count: int,
     device: str,
@@ -731,9 +730,8 @@ def build_curobo_motion_planners(
     visualize: bool,
     env_origin_world_m: tuple[float, float, float],
 ) -> Mapping[Arm, CuroboMotionPlanner]:
-    """Reserve all scene cuboids; matching arms share a sequential backend."""
+    """Reserve all scene cuboids; both arms share one sequential backend."""
 
-    backends: dict[tuple[Path, str, TcpConfig, tuple[str, ...]], MotionPlanner] = {}
     visualizer = None
     if visualize:
         from scale_bench.isaaclab.runtime.curobo_visualization import (
@@ -741,39 +739,17 @@ def build_curobo_motion_planners(
         )
 
         visualizer = CuroboPlanningVisualizer(env_origin_world_m)
-    planners = {}
-    for arm, robot_config, mount, other_mount in (
-        (
-            "left",
-            left_robot_config,
-            scene_config.robot_mounts.left,
-            scene_config.robot_mounts.right,
-        ),
-        (
-            "right",
-            right_robot_config,
-            scene_config.robot_mounts.right,
-            scene_config.robot_mounts.left,
-        ),
-    ):
-        joint_names = tuple(robot_config.kinematics.arm_joint_names)
-        key = (
-            Path(robot_config.urdf_path).resolve(),
-            robot_config.kinematics.base_body,
-            robot_config.kinematics.tcp,
-            joint_names,
-        )
-        backend = backends.get(key)
-        if backend is None:
-            backend = _build_backend(
-                robot_config,
-                scene_cuboid_count=scene_cuboid_count,
-                device=device,
-                dtype=dtype,
-                interpolation_dt_s=interpolation_dt_s,
-            )
-            backends[key] = backend
-        planners[arm] = CuroboMotionPlanner(
+    backend = _build_backend(
+        robot_config,
+        scene_cuboid_count=scene_cuboid_count,
+        device=device,
+        dtype=dtype,
+        interpolation_dt_s=interpolation_dt_s,
+    )
+    joint_names = tuple(robot_config.kinematics.arm_joint_names)
+    mounts = robot_config.robot_mounts
+    return {
+        arm: CuroboMotionPlanner(
             backend,
             mount,
             other_mount,
@@ -784,7 +760,11 @@ def build_curobo_motion_planners(
             robot_config,
             visualizer,
         )
-    return planners
+        for arm, mount, other_mount in (
+            ("left", mounts.left, mounts.right),
+            ("right", mounts.right, mounts.left),
+        )
+    }
 
 
 def _build_backend(

@@ -76,7 +76,7 @@ class FixedPlacementGoal:
     def observation_sources(
         self, context: PlacementContext,
     ) -> dict[str, ObservationSource]:
-        target_placements_env = self.target_placements(context)
+        target_placements_env = self.target_placements(context.table_top_z_m)
         return {
             "object_positions_m": ObjectPositions(self.object_names),
             "object_orientations_xyzw": ObjectOrientations(self.object_names),
@@ -85,12 +85,12 @@ class FixedPlacementGoal:
             ),
         }
 
-    def target_placements(self, context: PlacementContext) -> dict[str, AssetPlacement]:
+    def target_placements(self, table_top_z_m: float) -> dict[str, AssetPlacement]:
         return {
             name: AssetPlacement(
                 position_m=(
                     *target_position_env_xy_m,
-                    context.table_top_z_m + height_m / 2.0,
+                    table_top_z_m + height_m / 2.0,
                 ),
                 orientation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )

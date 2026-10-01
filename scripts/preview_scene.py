@@ -56,14 +56,10 @@ parser.add_argument(
     help="Export the generated or loaded task layout as JSON.",
 )
 parser.add_argument(
-    "--left-robot-config",
+    "--robot-config",
     type=Path,
     default=Path("configs/robots/piper.yml"),
-)
-parser.add_argument(
-    "--right-robot-config",
-    type=Path,
-    default=Path("configs/robots/piper.yml"),
+    help="Robot profile shared by both arms.",
 )
 parser.add_argument(
     "--max-steps",
@@ -157,8 +153,8 @@ if preview_overlays_enabled:
 
 from scale_bench.api import create_env
 from scale_bench.config.models.environment import EnvironmentConfig
-from scale_bench.config.models.robot import RobotConfig
-from scale_bench.config.models.scene import RobotMountConfig, SceneConfig
+from scale_bench.config.models.robot import RobotConfig, RobotMountConfig
+from scale_bench.config.models.scene import SceneConfig
 from scale_bench.isaaclab.runtime.target_slot_visualization import (
     Color,
     Line,
@@ -412,7 +408,7 @@ class ScenePreviewOverlay:
         self,
         scene: InteractiveScene,
         scene_config: SceneConfig,
-        robot_configs: dict[str, RobotConfig],
+        robot_config: RobotConfig,
         target_positions_m: tuple[Point, ...],
         frustum_length_m: float,
         workspace_samples: int,
@@ -422,6 +418,7 @@ class ScenePreviewOverlay:
     ) -> None:
         self._scene = scene
         self._scene_config = scene_config
+        self._placement_area = robot_config.task_object_placement_area
         self._target_positions_m = target_positions_m
         self._frustum_length_m = frustum_length_m
         self._use_fabric = use_fabric
@@ -437,8 +434,8 @@ class ScenePreviewOverlay:
         self._workspace_points_world_m = {
             arm: _sample_tcp_positions_world_m(
                 self._scene[f"{arm}_robot"],
-                robot_configs[arm],
-                getattr(scene_config.robot_mounts, arm),
+                robot_config,
+                getattr(robot_config.robot_mounts, arm),
                 scene_config.table_top_z_m,
                 env_origins_world_m,
                 workspace_samples,
@@ -486,7 +483,7 @@ class ScenePreviewOverlay:
         groups: list[tuple[list[Line], Color, float]] = []
 
         if self._area_model.as_bool:
-            area = self._scene_config.task_object_placement_area
+            area = self._placement_area
             z_m = self._scene_config.table_top_z_m + 0.003
             area_lines: list[Line] = []
             for origin in self._scene.env_origins.tolist():
@@ -585,24 +582,19 @@ class ScenePreviewOverlay:
 
 def main() -> None:
     scene_config = load_config(args.config, SceneConfig, asset_root=args.asset_root)
-    placement_context = PlacementContext.from_scene_config(scene_config)
-    left_profile = load_config(
-        args.left_robot_config,
+    robot_config = load_config(
+        args.robot_config,
         RobotConfig,
         asset_root=args.asset_root,
     )
-    right_profile = load_config(
-        args.right_robot_config,
-        RobotConfig,
-        asset_root=args.asset_root,
-    )
+    placement_context = PlacementContext.from_configs(scene_config, robot_config)
     runtime_config = load_config(args.env_config, EnvironmentConfig)
     task = load_task(
         args.task, project_root=PROJECT_ROOT, asset_root=args.asset_root,
         config_path=args.task_config, object_set_path=args.object_set,
     )
     target_placements_env = (
-        task.goal.target_placements(placement_context)
+        task.goal.target_placements(placement_context.table_top_z_m)
         if isinstance(task.goal, FixedPlacementGoal) else {}
     )
     target_positions_m = tuple(
@@ -625,8 +617,7 @@ def main() -> None:
         export_layout.save(args.export_layout)
 
     env = create_env(
-        left_robot_config=left_profile,
-        right_robot_config=right_profile,
+        robot_config=robot_config,
         scene_config=scene_config,
         simulation_config=sim_config,
         environment_config=runtime_config,
@@ -643,7 +634,7 @@ def main() -> None:
             ScenePreviewOverlay(
                 env.scene,
                 scene_config,
-                {"left": left_profile, "right": right_profile},
+                robot_config,
                 target_positions_m,
                 camera_frustum_length_m,
                 args.workspace_samples,
@@ -666,7 +657,7 @@ def main() -> None:
         runtime_descriptor = io_descriptors["runtime"]
         print(
             f"Loaded {preview_name} from {args.config} with "
-            f"{left_profile.name} (left) and {right_profile.name} (right). "
+            f"{robot_config.name} on both arms. "
             f"Environment runs at {runtime_descriptor['step_frequency_hz']:g} Hz over "
             f"{runtime_descriptor['physics_frequency_hz']:g} Hz physics from "
             f"{args.sim_config}. {layout_message}Close the window to exit."
@@ -696,18 +687,11 @@ def main() -> None:
         action = env.action_manager.action.new_zeros(
             (env.num_envs, env.action_manager.total_action_dim)
         )
-        action_profiles = {
-            "left_arm": left_profile,
-            "left_gripper": left_profile,
-            "right_arm": right_profile,
-            "right_gripper": right_profile,
-        }
         for descriptor in io_descriptors["actions"]:
-            profile = action_profiles[descriptor["name"]]
             action_slice = slice(*descriptor["slice"])
             action[:, action_slice] = action.new_tensor(
                 [
-                    profile.initial_joint_positions[joint_name]
+                    robot_config.initial_joint_positions[joint_name]
                     for joint_name in descriptor["joint_names"]
                 ]
             )

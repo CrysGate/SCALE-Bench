@@ -27,8 +27,7 @@ class ActionsCfg:
 
 def build_actions_cfg(
     *,
-    left_robot_config: RobotConfig,
-    right_robot_config: RobotConfig,
+    robot_config: RobotConfig,
     arm_action_mode: ArmActionMode,
 ) -> ActionsCfg:
     """Build action term configs in their fixed public order."""
@@ -36,10 +35,10 @@ def build_actions_cfg(
     if arm_action_mode != "joint_position":
         raise ValueError(f"unsupported arm action mode: {arm_action_mode}")
     return ActionsCfg(
-        left_arm=_arm_action_cfg("left_robot", left_robot_config),
-        left_gripper=_gripper_action_cfg("left_robot", left_robot_config),
-        right_arm=_arm_action_cfg("right_robot", right_robot_config),
-        right_gripper=_gripper_action_cfg("right_robot", right_robot_config),
+        left_arm=_arm_action_cfg("left_robot", robot_config),
+        left_gripper=_gripper_action_cfg("left_robot", robot_config),
+        right_arm=_arm_action_cfg("right_robot", robot_config),
+        right_gripper=_gripper_action_cfg("right_robot", robot_config),
     )
 
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
 from dataclasses import asdict
 
 from scale_bench.config.models.robot import RobotConfig
@@ -40,7 +39,7 @@ class IsaacLabSkillContext:
         env: ScaleBenchEnv,
         task: Task,
         scene_config: SceneConfig,
-        robot_configs: Mapping[Arm, RobotConfig],
+        robot_config: RobotConfig,
         *,
         env_id: int,
     ) -> None:
@@ -60,15 +59,23 @@ class IsaacLabSkillContext:
         self._tcp_body_indices = {}
         self._arm_joint_indices = {}
         self._gripper_joint_indices = {}
-        self._gripper_configs = {
-            arm: robot_config.gripper for arm, robot_config in robot_configs.items()
-        }
-        self._tcp_poses_ee_body = {}
-        self._camera_positions_tcp_m = {}
+        self._gripper_config = robot_config.gripper
+        kinematics = robot_config.kinematics
+        tcp = kinematics.tcp
+        tcp_parent_pose_ee_body = fixed_urdf_frame_pose(
+            robot_config.urdf_path,
+            kinematics.ee_body,
+            tcp.parent_frame,
+        )
+        self._tcp_pose_ee_body = compose_pose(
+            tcp_parent_pose_ee_body,
+            Pose(tcp.position_m, tcp.orientation_xyzw),
+        )
+        self._camera_position_tcp_m = camera_position_tcp_m(
+            robot_config,
+            inverse_pose(self._tcp_pose_ee_body),
+        )
         for arm in ("left", "right"):
-            robot_config = robot_configs[arm]
-            kinematics = robot_config.kinematics
-            tcp = kinematics.tcp
             robot = env.scene[f"{arm}_robot"]
             body_indices, body_names = robot.find_bodies(kinematics.ee_body)
             if len(body_indices) != 1 or body_names != [kinematics.ee_body]:
@@ -76,11 +83,6 @@ class IsaacLabSkillContext:
                     f"{arm} robot EE body {kinematics.ee_body!r} did not "
                     "resolve to exactly one articulation body"
                 )
-            tcp_parent_pose_ee_body = fixed_urdf_frame_pose(
-                robot_config.urdf_path,
-                kinematics.ee_body,
-                tcp.parent_frame,
-            )
             self._tcp_body_indices[arm] = body_indices[0]
             joint_indices, joint_names = robot.find_joints(
                 kinematics.arm_joint_names,
@@ -97,15 +99,7 @@ class IsaacLabSkillContext:
             if tuple(gripper_names) != gripper.joint_names:
                 raise ValueError(f"{arm} robot gripper joints do not match its profile")
             self._gripper_joint_indices[arm] = gripper_indices
-            self._tcp_poses_ee_body[arm] = compose_pose(
-                tcp_parent_pose_ee_body,
-                Pose(tcp.position_m, tcp.orientation_xyzw),
-            )
-            self._camera_positions_tcp_m[arm] = camera_position_tcp_m(
-                robot_config,
-                inverse_pose(self._tcp_poses_ee_body[arm]),
-            )
-        self._grasps = IsaacLabGraspCandidates(task, robot_configs)
+        self._grasps = IsaacLabGraspCandidates(task, robot_config)
 
     def snapshot(self) -> SceneSnapshot:
         """Read current robot, static-scene, and task-object geometry."""
@@ -134,7 +128,7 @@ class IsaacLabSkillContext:
         """Measure the live object-to-TCP relation after gripper settling."""
 
         aperture_m = self._gripper_aperture_m(arm)
-        minimum_aperture_m = self._gripper_configs[arm].minimum_grasp_aperture_m
+        minimum_aperture_m = self._gripper_config.minimum_grasp_aperture_m
         if aperture_m < minimum_aperture_m:
             raise SegmentError(
                 arm, "measure_grasp", FailureCode.GRASP_FAILED,
@@ -170,12 +164,12 @@ class IsaacLabSkillContext:
         ]
         joint_positions = dict(
             zip(
-                self._gripper_configs[arm].joint_names,
+                self._gripper_config.joint_names,
                 positions.detach().cpu().tolist(),
                 strict=True,
             )
         )
-        return self._gripper_configs[arm].aperture_m(joint_positions)
+        return self._gripper_config.aperture_m(joint_positions)
 
     def _robot_state(self, arm: Arm) -> RobotState:
         robot = self._env.scene[f"{arm}_robot"]
@@ -189,10 +183,10 @@ class IsaacLabSkillContext:
         return RobotState(
             JointState(joints),
             self._tcp_pose_env(arm),
-            self._camera_positions_tcp_m[arm],
+            self._camera_position_tcp_m,
             dict(
                 zip(
-                    self._gripper_configs[arm].joint_names,
+                    self._gripper_config.joint_names,
                     robot.data.joint_pos.torch[
                         self._env_id, self._gripper_joint_indices[arm]
                     ].detach().cpu().tolist(),
@@ -215,7 +209,7 @@ class IsaacLabSkillContext:
             tuple(ee_body_position_env_m.detach().cpu().tolist()),
             tuple(ee_body_orientation_env_xyzw.detach().cpu().tolist()),
         )
-        return compose_pose(ee_body_pose_env, self._tcp_poses_ee_body[arm])
+        return compose_pose(ee_body_pose_env, self._tcp_pose_ee_body)
 
     def _object_pose_env(self, object_name: str) -> Pose:
         if object_name not in self._object_sizes_m:

@@ -80,13 +80,12 @@ uv run python scripts/run_demo_generation.py \
 
 ## 使用 Franka Panda
 
-`configs/robots/franka_panda.yml` 使用 `Assets/Robots/franka_panda/` 中的原装双指夹爪和腕部 D435。预览时分别指定左右臂配置：
+`configs/robots/franka_panda.yml` 使用 `Assets/Robots/franka_panda/` 中的原装双指夹爪和腕部 D435。默认桌面为 2.0 × 1.6 m。预览时指定机器人配置：
 
 ```bash
 uv run python scripts/preview_scene.py \
   --task single_object_pick_and_place \
-  --left-robot-config configs/robots/franka_panda.yml \
-  --right-robot-config configs/robots/franka_panda.yml
+  --robot-config configs/robots/franka_panda.yml
 ```
 
 无界面验证关节动作和 RGB-D 录制：

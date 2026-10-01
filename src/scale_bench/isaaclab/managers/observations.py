@@ -53,16 +53,15 @@ class ObservationsCfg:
 
 def build_observations_cfg(
     *,
-    left_robot_config: RobotConfig,
-    right_robot_config: RobotConfig,
+    robot_config: RobotConfig,
     scene_cfg: InteractiveSceneCfg,
     evaluator_terms: Mapping[str, ObservationTermCfg],
 ) -> ObservationsCfg:
     """Build fixed policy terms and required task-specific evaluator terms."""
 
     terms = {
-        **_robot_observation_terms("left", left_robot_config),
-        **_robot_observation_terms("right", right_robot_config),
+        **_robot_observation_terms("left", robot_config),
+        **_robot_observation_terms("right", robot_config),
     }
     camera_names = [
         name for name, cfg in vars(scene_cfg).items() if isinstance(cfg, CameraCfg)
