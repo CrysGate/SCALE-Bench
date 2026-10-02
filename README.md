@@ -16,7 +16,7 @@ Seeds and layout files reproduce task scenes. YAML files configure robots, camer
 
 ## Getting Started
 
-Complete the [environment and asset setup](https://crysgate.github.io/SCALE-Bench/getting-started/#environment) first (guide in Chinese). Assets are hosted in [ScaleBench-Data](https://modelscope.cn/datasets/CrysGate/ScaleBench-Data) and linked into the project root as `Assets`.
+Complete the [environment and asset setup](https://crysgate.github.io/SCALE-Bench/getting-started/#environment) first (guide in Chinese).
 
 Preview the single-object task:
 

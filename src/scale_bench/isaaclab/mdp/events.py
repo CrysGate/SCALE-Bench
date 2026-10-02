@@ -121,11 +121,8 @@ def synchronize_tensor_pose_resets_for_rtx(
 ) -> None:
     """Publish reset-time tensor pose writes before the first RTX frame.
 
-    Isaac Sim 6.0 does not finalize PhysX tensor pose writes for Fabric in
-    ``SimulationContext.forward()``.  The native update keeps Isaac Lab's
-    public physics-step count unchanged while making the reset poses available
-    to the subsequent Fabric forward and RTX render. Native PhysX step
-    callbacks still run; SCALE-Bench does not attach episode logic to them.
+    Isaac Sim 6.0 requires a native PhysX update to publish tensor poses to
+    Fabric/RTX. It runs PhysX callbacks without advancing Isaac Lab's step count.
     """
 
     del env_ids
@@ -141,7 +138,7 @@ def resolve_env_ids(
     env_ids: Sequence[int] | torch.Tensor | slice | None,
     num_envs: int,
 ) -> tuple[int, ...]:
-    """Resolve and strictly validate environment indices."""
+    """Resolve and validate environment indices."""
 
     if env_ids is None:
         return tuple(range(num_envs))

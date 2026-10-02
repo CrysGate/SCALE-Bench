@@ -1,4 +1,4 @@
-"""Assemble the real CuRobo/Isaac skill execution path."""
+"""Assemble CuRobo planning and Isaac skill execution."""
 
 from collections.abc import Mapping, Sequence
 from contextlib import closing

@@ -1,9 +1,4 @@
-"""Read-only geometry with explicit subject-and-reference-frame names.
-
-Geometry follows ``<subject>_<quantity>_<reference_frame>``.  Positions append
-``_m``, orientations append ``_xyzw``, and ``env`` denotes the local frame of
-one parallel environment rather than Isaac Sim's shared absolute world frame.
-"""
+"""Read-only robot, object, and collision geometry for one environment."""
 
 from __future__ import annotations
 

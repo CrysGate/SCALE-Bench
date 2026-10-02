@@ -1,4 +1,4 @@
-"""Order an object collection by height while retaining the public task ID."""
+"""Place objects in slots ordered by increasing height."""
 
 from collections.abc import Iterator
 

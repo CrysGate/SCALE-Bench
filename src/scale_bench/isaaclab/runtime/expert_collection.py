@@ -1,4 +1,4 @@
-"""Collect complete task experts into one recorded dataset."""
+"""Collect task-expert demonstrations into one dataset."""
 
 import logging
 from collections.abc import Iterator, Sequence

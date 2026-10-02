@@ -112,10 +112,9 @@ class SkillSession:
         self, object_name: str, arm: Arm, target_object_pose_env: Pose,
         stage: str, code: FailureCode,
     ) -> None:
-        """Geometric support/release check; final task evaluation checks stability.
+        """Check support and release against the target object pose.
 
-        The requested object height encodes the supporting surface. This is a
-        geometric observation, not a contact-force sensor measurement.
+        Final task evaluation checks stability.
         """
         object_pose_env = self.context.snapshot().object(object_name).pose_env
         planar_error_m = math.dist(object_pose_env.position_m[:2], target_object_pose_env.position_m[:2])

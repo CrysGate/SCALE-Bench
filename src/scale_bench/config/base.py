@@ -31,15 +31,11 @@ class FrozenModel(BaseModel):
 
 
 def require_unique(names: tuple[str, ...], label: str) -> None:
-    """Reject duplicate semantic names while preserving declared ordering."""
-
     if len(names) != len(set(names)):
         raise ValueError(f"{label} contains duplicate names")
 
 
 def require_unit_quaternion(value: Quaternion, field_name: str) -> None:
-    """Validate an XYZW quaternion using the project-wide tolerance."""
-
     norm = math.sqrt(sum(component * component for component in value))
     if not math.isclose(norm, 1.0, abs_tol=1.0e-6):
         raise ValueError(f"{field_name} must be a unit quaternion")

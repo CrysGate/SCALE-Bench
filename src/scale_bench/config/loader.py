@@ -1,4 +1,4 @@
-"""Single YAML/JSON loading, path resolution, and error-wrapping boundary."""
+"""Load YAML/JSON configs, resolve paths, and attach source paths to errors."""
 
 from __future__ import annotations
 

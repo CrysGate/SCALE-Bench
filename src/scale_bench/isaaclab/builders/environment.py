@@ -1,4 +1,4 @@
-"""Compose pure configs and task data into a complete Isaac Lab EnvCfg."""
+"""Compose configuration and task data into an Isaac Lab EnvCfg."""
 
 from __future__ import annotations
 
@@ -67,8 +67,6 @@ def build_environment_cfg(
     num_envs: int | None = None,
     env_spacing_m: float | None = None,
 ) -> ScaleBenchEnvCfg:
-    """Build a complete native environment cfg from resolved inputs."""
-
     if (
         not environment_config.enable_cameras
         and recording_config is not None

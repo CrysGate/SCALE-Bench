@@ -82,8 +82,6 @@ def offset_z_env(
     position_env_m: tuple[float, float, float],
     offset_m: float,
 ) -> tuple[float, float, float]:
-    """Offset an environment-frame position along the environment Z axis."""
-
     return (
         position_env_m[0],
         position_env_m[1],
@@ -110,8 +108,6 @@ def multiply_quaternions_xyzw(
 def conjugate_quaternion_xyzw(
     orientation_xyzw: tuple[float, float, float, float],
 ) -> tuple[float, float, float, float]:
-    """Return the conjugate of an XYZW quaternion."""
-
     return (
         -orientation_xyzw[0],
         -orientation_xyzw[1],
@@ -123,8 +119,6 @@ def conjugate_quaternion_xyzw(
 def normalize_quaternion_xyzw(
     orientation_xyzw: tuple[float, float, float, float],
 ) -> tuple[float, float, float, float]:
-    """Return a unit-length XYZW quaternion."""
-
     norm = math.sqrt(sum(component * component for component in orientation_xyzw))
     if not math.isfinite(norm) or norm <= 1.0e-12:
         raise ValueError("cannot normalize a non-finite or zero quaternion")

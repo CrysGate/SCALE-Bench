@@ -1,8 +1,4 @@
-"""Static robot and scene geometry read offline from USD and URDF assets.
-
-Only ``pxr`` and the standard library are imported here, so callers can
-resolve collision bounds and mounted-camera offsets without launching Kit.
-"""
+"""Read static USD/URDF geometry without launching Isaac Sim."""
 
 from __future__ import annotations
 

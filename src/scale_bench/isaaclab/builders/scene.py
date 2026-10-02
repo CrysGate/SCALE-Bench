@@ -54,8 +54,6 @@ def build_scene_cfg(
     num_envs: int | None = None,
     env_spacing_m: float | None = None,
 ) -> DualArmTabletopSceneCfg:
-    """Return a fresh native scene cfg from already resolved pure configs."""
-
     environment_config = _apply_environment_overrides(
         environment_config,
         num_envs=num_envs,

@@ -35,7 +35,6 @@ class ReplayEnvironment(Protocol):
         seed: int | None = None,
         is_relative: bool = False,
     ) -> tuple[object, dict]: ...
-    """ManagerBasedEnv.reset_to()"""
 
     def step(self, action: Tensor) -> tuple[object, dict]: ...
 
@@ -91,10 +90,9 @@ class EpisodeReplayResult:
 
 
 class EpisodeReplayRunner:
-    """Replay every recorded frame without early termination or re-recording."""
+    """Replay one episode through its last recorded frame, with recording disabled."""
 
     def __init__(self, env: ReplayEnvironment) -> None:
-        """Replay recorded hdf5 episode, support only 1 episode at a time."""
         self._env = env
         self._evaluator = TaskEpisodeEvaluator(
             env.task,

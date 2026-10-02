@@ -1,4 +1,4 @@
-"""Run the policy rollout runtime against a real ScaleBenchEnv."""
+"""Run policy rollouts in ScaleBenchEnv."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ parser.add_argument(
     "--left-joint4-offset-rad",
     type=float,
     default=None,
-    help="Execute one real MoveToJoints command instead of the timed hold policy.",
+    help="Offset the left arm's fourth joint from its reset position, in radians.",
 )
 parser.add_argument(
     "--record-output",
@@ -46,7 +46,7 @@ parser.add_argument(
     "--camera-config",
     type=Path,
     default=Path("configs/cameras/d435_smoke.yml"),
-    help="Low-memory RGB-D profile used by the real multi-env smoke run.",
+    help="Camera profile for RGB-D observations.",
 )
 parser.add_argument(
     "--sim-config",
@@ -362,6 +362,6 @@ if __name__ == "__main__":
         try:
             simulation_app.close(exit_code=exit_code)
         except SystemExit:
-            # Older Isaac Sim builds may use SystemExit during shutdown.
+            # Preserve the script's exit status if Isaac Sim exits during close.
             pass
     raise SystemExit(exit_code)

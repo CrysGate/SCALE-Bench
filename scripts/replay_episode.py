@@ -251,6 +251,6 @@ if __name__ == "__main__":
         try:
             simulation_app.close(exit_code=exit_code)
         except SystemExit:
-            # Older Isaac Sim builds may use SystemExit during shutdown.
+            # Preserve the script's exit status if Isaac Sim exits during close.
             pass
     raise SystemExit(exit_code)

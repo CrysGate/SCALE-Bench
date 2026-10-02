@@ -1,4 +1,4 @@
-"""Collect complete task experts into an HDF5 demonstration dataset."""
+"""Collect task-expert demonstrations into HDF5."""
 
 import argparse
 import csv
@@ -68,8 +68,6 @@ def _merge_recordings(workers: list[dict[str, Any]], dataset_path: Path) -> dict
                     ):
                         raise ValueError("GPU recordings have incompatible format or simulation settings")
                     for name, episode in source_data.items():
-                        # HDF5 copies compressed datasets directly, including camera observations.
-                        # Duplicate episode names raise instead of overwriting another worker's data.
                         source.copy(episode, merged_data, name=name)
                         total_samples += int(episode.attrs["num_samples"])
                 with Path(result["segments_path"]).open() as source_segments:
@@ -219,7 +217,7 @@ def _run_on_gpus(args: argparse.Namespace, parser: argparse.ArgumentParser) -> i
         while pending:
             for rank in tuple(pending):
                 return_code = processes[rank].poll()
-                if return_code is None:  # This worker is still collecting its assigned episodes.
+                if return_code is None:
                     continue
                 pending.remove(rank)
                 worker = workers[rank]

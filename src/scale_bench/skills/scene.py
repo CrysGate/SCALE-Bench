@@ -22,7 +22,7 @@ def _scene(
 
 
 def world_scene(snapshot: SceneSnapshot, arm: Arm) -> PlanningScene:
-    """Empty tool; all objects, including actually released objects, collide."""
+    """Empty tool with collision checks against all scene objects."""
     return _scene(snapshot, arm, (), EmptyTool(), check_finger_collision=True)
 
 

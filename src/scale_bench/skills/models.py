@@ -12,11 +12,10 @@ ArmSelection: TypeAlias = Arm | Literal["auto"]
 
 @dataclass(frozen=True, slots=True)
 class Pose:
-    """Frame-agnostic position and orientation.
+    """Position and orientation in the frame named by ``<subject>_pose_<frame>``.
 
-    Variables carrying a pose use ``<subject>_pose_<reference_frame>``; for
-    example, ``tcp_pose_object`` is the TCP pose expressed in the object frame.
-    ``env`` always means one environment's local world frame.
+    For example, ``tcp_pose_object`` expresses the TCP in the object frame;
+    ``env`` denotes one environment's local world frame.
     """
 
     position_m: tuple[float, float, float]
