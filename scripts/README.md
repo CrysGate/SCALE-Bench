@@ -239,16 +239,17 @@ uv run python scripts/render_asset_views.py \
 
 ## 从单图生成物体四视图
 
-先按[环境安装](https://crysgate.github.io/SCALE-Bench/getting-started/#environment)执行 `uv sync --frozen`，再下载 [Qwen-Image-Edit-2511](https://huggingface.co/Qwen/Qwen-Image-Edit-2511) 权重到项目的 `models/` 目录：
+先按[环境安装](https://crysgate.github.io/SCALE-Bench/getting-started/#environment)准备项目，再安装四视图依赖并下载 [Qwen-Image-Edit-2511](https://huggingface.co/Qwen/Qwen-Image-Edit-2511) 权重到项目的 `models/` 目录：
 
 ```bash
-uv run hf download Qwen/Qwen-Image-Edit-2511 --local-dir models/Qwen-Image-Edit-2511
+uv sync --frozen --extra qwen-views
+uv run --extra qwen-views hf download Qwen/Qwen-Image-Edit-2511 --local-dir models/Qwen-Image-Edit-2511
 ```
 
 也可以把已有的权重目录软链接为 `models/Qwen-Image-Edit-2511`。模型约 54 GB；权重和生成结果均不纳入 Git。
 
 ```bash
-PYTORCH_ALLOC_CONF=expandable_segments:True uv run python src/qwen_image_edit_views/generate_object_views.py \
+PYTORCH_ALLOC_CONF=expandable_segments:True uv run --extra qwen-views python src/qwen_image_edit_views/generate_object_views.py \
   --input path/to/front.png \
   --output_dir outputs/object_views \
   --local-files-only \

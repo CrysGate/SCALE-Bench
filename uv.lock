@@ -4143,8 +4143,6 @@ name = "scale-bench"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "accelerate" },
-    { name = "diffusers" },
     { name = "isaaclab" },
     { name = "isaaclab-assets" },
     { name = "isaaclab-contrib" },
@@ -4170,13 +4168,19 @@ dependencies = [
     { name = "torch" },
     { name = "torchaudio" },
     { name = "torchvision" },
+]
+
+[package.optional-dependencies]
+qwen-views = [
+    { name = "accelerate" },
+    { name = "diffusers" },
     { name = "transformers" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "accelerate", specifier = "==1.15.0" },
-    { name = "diffusers", specifier = "==0.39.0" },
+    { name = "accelerate", marker = "extra == 'qwen-views'", specifier = "==1.15.0" },
+    { name = "diffusers", marker = "extra == 'qwen-views'", specifier = "==0.39.0" },
     { name = "isaaclab", editable = "third_parties/IsaacLab/source/isaaclab" },
     { name = "isaaclab-assets", editable = "third_parties/IsaacLab/source/isaaclab_assets" },
     { name = "isaaclab-contrib", editable = "third_parties/IsaacLab/source/isaaclab_contrib" },
@@ -4202,8 +4206,9 @@ requires-dist = [
     { name = "torch", specifier = "==2.10.0", index = "https://download.pytorch.org/whl/cu128" },
     { name = "torchaudio", specifier = "==2.10.0", index = "https://download.pytorch.org/whl/cu128" },
     { name = "torchvision", specifier = "==0.25.0", index = "https://download.pytorch.org/whl/cu128" },
-    { name = "transformers", specifier = "==4.57.6" },
+    { name = "transformers", marker = "extra == 'qwen-views'", specifier = "==4.57.6" },
 ]
+provides-extras = ["qwen-views"]
 
 [[package]]
 name = "scikit-image"

@@ -9,9 +9,6 @@ dependencies = [
     "torch==2.10.0",
     "torchaudio==2.10.0",
     "torchvision==0.25.0",
-    "transformers==4.57.6",
-    "diffusers==0.39.0",
-    "accelerate==1.15.0",
     "modelscope",
     "pymeshlab",
     "nvidia-curobo[cu12]",
@@ -33,6 +30,13 @@ dependencies = [
     "pyyaml",
     "rich",
     "nicegui",
+]
+
+[project.optional-dependencies]
+qwen-views = [
+    "transformers==4.57.6",
+    "diffusers==0.39.0",
+    "accelerate==1.15.0",
 ]
 
 [build-system]
