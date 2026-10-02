@@ -172,6 +172,31 @@ uv run python scripts/run_skill_debug.py \
 
 多物体任务中，可用 `--object-name` 指定目标；只检查抓取时使用 `--program pick`。
 
+## 查看夹爪开合与 CuRobo 碰撞球
+
+打开实时检查窗口：
+
+```bash
+uv run python scripts/inspect_gripper_collision.py \
+  --robot-config configs/robots/ur5e.yml
+```
+
+依次检查四种机械臂，关闭当前窗口后启动下一种：
+
+```bash
+for robot in piper x5 franka_panda ur5e; do
+  uv run python scripts/inspect_gripper_collision.py \
+    --robot-config "configs/robots/${robot}.yml" || break
+done
+```
+
+自动验证张开、半闭合、闭合三个状态及双臂规划执行：
+
+```bash
+uv run python scripts/inspect_gripper_collision.py \
+  --robot-config configs/robots/ur5e.yml --validate
+```
+
 ## 手动检查机械臂关节
 
 ```bash
@@ -220,7 +245,8 @@ uv run python scripts/render_asset_views.py \
 uv run python scripts/generate_curobo_robot_config.py \
   --robot-config configs/robots/piper.yml \
   --output configs/robots/curobo/piper.yml \
-  --refit-link link8:2.0
+  --refit-link link8:2.0 \
+  --ignore-collision-pair link7:link8
 ```
 
 检查碰撞球拟合质量时加 `--export-metrics`，对接使用 XRDF 的工具时加 `--export-xrdf`。
@@ -232,7 +258,8 @@ uv run python scripts/generate_curobo_robot_config.py \
   --robot-config configs/robots/franka_panda.yml \
   --output configs/robots/curobo/franka_panda.yml \
   --use-collision-mesh --sphere-density 2 \
-  --convex-fit-link camera
+  --convex-fit-link camera \
+  --ignore-collision-pair panda_leftfinger:panda_rightfinger
 ```
 
 UR5e 为相机支架提高拟合密度，并排除夹爪联动产生的接触对：

@@ -447,6 +447,8 @@ kinematics:
     link7:
     - link6
     - attached_object
+    # Opposing fingers may touch at the closed joint limit.
+    - link8
     link8:
     - link6
     - attached_object
