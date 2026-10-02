@@ -100,6 +100,26 @@ uv run python scripts/run_policy_rollout.py \
   --viz none
 ```
 
+## 使用 UR5e
+
+UR5e 搭载 Robotiq 2F-85 夹爪和腕部 D435。预览时指定机器人配置：
+
+```bash
+uv run python scripts/preview_scene.py \
+  --task single_object_pick_and_place \
+  --robot-config configs/robots/ur5e.yml
+```
+
+无界面验证关节动作：
+
+```bash
+uv run python scripts/run_policy_rollout.py \
+  --task single_object_pick_and_place \
+  --robot-config configs/robots/ur5e.yml \
+  --left-joint4-offset-rad 0.1 \
+  --viz none
+```
+
 ## 浏览与回放数据
 
 在浏览器中检查关节轨迹、逐帧数据和相机观测：
@@ -213,4 +233,21 @@ uv run python scripts/generate_curobo_robot_config.py \
   --output configs/robots/curobo/franka_panda.yml \
   --use-collision-mesh --sphere-density 2 \
   --convex-fit-link camera
+```
+
+UR5e 为相机支架提高拟合密度，并排除夹爪联动产生的接触对：
+
+```bash
+uv run python scripts/generate_curobo_robot_config.py \
+  --robot-config configs/robots/ur5e.yml \
+  --output configs/robots/curobo/ur5e.yml \
+  --base-collision-link base_link_inertia \
+  --use-collision-mesh --sphere-density 2 \
+  --refit-link camera_base:20 \
+  --ignore-collision-pair robotiq_85_base_link:robotiq_85_left_finger_link \
+  --ignore-collision-pair robotiq_85_right_inner_knuckle_link:robotiq_85_right_knuckle_link \
+  --ignore-collision-pair robotiq_85_left_finger_tip_link:robotiq_85_right_finger_tip_link \
+  --ignore-collision-pair robotiq_85_left_finger_tip_link:robotiq_85_right_inner_knuckle_link \
+  --ignore-collision-pair robotiq_85_left_inner_knuckle_link:robotiq_85_right_finger_tip_link \
+  --ignore-collision-pair robotiq_85_left_inner_knuckle_link:robotiq_85_right_inner_knuckle_link
 ```

@@ -109,7 +109,7 @@ class CuroboMotionPlanner:
         )
 
     def _initialize_gripper_transforms(self, robot_config: RobotConfig) -> None:
-        """Keep zero-opening transforms for the robot's prismatic fingers."""
+        """Keep reference transforms for locked prismatic and revolute fingers."""
         kinematics = self._planner.kinematics.config.kinematics_config
         # MotionPlannerCfg.create shares one RobotCfg among all solver rollouts.
         for solver in (self._planner.ik_solver, self._planner.graph_planner):
@@ -120,9 +120,12 @@ class CuroboMotionPlanner:
             for joint in ET.parse(robot_config.urdf_path).getroot().findall("joint")
         }
         self._gripper_mimics: dict[str, tuple[str, float, float]] = {}
-        self._gripper_transforms: list[tuple[str, int, Tensor, Tensor]] = []
+        self._gripper_transforms: list[tuple[str, int, str, float, Tensor, Tensor]] = []
         for name in robot_config.gripper.joint_names:
             joint = joints[name]
+            joint_type = joint.attrib["type"]
+            if joint_type not in {"prismatic", "revolute"}:
+                raise ValueError(f"unsupported gripper joint type: {joint_type}")
             mimic = joint.find("mimic")
             reference_position = robot_config.initial_joint_positions[name]
             if mimic is not None:
@@ -142,9 +145,11 @@ class CuroboMotionPlanner:
                     [float(value) for value in joint.find("axis").attrib["xyz"].split()]
                 )
             )
-            finger_transform_parent[:, 3] -= reference_position * finger_axis_parent
             self._gripper_transforms.append(
-                (name, link_index, finger_transform_parent, finger_axis_parent)
+                (
+                    name, link_index, joint_type, reference_position,
+                    finger_transform_parent, finger_axis_parent,
+                )
             )
 
     def _sync_gripper(self, joint_positions: Mapping[str, float]) -> None:
@@ -153,18 +158,38 @@ class CuroboMotionPlanner:
         for (
             name,
             link_index,
+            joint_type,
+            reference_position,
             finger_transform_parent,
             finger_axis_parent,
         ) in self._gripper_transforms:
             if name in joint_positions:
-                finger_joint_position_m = joint_positions[name]
+                joint_position = joint_positions[name]
             else:
                 master, multiplier, offset = self._gripper_mimics[name]
-                finger_joint_position_m = joint_positions[master] * multiplier + offset
+                joint_position = joint_positions[master] * multiplier + offset
+            displacement = joint_position - reference_position
             # In-place updates preserve the buffers captured by CUDA graphs.
-            kinematics.fixed_transforms[link_index, :, 3].copy_(
-                finger_transform_parent[:, 3] + finger_joint_position_m * finger_axis_parent
-            )
+            if joint_type == "prismatic":
+                kinematics.fixed_transforms[link_index, :, 3].copy_(
+                    finger_transform_parent[:, 3] + displacement * finger_axis_parent
+                )
+            else:
+                finger_reference_orientation_parent = finger_transform_parent[:, :3]
+                finger_axis_parent_column = finger_axis_parent.unsqueeze(-1)
+                finger_orientation_parent = (
+                    math.cos(displacement) * finger_reference_orientation_parent
+                    + math.sin(displacement)
+                    * torch.linalg.cross(
+                        finger_axis_parent_column.expand_as(finger_reference_orientation_parent),
+                        finger_reference_orientation_parent,
+                        dim=0,
+                    )
+                    + (1.0 - math.cos(displacement))
+                    * finger_axis_parent_column
+                    @ (finger_axis_parent_column.T @ finger_reference_orientation_parent)
+                )
+                kinematics.fixed_transforms[link_index, :, :3].copy_(finger_orientation_parent)
         locked_joint_state = kinematics.lock_jointstate
         for index, name in enumerate(locked_joint_state.joint_names):
             locked_joint_state.position[..., index] = joint_positions[name]
