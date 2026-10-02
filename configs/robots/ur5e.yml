@@ -21,8 +21,8 @@ task_object_placement_area:
 initial_joint_positions:
   shoulder_pan_joint: 0.0
   shoulder_lift_joint: -1.57079632679
-  elbow_joint: 1.57079632679
-  wrist_1_joint: -1.57079632679
+  elbow_joint: 0.8
+  wrist_1_joint: -1.0
   wrist_2_joint: -1.57079632679
   wrist_3_joint: 0.0
   finger_joint: 0.0
