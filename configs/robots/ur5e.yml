@@ -1,0 +1,83 @@
+name: ur5e
+usd_path: Assets/Robots/ur5e/ur5e_with_gripper.usda
+urdf_path: Assets/Robots/ur5e/ur5e_with_gripper.urdf
+curobo_config_path: curobo/ur5e.yml
+fixed_base: true
+disable_gravity: false
+self_collisions: false
+
+robot_mounts:
+  left:
+    position_xy_m: [-0.5, -0.45]
+    orientation_xyzw: [0.0, 0.0, 0.70710678, 0.70710678]
+  right:
+    position_xy_m: [0.5, -0.45]
+    orientation_xyzw: [0.0, 0.0, 0.70710678, 0.70710678]
+
+task_object_placement_area:
+  x_range_m: [-0.80, 0.80]
+  y_range_m: [-0.20, 0.32]
+
+initial_joint_positions:
+  shoulder_pan_joint: 0.0
+  shoulder_lift_joint: -1.57079632679
+  elbow_joint: 1.57079632679
+  wrist_1_joint: -1.57079632679
+  wrist_2_joint: -1.57079632679
+  wrist_3_joint: 0.0
+  finger_joint: 0.0
+  right_outer_knuckle_joint: 0.0
+  left_inner_finger_joint: 0.0
+  right_inner_finger_joint: 0.0
+  left_inner_finger_knuckle_joint: 0.0
+  right_inner_finger_knuckle_joint: 0.0
+
+kinematics:
+  base_body: base_link
+  arm_joint_names: [shoulder_pan_joint, shoulder_lift_joint, elbow_joint, wrist_1_joint, wrist_2_joint, wrist_3_joint]
+  ee_body: wrist_3_link
+  tcp:
+    parent_frame: wrist_3_link
+    # Centre of the finger pads; +Z approaches and +Y spans the opening.
+    position_m: [0.0, 0.0, 0.14]
+    orientation_xyzw: [0.0, 0.0, -0.70710678, 0.70710678]
+
+actuators:
+  arm:
+    joint_names: [shoulder_pan_joint, shoulder_lift_joint, elbow_joint, wrist_1_joint, wrist_2_joint, wrist_3_joint]
+    stiffness: null
+    damping: null
+    effort_limit_sim: null
+    velocity_limit_sim: null
+  gripper:
+    joint_names: [finger_joint]
+    stiffness: null
+    damping: null
+    effort_limit_sim: null
+    velocity_limit_sim: null
+
+gripper:
+  joint_names: [finger_joint, right_outer_knuckle_joint, left_inner_finger_joint, right_inner_finger_joint, left_inner_finger_knuckle_joint, right_inner_finger_knuckle_joint]
+  command_joint_names: [finger_joint]
+  finger_body_names: [robotiq_85_left_finger_tip_link, robotiq_85_right_finger_tip_link]
+  min_aperture_m: 0.0
+  max_aperture_m: 0.0871
+  # Derived from the URDF outer linkage and the USD inner pad surfaces.
+  revolute_aperture:
+    joint_names: [finger_joint, right_outer_knuckle_joint]
+    offset_m: 0.01277687
+    cosine_m: 0.03715998
+    sine_m: -0.04343001
+  minimum_grasp_aperture_m: 0.002
+  closed_positions:
+    finger_joint: 0.8203047484373349
+  open_positions:
+    finger_joint: 0.0
+
+camera:
+  profile_path: ../cameras/d435.yml
+  parent_prim_path: wrist_3_link/camera_base/camera
+  sensor_prim_name: D435Sensor
+  position_m: [0.001, 0.0, 0.0]
+  orientation_xyzw: [0.5, -0.5, -0.5, 0.5]
+  convention: opengl

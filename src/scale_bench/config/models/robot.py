@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from typing import Annotated, Self, TypeAlias
 
@@ -112,13 +113,29 @@ class ImplicitActuatorConfig(FrozenModel):
         return self
 
 
+class RevoluteGripperApertureConfig(FrozenModel):
+    """Symmetric finger linkage: offset + sum(cosine*cos(q) + sine*sin(q)).
+
+    Robotiq's two outer-knuckle angles are in radians; the coefficients are
+    the URDF linkage lengths and the inner pad offset, in metres.
+    """
+
+    joint_names: tuple[Name, Name]
+    offset_m: FiniteFloat
+    cosine_m: FiniteFloat
+    sine_m: FiniteFloat
+
+
 class ParallelJawGripperConfig(FrozenModel):
     joint_names: JointNames
     command_joint_names: JointNames
     finger_body_names: tuple[Name, Name]
     min_aperture_m: NonNegativeFloat
     max_aperture_m: PositiveFloat
-    aperture_joint_multipliers: dict[str, FiniteFloat]
+    # Prismatic fingers use linear multipliers. Revolute linkages instead
+    # supply revolute_aperture; None means the existing prismatic model.
+    aperture_joint_multipliers: dict[str, FiniteFloat] = Field(default_factory=dict)
+    revolute_aperture: RevoluteGripperApertureConfig | None = None
     minimum_grasp_aperture_m: PositiveFloat
     closed_positions: dict[str, FiniteFloat]
     open_positions: dict[str, FiniteFloat]
@@ -142,7 +159,13 @@ class ParallelJawGripperConfig(FrozenModel):
 
         state_joints = set(self.joint_names)
         command_joints = set(self.command_joint_names)
-        if set(self.aperture_joint_multipliers) != state_joints:
+        if self.revolute_aperture is not None:
+            require_unique(self.revolute_aperture.joint_names, "aperture joint_names")
+            if not set(self.revolute_aperture.joint_names) <= state_joints:
+                raise ValueError("revolute aperture references unknown gripper joints")
+            if self.aperture_joint_multipliers:
+                raise ValueError("revolute aperture cannot use prismatic multipliers")
+        elif set(self.aperture_joint_multipliers) != state_joints:
             raise ValueError(
                 "aperture_joint_multipliers must exactly cover gripper joint_names"
             )
@@ -168,10 +191,18 @@ class ParallelJawGripperConfig(FrozenModel):
     def aperture_m(self, joint_positions: Mapping[str, float]) -> float:
         """Return the finger opening for one full gripper joint state.
 
-        ``joint_positions`` must cover ``joint_names`` (command joints plus
-        their mimics) because every state joint contributes to the opening.
+        ``joint_positions`` covers the measured command and mimic joints.
+        Prismatic joint states are in metres; revolute states are in radians.
         """
 
+        if self.revolute_aperture is not None:
+            linkage = self.revolute_aperture
+            aperture_m = linkage.offset_m + sum(
+                linkage.cosine_m * math.cos(joint_positions[name])
+                + linkage.sine_m * math.sin(joint_positions[name])
+                for name in linkage.joint_names
+            )
+            return min(self.max_aperture_m, max(self.min_aperture_m, aperture_m))
         return self.min_aperture_m + sum(
             joint_positions[name] * self.aperture_joint_multipliers[name]
             for name in self.joint_names

@@ -34,6 +34,7 @@ from curobo.types import DeviceCfg
 
 from scale_bench.config.models.robot import RobotConfig
 from scale_bench.isaaclab.runtime.robot_geometry import fixed_urdf_frame_pose
+from scale_bench.skills.geometry import rotate_vector_xyzw
 
 DEFAULT_PROFILE = PROJECT_ROOT / "configs/robots/piper.yml"
 DEFAULT_OUTPUT = PROJECT_ROOT / "configs/robots/curobo/piper.yml"
@@ -43,6 +44,11 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("--robot-config", type=Path, default=DEFAULT_PROFILE)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--base-collision-link",
+        help="URDF link carrying the fixed base geometry (e.g. UR5e's base_link_inertia); "
+        "omit when the configured base body carries the geometry.",
+    )
     parser.add_argument(
         "--export-xrdf",
         action="store_true",
@@ -119,6 +125,20 @@ def main() -> int:
     robot_config = _load_source_robot_config(args.robot_config)
     if robot_config.urdf_path is None:
         raise ValueError("RobotConfig must reference an authoritative URDF")
+    args.base_collision_link = args.base_collision_link or robot_config.kinematics.base_body
+    base_collision_pose_base = fixed_urdf_frame_pose(
+        robot_config.urdf_path,
+        robot_config.kinematics.base_body,
+        args.base_collision_link,
+    )
+    if not (
+        np.isclose(base_collision_pose_base.position_m[2], 0.0)
+        and np.allclose(
+            rotate_vector_xyzw(base_collision_pose_base.orientation_xyzw, (0.0, 0.0, 1.0)),
+            (0.0, 0.0, 1.0),
+        )
+    ):
+        raise ValueError("base collision link must share the base body's Z=0 mounting plane")
 
     device_cfg = DeviceCfg(device=args.device, dtype=torch.float32)
     builder = RobotBuilder(
@@ -144,7 +164,7 @@ def main() -> int:
             # The fixed base intentionally contacts the mounting surface.  Remove
             # spheres below that surface instead of teaching the planner to ignore
             # the entire table.
-            clip_links={robot_config.kinematics.base_body: ("z", 0.0)},
+            clip_links={args.base_collision_link: ("z", 0.0)},
         )
         for index, refit in enumerate(args.refit_link):
             link_name, density = _parse_refit(refit)
@@ -186,7 +206,7 @@ def main() -> int:
         _remove_stale_refit_ignores(document, builder, args.refit_link)
         _clip_link_spheres(
             document["kinematics"]["collision_spheres"][
-                robot_config.kinematics.base_body
+                args.base_collision_link
             ],
             axis=2,
             offset=0.0,
@@ -203,7 +223,7 @@ def main() -> int:
 
     _validate_metrics(
         link_metrics,
-        base_link=robot_config.kinematics.base_body,
+        base_link=args.base_collision_link,
         min_coverage=args.min_link_coverage,
         max_mean_protrusion_m=args.max_mean_protrusion_m,
         max_mean_surface_gap_m=args.max_mean_surface_gap_m,
@@ -701,7 +721,7 @@ def _metrics_document(
         "refit_links": list(args.refit_link),
         "convex_fit_links": list(args.convex_fit_link),
         "ignored_collision_pairs": list(args.ignore_collision_pair),
-        "base_mount_clip": {robot_config.kinematics.base_body: ["z", 0.0]},
+        "base_mount_clip": {args.base_collision_link: ["z", 0.0]},
         "collision_pruning_enabled": (
             args.prune_collisions
         ),
