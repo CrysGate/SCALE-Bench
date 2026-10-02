@@ -2732,6 +2732,8 @@ kinematics:
     panda_leftfinger:
     - panda_hand
     - attached_object
+    # Opposing fingers may touch at the closed joint limit.
+    - panda_rightfinger
     panda_link0:
     - base_link
     - panda_link1
