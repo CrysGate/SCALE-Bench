@@ -1,0 +1,72 @@
+# Names are Poly Haven asset IDs. Physical texture dimensions are in metres.
+table_materials:
+  - name: wood_table_001
+    material_path: Assets/Material/PolyHaven/wood_table_001/wood_table_001.mdl
+    texture_size_m: [1.5, 1.5]
+  - name: wood_table
+    material_path: Assets/Material/PolyHaven/wood_table/wood_table.mdl
+    texture_size_m: [1.0, 1.0]
+  - name: kitchen_wood
+    material_path: Assets/Material/PolyHaven/kitchen_wood/kitchen_wood.mdl
+    texture_size_m: [0.6, 0.6]
+  - name: plywood
+    material_path: Assets/Material/PolyHaven/plywood/plywood.mdl
+    texture_size_m: [0.5, 0.5]
+  - name: oak_veneer_01
+    material_path: Assets/Material/PolyHaven/oak_veneer_01/oak_veneer_01.mdl
+    texture_size_m: [1.83, 1.83]
+  - name: walnut_veneer
+    material_path: Assets/Material/PolyHaven/walnut_veneer/walnut_veneer.mdl
+    texture_size_m: [1.8, 1.8]
+ground_materials:
+  - name: laminate_floor_02
+    material_path: Assets/Material/PolyHaven/laminate_floor_02/laminate_floor_02.mdl
+    texture_size_m: [1.7, 1.7]
+  - name: wood_floor
+    material_path: Assets/Material/PolyHaven/wood_floor/wood_floor.mdl
+    texture_size_m: [1.7, 1.7]
+  - name: floor_tiles_06
+    material_path: Assets/Material/PolyHaven/floor_tiles_06/floor_tiles_06.mdl
+    texture_size_m: [3.0, 3.0]
+  - name: concrete_floor_02
+    material_path: Assets/Material/PolyHaven/concrete_floor_02/concrete_floor_02.mdl
+    texture_size_m: [2.0, 2.0]
+  - name: terrazzo_tiles
+    material_path: Assets/Material/PolyHaven/terrazzo_tiles/terrazzo_tiles.mdl
+    texture_size_m: [2.0, 2.0]
+  - name: rubber_tiles
+    material_path: Assets/Material/PolyHaven/rubber_tiles/rubber_tiles.mdl
+    texture_size_m: [2.0, 2.0]
+  - name: marble_01
+    material_path: Assets/Material/PolyHaven/marble_01/marble_01.mdl
+    texture_size_m: [1.5, 1.5]
+  - name: granite_tile
+    material_path: Assets/Material/PolyHaven/granite_tile/granite_tile.mdl
+    texture_size_m: [2.3, 2.3]
+lighting:
+  - name: small_empty_room_1
+    texture_path: Assets/Background/PolyHaven/small_empty_room_1_4k.hdr
+    intensity: 1000
+  - name: carpentry_shop_02
+    texture_path: Assets/Background/PolyHaven/carpentry_shop_02_4k.hdr
+    intensity: 1000
+  - name: studio_small_09
+    texture_path: Assets/Background/PolyHaven/studio_small_09_4k.hdr
+    intensity: 1000
+  - name: brown_photostudio_03
+    texture_path: Assets/Background/PolyHaven/brown_photostudio_03_4k.hdr
+    intensity: 1000
+  - name: art_studio
+    texture_path: Assets/Background/PolyHaven/art_studio_4k.hdr
+    intensity: 1000
+  - name: empty_workshop
+    texture_path: Assets/Background/PolyHaven/empty_workshop_4k.hdr
+    intensity: 1000
+  - name: unfinished_office
+    texture_path: Assets/Background/PolyHaven/unfinished_office_4k.hdr
+    intensity: 1000
+  - name: white_studio_02
+    texture_path: Assets/Background/PolyHaven/white_studio_02_4k.hdr
+    intensity: 1000
+dome_rotation_z_world_range_rad: [-3.141592653589793, 3.141592653589793]
+exposure_offset_range: [-0.5, 0.5]

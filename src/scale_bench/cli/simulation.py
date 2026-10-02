@@ -9,7 +9,9 @@ from pathlib import Path
 
 from isaaclab.app import AppLauncher
 
+from scale_bench.config.appearance import capture_appearance, sample_appearance
 from scale_bench.config.loader import load_config
+from scale_bench.config.models.appearance import AppearanceConfig
 from scale_bench.config.models.environment import EnvironmentConfig
 from scale_bench.config.models.robot import RobotConfig
 from scale_bench.config.models.scene import SceneConfig
@@ -44,6 +46,32 @@ def add_task_overrides(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def add_appearance_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--appearance-config", type=Path,
+        help="Material/HDRI pool YAML; omit to retain the scene profile's appearance.",
+    )
+    parser.add_argument(
+        "--appearance-seed", type=nonnegative_int, default=0,
+        help="Batch appearance seed, independent of episode layout seeds.",
+    )
+
+
+def load_batch_appearance(
+    scene: SceneConfig, args: argparse.Namespace, asset_root: Path
+) -> SceneConfig:
+    """An omitted pool keeps baseline preview/collection commands compatible."""
+    if args.appearance_config is None:
+        return scene
+    pool = load_config(args.appearance_config, AppearanceConfig, asset_root=asset_root)
+    scene = sample_appearance(scene, pool, args.appearance_seed)
+    logging.getLogger("scale_bench.appearance").info(
+        "Batch appearance seed=%d: %s", args.appearance_seed,
+        capture_appearance(scene).model_dump(mode="json"),
+    )
+    return scene
+
+
 def add_simulation_arguments(
     parser: argparse.ArgumentParser, project_root: Path
 ) -> None:
@@ -51,6 +79,7 @@ def add_simulation_arguments(
         "--task", choices=TASKS, default="single_object_pick_and_place"
     )
     add_task_overrides(parser)
+    add_appearance_arguments(parser)
     for name, relative_path in (
         ("scene", "scene/default.yml"),
         ("robot", "robots/piper.yml"),
@@ -92,6 +121,7 @@ def run_simulation(
         args.rendering_mode = simulation.render.rendering_mode
     simulation = simulation.model_copy(update={"device": args.device})
     scene = load_config(args.scene_config, SceneConfig, asset_root=project_root)
+    scene = load_batch_appearance(scene, args, project_root)
     robot = load_config(args.robot_config, RobotConfig, asset_root=project_root)
     camera_profile_path = str(args.camera_config.resolve())
     scene = scene.model_copy(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import MISSING
+import math
 
 import isaaclab.sim as sim_utils
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg
@@ -185,11 +186,19 @@ def _overhead_camera_cfg(spec: OverheadCameraConfig) -> CameraCfg:
 
 
 def _light_cfg(spec: LightingConfig) -> AssetBaseCfg:
+    dome_orientation_world_xyzw = (
+        0.0, 0.0, math.sin(spec.dome_rotation_z_world_rad / 2.0),
+        math.cos(spec.dome_rotation_z_world_rad / 2.0),
+    )
     return AssetBaseCfg(
         prim_path="/World/EnvironmentLight",
+        init_state=AssetBaseCfg.InitialStateCfg(rot=dome_orientation_world_xyzw),
         spawn=sim_utils.DomeLightCfg(
             texture_file=spec.texture_path,
             intensity=spec.intensity,
+            exposure=spec.exposure,
+            enable_color_temperature=spec.enable_color_temperature,
+            color_temperature=spec.color_temperature_k,
         ),
     )
 

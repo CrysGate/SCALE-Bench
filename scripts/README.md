@@ -19,6 +19,31 @@ uv run python scripts/preview_scene.py \
   --task single_object_pick_and_place --viz none --max-steps 2
 ```
 
+## 材质与灯光
+
+准备 [Poly Haven CC0 材质与室内 HDRI](../docs/assets/index.md#appearance)：
+
+```bash
+uv run python scripts/download_appearance_assets.py
+```
+
+选择一套可复现的批次外观：
+
+```bash
+uv run python scripts/preview_scene.py \
+  --task single_object_pick_and_place \
+  --appearance-config configs/appearance/polyhaven.yml \
+  --appearance-seed 42
+```
+
+无界面检查相机画面时，加上 `--viz none --max-steps 30 --export-camera-images outputs/appearance-42`，输出各相机 RGB PNG 和 `appearance.json`，覆盖目录中的同名文件。
+
+采集入口 `run_demo_generation.py` 和 `run_policy_rollout.py` 使用相同的两个外观参数。每次运行按外观种子选择桌面材质、地板材质和 HDRI，并固定整批外观；并行环境、GPU worker 和后续 episode 共用该选择。换批次时改变 `--appearance-seed`；物体布局仍由 `--base-seed` 控制。省略 `--appearance-config` 时使用场景 YAML 中的外观。
+
+材质池中的 `texture_size_m` 控制铺贴的实际尺寸。灯光池支持 HDRI 强度、曝光、绕世界 Z 轴旋转和色温；池末尾的范围控制批次旋转与曝光采样。固定某个材质或灯光时，将对应池保留为一项；固定曝光和旋转时，将范围两端设为相同值。
+
+录制的 HDF5 `data.env_args.scene_appearance` 保存最终材质路径、UV 比例和灯光参数，`replay_episode.py` 自动恢复。回放仍需保留对应资源与路径；旧数据没有该字段时使用传入的场景配置。
+
 ## 布局复现
 
 保存由固定种子生成的布局：

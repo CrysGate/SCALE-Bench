@@ -2,12 +2,17 @@
 
 import argparse
 import sys
+import traceback
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from scale_bench.cli.simulation import add_task_overrides
+from scale_bench.cli.simulation import (
+    add_appearance_arguments,
+    add_task_overrides,
+    load_batch_appearance,
+)
 from scale_bench.config.loader import load_config
 from scale_bench.config.models.simulation import SimulationConfig
 from scale_bench.tasks.registry import TASKS, load_task
@@ -17,6 +22,7 @@ from isaaclab.app import AppLauncher
 
 parser = argparse.ArgumentParser()
 add_task_overrides(parser)
+add_appearance_arguments(parser)
 parser.add_argument("--config", type=Path, default=Path("configs/scene/default.yml"))
 parser.add_argument(
     "--asset-root",
@@ -66,6 +72,10 @@ parser.add_argument(
     type=int,
     default=None,
     help="Exit after this many environment steps; useful for headless smoke tests.",
+)
+parser.add_argument(
+    "--export-camera-images", type=Path,
+    help="Save final RGB frames and appearance JSON to a directory; omit for preview only.",
 )
 parser.add_argument(
     "--physics-inspector",
@@ -152,6 +162,7 @@ if preview_overlays_enabled:
     from isaaclab.sim import find_matching_prims
 
 from scale_bench.api import create_env
+from scale_bench.config.appearance import capture_appearance
 from scale_bench.config.models.environment import EnvironmentConfig
 from scale_bench.config.models.robot import RobotConfig, RobotMountConfig
 from scale_bench.config.models.scene import SceneConfig
@@ -582,6 +593,10 @@ class ScenePreviewOverlay:
 
 def main() -> None:
     scene_config = load_config(args.config, SceneConfig, asset_root=args.asset_root)
+    scene_config = load_batch_appearance(scene_config, args, args.asset_root)
+    if args.appearance_config is not None:
+        print(f"Batch appearance seed={args.appearance_seed}: "
+              f"{capture_appearance(scene_config).model_dump(mode='json')}", flush=True)
     robot_config = load_config(
         args.robot_config,
         RobotConfig,
@@ -703,6 +718,21 @@ def main() -> None:
             step_count += 1
             if args.max_steps is not None and step_count >= args.max_steps:
                 break
+        if args.export_camera_images is not None:
+            from PIL import Image
+
+            output_dir = args.export_camera_images
+            output_dir.mkdir(parents=True, exist_ok=True)
+            for name, camera in env.scene.sensors.items():
+                if "rgb" not in camera.data.output:
+                    continue
+                images = camera.data.output["rgb"].detach().cpu().numpy()
+                for env_id, pixels in enumerate(images):
+                    Image.fromarray(pixels[:, :, :3]).save(output_dir / f"{name}_{env_id}.png")
+            (output_dir / "appearance.json").write_text(
+                capture_appearance(scene_config).model_dump_json(indent=2) + "\n"
+            )
+            print(f"Saved camera frames and batch appearance to {output_dir}", flush=True)
     finally:
         if overlay is not None:
             overlay.close()
@@ -710,7 +740,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    exit_code = 1
     try:
         main()
+        exit_code = 0
+    except Exception:
+        traceback.print_exc()
     finally:
-        simulation_app.close()
+        simulation_app.close(exit_code=exit_code)
