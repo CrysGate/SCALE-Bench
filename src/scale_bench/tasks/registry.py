@@ -7,7 +7,7 @@ from scale_bench.config.loader import load_config
 from .common.fixed_target import PlacementTaskConfig
 from .common.rigid_object import ObjectSetConfig, RigidObjects
 from .common.task import Task
-from .largest_pick_and_place.task import LargestPickAndPlaceTask
+from .largest_pick_and_place.task import LargestPickAndPlaceTask, LargestPickAndPlaceTaskConfig
 from .single_object_pick_and_place.task import SingleObjectPickAndPlaceTask
 from .sort_dolls_by_size.task import SortDollsBySizeTask
 
@@ -17,7 +17,7 @@ TASKS = {
         PlacementTaskConfig, SingleObjectPickAndPlaceTask,
     ),
     "largest_pick_and_place": (
-        PlacementTaskConfig, LargestPickAndPlaceTask,
+        LargestPickAndPlaceTaskConfig, LargestPickAndPlaceTask,
     ),
     "sort_dolls_by_size": (
         PlacementTaskConfig, SortDollsBySizeTask,

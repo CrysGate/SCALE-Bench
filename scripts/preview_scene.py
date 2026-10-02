@@ -409,6 +409,7 @@ class ScenePreviewOverlay:
         scene: InteractiveScene,
         scene_config: SceneConfig,
         robot_config: RobotConfig,
+        placement_context: PlacementContext,
         target_positions_m: tuple[Point, ...],
         frustum_length_m: float,
         workspace_samples: int,
@@ -418,7 +419,7 @@ class ScenePreviewOverlay:
     ) -> None:
         self._scene = scene
         self._scene_config = scene_config
-        self._placement_area = robot_config.task_object_placement_area
+        self._placement_area = placement_context
         self._target_positions_m = target_positions_m
         self._frustum_length_m = frustum_length_m
         self._use_fabric = use_fabric
@@ -635,6 +636,7 @@ def main() -> None:
                 env.scene,
                 scene_config,
                 robot_config,
+                task.initial_placement_context(placement_context),
                 target_positions_m,
                 camera_frustum_length_m,
                 args.workspace_samples,

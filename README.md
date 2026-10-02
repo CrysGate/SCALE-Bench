@@ -10,7 +10,7 @@ SCALE-Bench is an Isaac Lab benchmark for dual-arm tabletop manipulation and exp
 | --- | --- |
 | [Single-object pick and place](docs/tasks/single_object_pick_and_place.md) | Place a randomly positioned bottle upright in a fixed slot |
 | [Sort nesting dolls](docs/tasks/sort_dolls_by_size.md) | Place five dolls in their slots, ordered by increasing height |
-| [Largest-object pick and place](docs/tasks/largest_pick_and_place.md) | Place the tallest object in the target slot; the default assets are bubble tea cups |
+| [Largest-object pick and place](docs/tasks/largest_pick_and_place.md) | Select the tallest object and place it upright at the center of a visible blue delivery mat; supports cups and nesting dolls |
 
 Seeds and layout files reproduce task scenes. YAML files configure robots, cameras, and tasks.
 

@@ -10,7 +10,7 @@ description: 选择 SCALE-Bench 操作任务，了解任务目标和成功条件
 | --- | --- |
 | [单物体抓取与放置](single_object_pick_and_place.md) | 将瓶子直立放入固定槽位 |
 | [套娃排序](sort_dolls_by_size.md) | 将五个套娃按高度排序到对应槽位 |
-| [最大物体抓取与放置](largest_pick_and_place.md) | 将最高的物体直立放入目标槽位 |
+| [最大物体抓取与放置](largest_pick_and_place.md) | 将最高的同类物体直立放到蓝色交付垫中央 |
 
 各任务页提供采集命令。环境、资产和相机采集的准备步骤见[开始使用](../getting-started.md)。
 
@@ -35,7 +35,8 @@ configs/tasks/
 ├── object_sets/
 │   ├── bottle.yml
 │   ├── bubble_tea_cups_5.yml
-│   └── matryoshka_5.yml
+│   ├── matryoshka_5.yml
+│   └── matryoshka_00005_00009.yml
 ├── largest_pick_and_place/
 │   ├── default.yml
 │   └── matryoshka.yml

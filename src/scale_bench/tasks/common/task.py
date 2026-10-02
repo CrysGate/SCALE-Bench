@@ -72,10 +72,14 @@ class Task:
     def metadata(self) -> Mapping[str, RigidObjectMetadata]:
         return self.objects.metadata
 
+    def initial_placement_context(self, context: PlacementContext) -> PlacementContext:
+        """Use robot sampling bounds unless the task reserves a separate destination."""
+        return context
+
     def generate_layout(self, context: PlacementContext, seed: int) -> TaskLayout:
         return generate_tabletop_layout(
             task_id=self.task_id,
-            context=context,
+            context=self.initial_placement_context(context),
             asset_sizes_m=self.objects.sizes_m,
             seed=seed,
             **self.config.layout.model_dump(),
@@ -85,7 +89,7 @@ class Task:
         settings = self.config.layout
         validate_tabletop_layout(
             task_id=self.task_id,
-            context=context,
+            context=self.initial_placement_context(context),
             layout=layout,
             asset_sizes_m=self.objects.sizes_m,
             spawn_clearance_m=settings.spawn_clearance_m,
