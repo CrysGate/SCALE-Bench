@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import traceback
 from pathlib import Path
@@ -85,6 +86,8 @@ import h5py
 from isaaclab.utils.datasets import HDF5DatasetFileHandler
 
 from scale_bench.api import create_env
+from scale_bench.config.appearance import restore_appearance
+from scale_bench.config.models.appearance import SceneAppearance
 from scale_bench.config.models.environment import EnvironmentConfig
 from scale_bench.config.models.robot import RobotConfig
 from scale_bench.config.models.scene import SceneConfig
@@ -95,6 +98,7 @@ from scale_bench.tasks.common.placement import PlacementContext
 def main() -> int:
     dataset_path = args.dataset.resolve()
     with h5py.File(dataset_path, "r") as dataset:
+        env_args = json.loads(dataset["data"].attrs["env_args"])
         episode_names = tuple(dataset["data"])
         if not episode_names:
             raise ValueError("dataset has no episodes")
@@ -113,6 +117,12 @@ def main() -> int:
         SceneConfig,
         asset_root=PROJECT_ROOT,
     )
+    # Older datasets lack appearance metadata and use the supplied scene profile.
+    if "scene_appearance" in env_args:
+        appearance = SceneAppearance.model_validate(env_args["scene_appearance"])
+        scene_config = restore_appearance(scene_config, appearance)
+        print(f"[replay] restored batch appearance: {appearance.model_dump(mode='json')}",
+              flush=True)
     robot_config = load_config(
         PROJECT_ROOT / args.robot_config,
         RobotConfig,

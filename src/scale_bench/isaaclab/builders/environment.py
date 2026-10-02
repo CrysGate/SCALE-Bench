@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import MISSING
+from typing import Any
 
 from isaaclab.envs import ManagerBasedEnvCfg
 from isaaclab.assets import RigidObjectCfg
@@ -14,6 +15,7 @@ from isaaclab.sensors import CameraCfg
 from isaaclab.sim import SimulationCfg
 from isaaclab.utils.configclass import configclass
 
+from scale_bench.config.appearance import capture_appearance
 from scale_bench.config.models.environment import EnvironmentConfig
 from scale_bench.config.models.recording import RecordingConfig
 from scale_bench.config.models.robot import RobotConfig
@@ -51,6 +53,18 @@ class ScaleBenchEnvCfg(ManagerBasedEnvCfg):
     observations: ObservationsCfg = MISSING
     events: EventsCfg = MISSING
     task: Task = MISSING
+    scene_appearance: dict[str, Any] = MISSING
+
+    def get_ep_meta(self) -> dict[str, Any]:
+        """Native recorders persist batch appearance alongside merger timing metadata."""
+        return {
+            "sim_args": {
+                "dt": self.sim.dt, "decimation": self.decimation,
+                "render_interval": self.sim.render_interval,
+                "num_envs": self.scene.num_envs,
+            },
+            "scene_appearance": self.scene_appearance,
+        }
 
 
 def build_environment_cfg(
@@ -128,6 +142,7 @@ def build_environment_cfg(
         wait_for_textures=environment_config.wait_for_textures,
         events=events,
         task=task,
+        scene_appearance=capture_appearance(scene_config).model_dump(mode="json"),
     )
     cfg.validate()
     _validate_runtime_timing(cfg)

@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Self
-from pydantic import model_validator
+from typing import Annotated, Self
+from pydantic import Field, model_validator
 
 from scale_bench.config.base import (
     AssetReference,
     CameraConvention,
     ConfigReference,
     FrozenModel,
+    FiniteFloat,
     NonNegativeFloat,
     NonNegativeInt,
     OptionalAssetReference,
@@ -80,6 +81,10 @@ class OverheadCameraConfig(FrozenModel):
 class LightingConfig(FrozenModel):
     texture_path: AssetReference
     intensity: NonNegativeFloat
+    dome_rotation_z_world_rad: FiniteFloat = 0.0
+    exposure: FiniteFloat = 0.0
+    enable_color_temperature: bool = False
+    color_temperature_k: Annotated[float, Field(ge=1000, le=10000)] = 6500.0
 
 
 class SceneConfig(FrozenModel):

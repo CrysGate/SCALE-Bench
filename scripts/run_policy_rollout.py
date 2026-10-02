@@ -11,7 +11,11 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from isaaclab.app import AppLauncher
 
-from scale_bench.cli.simulation import add_task_overrides
+from scale_bench.cli.simulation import (
+    add_appearance_arguments,
+    add_task_overrides,
+    load_batch_appearance,
+)
 from scale_bench.config.loader import load_config
 from scale_bench.config.models.simulation import SimulationConfig
 from scale_bench.tasks.registry import TASKS, load_task
@@ -19,6 +23,7 @@ from scale_bench.tasks.registry import TASKS, load_task
 parser = argparse.ArgumentParser()
 parser.add_argument("--task", choices=TASKS, default="sort_dolls_by_size")
 add_task_overrides(parser)
+add_appearance_arguments(parser)
 parser.add_argument("--num-envs", type=int, default=1)
 parser.add_argument("--episodes", type=int, default=1)
 parser.add_argument("--base-seed", type=int, default=100)
@@ -228,6 +233,7 @@ def main() -> int:
         SceneConfig,
         asset_root=asset_root,
     )
+    scene_config = load_batch_appearance(scene_config, args, asset_root)
     robot_config = load_config(
         args.robot_config,
         RobotConfig,
