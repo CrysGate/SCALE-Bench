@@ -102,7 +102,7 @@ uv run python scripts/run_policy_rollout.py \
 
 ## 使用 UR5e
 
-`configs/robots/ur5e.yml` 使用 `Assets/Robots/ur5e/ur5e_with_gripper.usda`，包含 Robotiq 2F-85 夹爪和腕部 D435。资产需保留同级 `Assets/Robots/Robotiq/2F-85/` 目录。
+UR5e 搭载 Robotiq 2F-85 夹爪和腕部 D435。预览时指定机器人配置：
 
 ```bash
 uv run python scripts/preview_scene.py \
@@ -119,10 +119,6 @@ uv run python scripts/run_policy_rollout.py \
   --left-joint4-offset-rad 0.1 \
   --viz none
 ```
-
-每臂包含六个机械臂动作和一个夹爪动作，单位均为弧度。夹爪 `finger_joint` 从 `0`（张开）到 `0.8203047484373349`（闭合），其余五个夹爪关节由资产中的 mimic 约束联动。TCP 位于 `wrist_3_link` 的 Z 轴正向 0.14 m 处，TCP 的 +Z 为接近方向、+Y 为开口方向。
-
-场景预览、关节控制和运动规划不需要物体抓取标注。运行专家抓取前，需要为目标物体单独准备 `grasps-ur5e.yaml`；当前物体资产尚未提供该文件。
 
 ## 浏览与回放数据
 
@@ -239,7 +235,7 @@ uv run python scripts/generate_curobo_robot_config.py \
   --convex-fit-link camera
 ```
 
-UR5e 使用碰撞网格，并为较薄的相机支架提高拟合密度。夹爪联动范围内的连杆安装接触与闭合指面接触不参与自碰撞检查：
+UR5e 为相机支架提高拟合密度，并排除夹爪联动产生的接触对：
 
 ```bash
 uv run python scripts/generate_curobo_robot_config.py \

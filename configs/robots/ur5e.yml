@@ -37,10 +37,9 @@ kinematics:
   arm_joint_names: [shoulder_pan_joint, shoulder_lift_joint, elbow_joint, wrist_1_joint, wrist_2_joint, wrist_3_joint]
   ee_body: wrist_3_link
   tcp:
-    parent_frame: wrist_3_link
-    # Centre of the finger pads; +Z approaches and +Y spans the opening.
-    position_m: [0.0, 0.0, 0.14]
-    orientation_xyzw: [0.0, 0.0, -0.70710678, 0.70710678]
+    parent_frame: grip_frame
+    position_m: [0.0, 0.0, 0.0]
+    orientation_xyzw: [0.0, 0.0, 0.0, 1.0]
 
 actuators:
   arm:

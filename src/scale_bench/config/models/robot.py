@@ -132,8 +132,8 @@ class ParallelJawGripperConfig(FrozenModel):
     finger_body_names: tuple[Name, Name]
     min_aperture_m: NonNegativeFloat
     max_aperture_m: PositiveFloat
-    # Prismatic fingers use linear multipliers. Revolute linkages instead
-    # supply revolute_aperture; None means the existing prismatic model.
+    # None selects linear aperture multipliers for prismatic fingers;
+    # revolute fingers supply linkage geometry in revolute_aperture.
     aperture_joint_multipliers: dict[str, FiniteFloat] = Field(default_factory=dict)
     revolute_aperture: RevoluteGripperApertureConfig | None = None
     minimum_grasp_aperture_m: PositiveFloat

@@ -2842,7 +2842,7 @@ kinematics:
       joint_name: attached_object_joint
       joint_type: FIXED
       link_name: attached_object
-      parent_link_name: wrist_3_link
+      parent_link_name: grip_frame
   format_version: 2.0
   grasp_contact_link_names:
   - robotiq_85_left_finger_tip_link
@@ -2917,10 +2917,13 @@ kinematics:
     - wrist_1_link
     ft_frame:
     - wrist_3_link
+    grip_frame:
+    - robotiq_85_base_link
     robotiq_85_base_link:
     - wrist_3_link
     - robotiq_85_left_knuckle_link
     - robotiq_85_right_knuckle_link
+    - grip_frame
     - robotiq_85_left_inner_knuckle_link
     - robotiq_85_right_inner_knuckle_link
     - camera_base
@@ -2982,7 +2985,7 @@ kinematics:
     - camera_base
     - attached_object
   tool_frames:
-  - wrist_3_link
+  - grip_frame
   urdf_path: ../../../Assets/Robots/ur5e/ur5e_with_gripper.urdf
   use_external_assets: false
   use_global_cumul: true
