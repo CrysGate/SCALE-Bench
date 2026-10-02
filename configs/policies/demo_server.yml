@@ -1,0 +1,12 @@
+policy_name: demo_policy
+protocol: ws
+host: 127.0.0.1
+port: 19000
+bench_name: SCALE-Bench
+task_name: largest_pick_and_place
+ckpt_name: demo
+env_cfg_type: piper
+seed: 100
+action_type: joint
+gpu_id: 0
+eval_batch: false

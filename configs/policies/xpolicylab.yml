@@ -1,0 +1,11 @@
+server_url: ws://127.0.0.1:19000
+inference_mode: single
+# Execute at most this many actions before requesting a new chunk.
+action_steps: 8
+camera_map:
+  cam_head: overhead_camera
+  cam_left_wrist: left_robot_camera
+  cam_right_wrist: right_robot_camera
+send_depth: true
+request_timeout_s: 120.0
+max_connect_seconds: 900.0

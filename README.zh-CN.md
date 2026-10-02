@@ -39,6 +39,7 @@ uv run python scripts/run_demo_generation.py \
 ## 更多用法
 
 - [任务指南](docs/tasks/index.md)：任务定义与成功条件。
+- [模型评测](docs/policy-evaluation/index.md)：通过独立 WebSocket 客户端调用 XPolicyLab 服务进行仿真评测。
 - [资产图鉴](docs/assets/index.md)：资产规格与抓取数据。
 - [脚本用法](scripts/README.md)：布局复现、批量采集、调试和视频导出。
 - [OBJ 转 USD](src/assets_gen/README.zh-CN.md)：转换自己的物体资产。

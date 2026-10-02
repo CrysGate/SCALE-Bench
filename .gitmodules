@@ -1,0 +1,3 @@
+[submodule "XPolicyLab"]
+	path = XPolicyLab
+	url = https://github.com/XPolicyLab/XPolicyLab.git
