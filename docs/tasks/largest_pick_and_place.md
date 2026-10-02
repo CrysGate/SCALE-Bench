@@ -8,11 +8,11 @@ description: 选择最高的奶茶杯并直立放入目标槽位，批量采集�
 
 默认场景包含一个 800g、两个 500g 和两个 300g [奶茶杯](../assets/bubble_tea_cup.md)，目标为 800g 杯。其余杯子作为干扰物，成功按目标杯是否满足[放置标准](index.md#success)判定。
 
-[默认配置](https://github.com/CrysGate/SCALE-Bench/blob/main/configs/tasks/largest_pick_and_place/default.yml)定义物体集合、布局、目标槽位和成功条件。使用套娃版本或替换物体时见[选择任务配置与物体](index.md#variants)。
+使用[默认配置](https://github.com/CrysGate/SCALE-Bench/blob/main/configs/tasks/largest_pick_and_place/default.yml)运行；更换配置或物体见[选择任务配置与物体](index.md#variants)。
 
 ## 批量采集 50 条轨迹 { #collect }
 
-完成[环境与资产准备](../getting-started.md#environment)后，使用 25 个并行环境运行 50 个 episode：
+完成[环境与资产准备](../getting-started.md#environment)后运行：
 
 ```bash
 uv run python scripts/run_demo_generation.py \

@@ -1,9 +1,4 @@
-"""Generate a validated CuRobo collision model from a RobotConfig and URDF.
-
-The benchmark RobotConfig and its referenced URDF remain authoritative.  This
-script only derives collision spheres and a self-collision ignore matrix; it
-does not import defaults from an existing CuRobo sample profile.
-"""
+"""Generate CuRobo collision spheres and self-collision exclusions from RobotConfig and URDF."""
 
 from __future__ import annotations
 
@@ -141,9 +136,7 @@ def main() -> int:
             use_collision_mesh=args.use_collision_mesh,
             iterations=args.iterations,
             compute_metrics=True,
-            # The fixed base intentionally contacts the mounting surface.  Remove
-            # spheres below that surface instead of teaching the planner to ignore
-            # the entire table.
+            # Clip the fixed base at its mounting plane to allow contact with the table.
             clip_links={robot_config.kinematics.base_body: ("z", 0.0)},
         )
         for index, refit in enumerate(args.refit_link):
@@ -375,7 +368,7 @@ def _remove_stale_refit_ignores(
     builder: RobotBuilder,
     refit_specs: list[str],
 ) -> None:
-    """Do not preserve sampled non-neighbor ignores after sphere geometry changed."""
+    """Refitting invalidates sampled collision exclusions for nonadjacent links."""
 
     ignore = document["kinematics"]["self_collision_ignore"]
     for spec in refit_specs:

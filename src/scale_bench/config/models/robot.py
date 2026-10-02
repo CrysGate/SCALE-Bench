@@ -179,8 +179,6 @@ class ParallelJawGripperConfig(FrozenModel):
 
 
 class RobotConfig(FrozenModel):
-    """Complete simulator-independent robot description."""
-
     name: Name
     usd_path: AssetReference
     urdf_path: OptionalAssetReference = None

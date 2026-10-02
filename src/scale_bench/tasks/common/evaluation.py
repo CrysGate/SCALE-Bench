@@ -37,7 +37,6 @@ class FixedPositions:
     positions_env_m: tuple[tuple[float, float, float], ...]
 
 
-# The three observation sources consumed by the existing goals.
 ObservationSource: TypeAlias = ObjectPositions | ObjectOrientations | FixedPositions
 
 

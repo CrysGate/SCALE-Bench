@@ -48,19 +48,13 @@ class ScaleBenchEnv(ManagerBasedEnv):
 
     @property
     def recording_enabled(self) -> bool:
-        """Whether this environment has active episode recorder terms."""
-
         return bool(self.recorder_manager.active_terms)
 
     @property
     def task(self) -> Task:
-        """Return the task whose evaluator semantics drive this environment."""
-
         return self._task
 
     def step(self, action: torch.Tensor) -> tuple[VecEnvObs, dict]:
-        """Execute one action under the public environment contract."""
-
         try:
             return super().step(action)
         finally:
@@ -210,7 +204,7 @@ class ScaleBenchEnv(ManagerBasedEnv):
             env_id_tensor,
             success_tensor,
         )
-        # Camera recording is optional; its final partial chunk precedes export.
+        # Flush the final partial camera chunk before committing the episode.
         camera_recorder = self.recorder_manager._terms.get("camera_observations")
         if camera_recorder is not None:
             camera_recorder.flush()

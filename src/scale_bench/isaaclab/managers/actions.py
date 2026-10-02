@@ -83,5 +83,4 @@ def _gripper_action_cfg(
     )
 
 
-# Compatibility with the previous factory name.
 __all__ = ["ActionsCfg", "ArmActionMode", "build_actions_cfg"]

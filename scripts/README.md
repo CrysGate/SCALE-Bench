@@ -2,7 +2,7 @@
 
 第一次运行先完成[安装与资产准备](https://crysgate.github.io/SCALE-Bench/getting-started/#environment)。
 
-预览、采集、调试、策略链路验证和回放共用 `--task`、`--task-config` 与 `--object-set`；具体用法见[选择任务配置与物体](../docs/tasks/index.md#variants)。回放时使用采集时相同的配置。
+预览、采集、调试、策略链路验证和回放共用 `--task`、`--task-config` 与 `--object-set`；具体用法见[选择任务配置与物体](../docs/tasks/index.md#variants)。
 
 ## 场景预览
 
@@ -54,9 +54,9 @@ uv run python scripts/run_demo_generation.py \
   --viz none
 ```
 
-根据显存容量调整并行环境数，采集总数由 `--episodes` 决定。[相机录制与结果说明](https://crysgate.github.io/SCALE-Bench/getting-started/#collect)涵盖 RGB-D 采集、成功标记和输出路径。
+根据显存容量调整并行环境数。需要图像时见 [RGB-D 采集](https://crysgate.github.io/SCALE-Bench/getting-started/#collect)。
 
-使用 `--record-camera-buffer-mib` 设置每张 GPU 的图像双缓冲总预算，默认 2048 MiB。
+相机录制占用过多内存时，通过 `--record-camera-buffer-mib` 调整每张 GPU 的图像缓冲预算，单位为 MiB。
 
 单卡和多卡共用 `--gpus`，默认使用 GPU 0。使用全部 GPU 采集：
 
@@ -80,7 +80,7 @@ uv run python scripts/run_demo_generation.py \
 
 ## 使用 Franka Panda
 
-`configs/robots/franka_panda.yml` 使用 `Assets/Robots/franka_panda/` 中的原装双指夹爪和腕部 D435。默认桌面为 2.0 × 1.6 m。预览时指定机器人配置：
+Franka Panda 搭载原装双指夹爪和腕部 D435。预览时指定机器人配置：
 
 ```bash
 uv run python scripts/preview_scene.py \

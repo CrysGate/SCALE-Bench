@@ -67,7 +67,7 @@ uv run python scripts/run_demo_generation.py \
   --viz none
 ```
 
-需要左腕、右腕和俯视相机的 RGB-D 时，使用以下无显示器采集命令；相机观测需要启用渲染：
+采集左腕、右腕和俯视相机的 RGB-D 时，使用 `--viz kit` 启用渲染，`HEADLESS=1` 关闭显示窗口：
 
 ```bash
 HEADLESS=1 uv run python scripts/run_demo_generation.py \
@@ -80,7 +80,7 @@ HEADLESS=1 uv run python scripts/run_demo_generation.py \
 
 ## 检查数据与回放 { #inspect }
 
-第一条关节数据采集命令的输出如下:
+浏览采集结果：
 
 ```bash
 uv run python scripts/view_hdf5.py \

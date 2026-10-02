@@ -76,7 +76,7 @@ def build_observations_cfg(
 def _build_evaluator_cfg(
     terms: Mapping[str, ObservationTermCfg],
 ) -> ObservationsCfg.EvaluatorCfg:
-    """Create a dynamic named group without imposing a universal term schema."""
+    """Build an observation group from the task's named evaluator terms."""
 
     if not terms:
         raise ValueError("evaluator observation group must contain at least one term")

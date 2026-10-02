@@ -38,7 +38,7 @@ converted-obj/vase/300g/Aligned.obj
 
 ## Other Uses
 
-- **No matching metadata:** use `--mass` for mass in kilograms and `--scale` for the scale factor; defaults are `0.1` and `1.0`. If a single dimension is missing, only that axis uses the fallback scale.
+- **No matching metadata:** use `--mass` for mass in kilograms and `--scale` for the scale factor. If a single dimension is missing, only that axis uses the fallback scale.
 - **Try a small batch:** add `--max-models 1` to stop after one successful conversion.
 - **Regenerate an asset:** existing USD files are skipped unless `--force` is set. Omitting `--usd-output-root` writes USD files beside the source OBJ.
 

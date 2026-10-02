@@ -17,8 +17,6 @@ def build_camera_cfg(
     orientation_xyzw: tuple[float, float, float, float],
     convention: CameraConvention,
 ) -> CameraCfg:
-    """Return a fresh native camera cfg from validated pure data."""
-
     return CameraCfg(
         prim_path=prim_path,
         update_period=config.update_period_s,

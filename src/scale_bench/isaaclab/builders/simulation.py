@@ -13,8 +13,6 @@ def build_simulation_cfg(
     *,
     device: str | None = None,
 ) -> SimulationCfg:
-    """Return a fresh simulation cfg from validated pure data."""
-
     resolved_device = config.device if device is None else device
     if not _is_valid_device(resolved_device):
         raise ValueError(

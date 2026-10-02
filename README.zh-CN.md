@@ -16,7 +16,7 @@ SCALE-Bench 是基于 Isaac Lab 的双臂操作基准，用于运行桌面操作
 
 ## 开始使用
 
-先完成[环境与资产准备](https://crysgate.github.io/SCALE-Bench/getting-started/#environment)。资产托管在 [ScaleBench-Data](https://modelscope.cn/datasets/CrysGate/ScaleBench-Data)，通过项目根目录的 `Assets` 软链接使用。
+先完成[环境与资产准备](https://crysgate.github.io/SCALE-Bench/getting-started/#environment)。
 
 预览单物体任务：
 

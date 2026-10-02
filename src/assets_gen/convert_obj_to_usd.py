@@ -325,7 +325,7 @@ def _cell_column_index(cell_ref: str) -> int:
 
 
 def _parse_xlsx_rows(xlsx_path: Path) -> List[List[object]]:
-    """Read the first worksheet from an XLSX file without a heavyweight dependency."""
+    """Read the first worksheet from an XLSX file."""
     with zipfile.ZipFile(xlsx_path, "r") as zf:
         shared_strings = _read_shared_strings(zf)
 
@@ -674,9 +674,6 @@ def compute_stage_aabb(stage: Usd.Stage) -> AabbInfo:
     if not target_prim:
         raise RuntimeError("No mesh model prim found in current stage")
 
-    # World bounds are intentional here. ComputeUntransformedBound() ignores
-    # the target prim's own xform ops, which made the reported post-scale size
-    # differ from the geometry that Isaac Sim actually loaded.
     bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
     bbox = bbox_cache.ComputeWorldBound(target_prim)
     aligned_range = bbox.ComputeAlignedRange()
@@ -1137,12 +1134,10 @@ def apply_physics(
 
     _set_axis_custom_attrs(root_prim, CUSTOM_SCALE_PREFIX, scale_values)
 
-    # Bind RigidBody and MassAPI to the root prim.
     UsdPhysics.RigidBodyAPI.Apply(root_prim)
     mass_api = UsdPhysics.MassAPI.Apply(root_prim)
     mass_api.CreateMassAttr(mass_value)
 
-    # Collision attributes belong only to meshes below the collision group.
     collision_group_prim = stage.GetPrimAtPath(COLLISION_PATH)
     mesh_prims = (
         list(iter_mesh_prims(collision_group_prim))

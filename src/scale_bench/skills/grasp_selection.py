@@ -61,11 +61,7 @@ async def feasible_grasps(
     candidates: tuple[GraspCandidate, ...], target_object_pose_env: Pose | None,
     excluded: set[tuple[int, int]],
 ) -> AsyncIterator[tuple[tuple[int, int], SelectedGrasp]]:
-    """Pick-only passes None; pick-and-place supplies its destination for IK screening.
-
-    Only IK configurations are discarded. Every trajectory is planned by the
-    executing skill after selection, from the current measured state.
-    """
+    """Pick-only passes None; pick-and-place supplies its destination for IK screening."""
     snapshot = session.context.snapshot()
     source_object = snapshot.object(object_name)
     robot = snapshot.robot(arm)

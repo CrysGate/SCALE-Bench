@@ -1,4 +1,4 @@
-"""Pure grasp and placement geometry; no motion planning or simulator access."""
+"""Grasp ranking and placement geometry."""
 
 import math
 from typing import cast
@@ -41,12 +41,7 @@ def tcp_geometry_cost(
     approach_axis_tcp: tuple[float, float, float],
     base_position_env_m: tuple[float, float, float],
 ) -> float:
-    """Prefer transverse finger opening and penalize approach from the far side.
-
-    The two squared penalties have equal weight. Vertical approaches incur no
-    approach penalty. With no horizontal base-to-object offset, all costs are
-    zero so the existing score and source order decide the ranking.
-    """
+    """Prefer transverse finger opening and penalize approach from the far side."""
     base_to_object_displacement_env_m = (
         object_position_env_m[0] - base_position_env_m[0],
         object_position_env_m[1] - base_position_env_m[1],
