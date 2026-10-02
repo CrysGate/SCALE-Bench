@@ -237,6 +237,26 @@ uv run python scripts/render_asset_views.py \
 
 转换自己的 OBJ 资产见 [OBJ 转 USD](../src/assets_gen/README.zh-CN.md)。
 
+## 从单图生成物体四视图
+
+先按[环境安装](https://crysgate.github.io/SCALE-Bench/getting-started/#environment)执行 `uv sync --frozen`，再下载 [Qwen-Image-Edit-2511](https://huggingface.co/Qwen/Qwen-Image-Edit-2511) 权重到项目的 `models/` 目录：
+
+```bash
+uv run hf download Qwen/Qwen-Image-Edit-2511 --local-dir models/Qwen-Image-Edit-2511
+```
+
+也可以把已有的权重目录软链接为 `models/Qwen-Image-Edit-2511`。模型约 54 GB；权重和生成结果均不纳入 Git。
+
+```bash
+PYTORCH_ALLOC_CONF=expandable_segments:True uv run python src/qwen_image_edit_views/generate_object_views.py \
+  --input path/to/front.png \
+  --output_dir outputs/object_views \
+  --local-files-only \
+  --device cuda:0 --text-encoder-device cuda:1
+```
+
+两张 GPU 时，生成模型和 VAE 使用 `--device`，文本编码器使用 `--text-encoder-device`。单张显存足够的 GPU 可省略后者。脚本保留原图作为正面，并生成背面、左侧和右侧，输出为 `<输入文件名>_front.png`、`_back.png`、`_left.png`、`_right.png`；四张图片尺寸一致。
+
 ## 生成 CuRobo 机器人配置
 
 根据机器人配置和 URDF 生成 YAML 碰撞配置，需要 CUDA：
