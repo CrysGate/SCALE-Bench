@@ -246,7 +246,7 @@ uv sync --frozen --extra qwen-views
 uv run --extra qwen-views hf download Qwen/Qwen-Image-Edit-2511 --local-dir models/Qwen-Image-Edit-2511
 ```
 
-也可以把已有的权重目录软链接为 `models/Qwen-Image-Edit-2511`。模型约 54 GB；权重和生成结果均不纳入 Git。
+也可以把已有的权重目录软链接为 `models/Qwen-Image-Edit-2511`。
 
 ```bash
 PYTORCH_ALLOC_CONF=expandable_segments:True uv run --extra qwen-views python src/qwen_image_edit_views/generate_object_views.py \
@@ -255,8 +255,6 @@ PYTORCH_ALLOC_CONF=expandable_segments:True uv run --extra qwen-views python src
   --local-files-only \
   --device cuda:0 --text-encoder-device cuda:1
 ```
-
-两张 GPU 时，生成模型和 VAE 使用 `--device`，文本编码器使用 `--text-encoder-device`。单张显存足够的 GPU 可省略后者。脚本保留原图作为正面，并生成背面、左侧和右侧，输出为 `<输入文件名>_front.png`、`_back.png`、`_left.png`、`_right.png`；四张图片尺寸一致。
 
 ## 生成 CuRobo 机器人配置
 
