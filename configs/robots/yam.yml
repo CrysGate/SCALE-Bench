@@ -34,6 +34,8 @@ kinematics:
   ee_body: gripper
   tcp:
     parent_frame: tcp
+    # Align with the centre of the flat fingertip contact pads.
+    position_m: [0.0, 0.0, 0.008]
 
 actuators:
   arm:
