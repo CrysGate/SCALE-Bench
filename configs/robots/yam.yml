@@ -62,6 +62,6 @@ camera:
   parent_prim_path: Geometry/camera
   sensor_prim_name: D435Sensor
   position_m: [0.001, 0.0, 0.0]
-  # Pitch 14 degrees toward the fingers about camera-link +Y.
-  orientation_xyzw: [0.43533840, -0.43533840, -0.55720775, 0.55720775]
+  # Pitch 17 degrees toward the fingers about camera-link +Y.
+  orientation_xyzw: [0.42060323, -0.42060323, -0.56841264, 0.56841264]
   convention: opengl
