@@ -20,10 +20,10 @@ task_object_placement_area:
 
 initial_joint_positions:
   joint1: 0.0
-  joint2: -0.5
-  joint3: 0.8
+  joint2: 0.0
+  joint3: 0.0
   joint4: 0.0
-  joint5: -0.3
+  joint5: 0.0
   joint6: 0.0
   gripper_joint: 0.04
   gripper_joint1: 0.04

@@ -20,9 +20,9 @@ task_object_placement_area:
 
 initial_joint_positions:
   dof_joint1: 0.0
-  dof_joint2: 0.8
-  dof_joint3: 1.4
-  dof_joint4: -0.6
+  dof_joint2: 0.0
+  dof_joint3: 0.0
+  dof_joint4: 0.0
   dof_joint5: 0.0
   dof_joint6: 0.0
   dof_joint7: -0.04695
