@@ -32,6 +32,13 @@ dependencies = [
     "nicegui",
 ]
 
+[project.optional-dependencies]
+qwen-views = [
+    "transformers==4.57.6",
+    "diffusers==0.39.0",
+    "accelerate==1.15.0",
+]
+
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"

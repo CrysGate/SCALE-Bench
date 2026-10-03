@@ -34,6 +34,24 @@ wheels = [
 ]
 
 [[package]]
+name = "accelerate"
+version = "1.15.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "huggingface-hub" },
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "psutil" },
+    { name = "pyyaml" },
+    { name = "safetensors" },
+    { name = "torch" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f5/b5/1d3ed029ac71d3f2961346829a268da923698e9fd63f218f78841f216bfd/accelerate-1.15.0.tar.gz", hash = "sha256:5654f8c5eaa0d4fa68b33e287a97765da6849bf6d51dcac874e73fbbddfb6134", size = 422615, upload-time = "2026-09-09T13:04:49.078Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8a/4c/34f0450479d01195027260da68d8a3880683f1640c3ca5adf64acb3185f1/accelerate-1.15.0-py3-none-any.whl", hash = "sha256:97eacca0b73e45cb867dbf8c5d5d4dc32219544300e0c8992c7334dc2ef33cec", size = 394295, upload-time = "2026-09-09T13:04:47.331Z" },
+]
+
+[[package]]
 name = "aioboto3"
 version = "15.5.0"
 source = { registry = "https://pypi.org/simple" }
@@ -824,6 +842,26 @@ wheels = [
 ]
 
 [[package]]
+name = "diffusers"
+version = "0.39.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "filelock" },
+    { name = "httpx" },
+    { name = "huggingface-hub" },
+    { name = "importlib-metadata" },
+    { name = "numpy" },
+    { name = "pillow" },
+    { name = "regex" },
+    { name = "requests" },
+    { name = "safetensors" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1a/81/6095237b86a3116c4789f28c4435d5296c00c0fc74ffde99008fd6b3a36c/diffusers-0.39.0.tar.gz", hash = "sha256:14bb1d98c85a0e463d734c99aaa73b480a7bc9bad22af30fbf730ef8f09c1d67", size = 4651240, upload-time = "2026-07-03T08:48:47.904Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3f/3f/7469c46e9d22307ea686bab687d70e6bf328722952f9d10339f5e913e608/diffusers-0.39.0-py3-none-any.whl", hash = "sha256:912aca51b5787365110806e984d5555735bf8a461073bb8459029d0bca7870ef", size = 5631176, upload-time = "2026-07-03T08:48:45.337Z" },
+]
+
+[[package]]
 name = "docstring-parser"
 version = "0.18.0"
 source = { registry = "https://pypi.org/simple" }
@@ -877,7 +915,7 @@ name = "embreex"
 version = "4.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "numpy", marker = "platform_machine != 's390x'" },
+    { name = "numpy" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6d/78/8cc0960cc0f2d60d581869a66c8013e1bf1c73bf5bf9609bd8aa79e0f721/embreex-4.4.0-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:8e93bce7cf905365117dea2d0726d19262c88a010044d00631db6bb7dc145612", size = 13214768, upload-time = "2026-04-22T19:46:54.088Z" },
@@ -1170,6 +1208,19 @@ wheels = [
 ]
 
 [[package]]
+name = "httpcore"
+version = "1.0.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "certifi" },
+    { name = "h11" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/06/94/82699a10bca87a5556c9c59b5963f2d039dbd239f25bc2a63907a05a14cb/httpcore-1.0.9.tar.gz", hash = "sha256:6e34463af53fd2ab5d807f399a9b45ea31c3dfa2276f15a2c3f00afff6e176e8", size = 85484, upload-time = "2025-04-24T22:06:22.219Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7e/f5/f66802a942d491edb555dd61e3a9961140fd64c90bce1eafd741609d334d/httpcore-1.0.9-py3-none-any.whl", hash = "sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55", size = 78784, upload-time = "2025-04-24T22:06:20.566Z" },
+]
+
+[[package]]
 name = "httptools"
 version = "0.6.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1186,14 +1237,17 @@ wheels = [
 
 [[package]]
 name = "httpx"
-version = "1.0.dev3"
+version = "0.28.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "anyio" },
     { name = "certifi" },
+    { name = "httpcore" },
+    { name = "idna" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/25/40/b6f25020eeafd822fc473394a5db45a5964a64c88788eb5dc49ffabb64e7/httpx-1.0.dev3.tar.gz", hash = "sha256:e95700e4f9cf6430295f4c195f9cb0ca0549bab4294927f8002bf196851d40db", size = 761377, upload-time = "2025-09-15T16:15:12.087Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz", hash = "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc", size = 141406, upload-time = "2024-12-06T15:37:23.222Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/97/8d/ff4f018c9a813994e28fabb998f8d76542fc2b46c1210d4c1b2c615eea7f/httpx-1.0.dev3-py3-none-any.whl", hash = "sha256:80b33db1bc8e1fac2a15f419839e324d472d528822608ea6b7a93fed2011722d", size = 34319, upload-time = "2025-09-15T16:15:10.458Z" },
+    { url = "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl", hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad", size = 73517, upload-time = "2024-12-06T15:37:21.509Z" },
 ]
 
 [[package]]
@@ -2325,67 +2379,6 @@ wheels = [
 ]
 
 [[package]]
-name = "scale-bench"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "isaaclab" },
-    { name = "isaaclab-assets" },
-    { name = "isaaclab-contrib" },
-    { name = "isaaclab-experimental" },
-    { name = "isaaclab-mimic" },
-    { name = "isaaclab-newton", extra = ["all"] },
-    { name = "isaaclab-ov" },
-    { name = "isaaclab-ovphysx" },
-    { name = "isaaclab-physx", extra = ["newton"] },
-    { name = "isaaclab-ppisp" },
-    { name = "isaaclab-rl", extra = ["rsl-rl"] },
-    { name = "isaaclab-tasks" },
-    { name = "isaaclab-tasks-experimental" },
-    { name = "isaaclab-visualizers" },
-    { name = "isaacsim", extra = ["all", "extscache"] },
-    { name = "modelscope" },
-    { name = "nicegui" },
-    { name = "nvidia-curobo", extra = ["cu12"] },
-    { name = "pydantic" },
-    { name = "pymeshlab" },
-    { name = "pyyaml" },
-    { name = "rich" },
-    { name = "torch" },
-    { name = "torchaudio" },
-    { name = "torchvision" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "isaaclab", editable = "third_parties/IsaacLab/source/isaaclab" },
-    { name = "isaaclab-assets", editable = "third_parties/IsaacLab/source/isaaclab_assets" },
-    { name = "isaaclab-contrib", editable = "third_parties/IsaacLab/source/isaaclab_contrib" },
-    { name = "isaaclab-experimental", editable = "third_parties/IsaacLab/source/isaaclab_experimental" },
-    { name = "isaaclab-mimic", editable = "third_parties/IsaacLab/source/isaaclab_mimic" },
-    { name = "isaaclab-newton", extras = ["all"], editable = "third_parties/IsaacLab/source/isaaclab_newton" },
-    { name = "isaaclab-ov", editable = "third_parties/IsaacLab/source/isaaclab_ov" },
-    { name = "isaaclab-ovphysx", editable = "third_parties/IsaacLab/source/isaaclab_ovphysx" },
-    { name = "isaaclab-physx", extras = ["newton"], editable = "third_parties/IsaacLab/source/isaaclab_physx" },
-    { name = "isaaclab-ppisp", editable = "third_parties/IsaacLab/source/isaaclab_ppisp" },
-    { name = "isaaclab-rl", extras = ["rsl-rl"], editable = "third_parties/IsaacLab/source/isaaclab_rl" },
-    { name = "isaaclab-tasks", editable = "third_parties/IsaacLab/source/isaaclab_tasks" },
-    { name = "isaaclab-tasks-experimental", editable = "third_parties/IsaacLab/source/isaaclab_tasks_experimental" },
-    { name = "isaaclab-visualizers", editable = "third_parties/IsaacLab/source/isaaclab_visualizers" },
-    { name = "isaacsim", extras = ["all", "extscache"], specifier = "==6.0.1.0", index = "https://pypi.nvidia.com/" },
-    { name = "modelscope" },
-    { name = "nicegui" },
-    { name = "nvidia-curobo", extras = ["cu12"], editable = "third_parties/curobo" },
-    { name = "pydantic" },
-    { name = "pymeshlab" },
-    { name = "pyyaml" },
-    { name = "rich" },
-    { name = "torch", specifier = "==2.10.0", index = "https://download.pytorch.org/whl/cu128" },
-    { name = "torchaudio", specifier = "==2.10.0", index = "https://download.pytorch.org/whl/cu128" },
-    { name = "torchvision", specifier = "==0.25.0", index = "https://download.pytorch.org/whl/cu128" },
-]
-
-[[package]]
 name = "libcoal"
 version = "3.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2992,7 +2985,7 @@ name = "nvidia-cudnn-cu12"
 version = "9.10.2.21"
 source = { registry = "https://pypi.nvidia.com/" }
 dependencies = [
-    { name = "nvidia-cublas-cu12", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "nvidia-cublas-cu12" },
 ]
 wheels = [
     { url = "https://pypi.nvidia.com/nvidia-cudnn-cu12/nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:c9132cc3f8958447b4910a1720036d9eff5928cc3179b0a51fb6d167c6cc87d8" },
@@ -3004,7 +2997,7 @@ name = "nvidia-cufft-cu12"
 version = "11.3.3.83"
 source = { registry = "https://pypi.nvidia.com/" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "nvidia-nvjitlink-cu12" },
 ]
 wheels = [
     { url = "https://pypi.nvidia.com/nvidia-cufft-cu12/nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:848ef7224d6305cdb2a4df928759dca7b1201874787083b6e7550dd6765ce69a" },
@@ -3111,9 +3104,9 @@ name = "nvidia-cusolver-cu12"
 version = "11.7.3.90"
 source = { registry = "https://pypi.nvidia.com/" }
 dependencies = [
-    { name = "nvidia-cublas-cu12", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
-    { name = "nvidia-cusparse-cu12", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
-    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "nvidia-cublas-cu12" },
+    { name = "nvidia-cusparse-cu12" },
+    { name = "nvidia-nvjitlink-cu12" },
 ]
 wheels = [
     { url = "https://pypi.nvidia.com/nvidia-cusolver-cu12/nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:db9ed69dbef9715071232caa9b69c52ac7de3a95773c2db65bdba85916e4e5c0" },
@@ -3125,7 +3118,7 @@ name = "nvidia-cusparse-cu12"
 version = "12.5.8.93"
 source = { registry = "https://pypi.nvidia.com/" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "nvidia-nvjitlink-cu12" },
 ]
 wheels = [
     { url = "https://pypi.nvidia.com/nvidia-cusparse-cu12/nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:9b6c161cb130be1a07a27ea6923df8141f3c295852f4b260c65f18f3e0a091dc" },
@@ -3347,7 +3340,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "ptyprocess" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -4144,6 +4137,78 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/1b/6d/3fba214c1e5e0f69991677ec3bc17023f0421776975e1de0c682dca475e2/safetensors-0.8.0-cp310-abi3-win_amd64.whl", hash = "sha256:096ec1a98435df7beb08853bb5aa9081a84f23d0adc67ed1a0a10550f608373f", size = 355540, upload-time = "2026-06-09T07:52:27.832Z" },
     { url = "https://files.pythonhosted.org/packages/8d/fc/7eedc3510d97878876e32774eebbeb61c43f148a96e915c84229a3e967aa/safetensors-0.8.0-cp310-abi3-win_arm64.whl", hash = "sha256:f7838e5135a406ad3e02efdcb8cf2e5397d368b0154537c4fec682dbc544d452", size = 340500, upload-time = "2026-06-09T07:52:26.745Z" },
 ]
+
+[[package]]
+name = "scale-bench"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "isaaclab" },
+    { name = "isaaclab-assets" },
+    { name = "isaaclab-contrib" },
+    { name = "isaaclab-experimental" },
+    { name = "isaaclab-mimic" },
+    { name = "isaaclab-newton", extra = ["all"] },
+    { name = "isaaclab-ov" },
+    { name = "isaaclab-ovphysx" },
+    { name = "isaaclab-physx", extra = ["newton"] },
+    { name = "isaaclab-ppisp" },
+    { name = "isaaclab-rl", extra = ["rsl-rl"] },
+    { name = "isaaclab-tasks" },
+    { name = "isaaclab-tasks-experimental" },
+    { name = "isaaclab-visualizers" },
+    { name = "isaacsim", extra = ["all", "extscache"] },
+    { name = "modelscope" },
+    { name = "nicegui" },
+    { name = "nvidia-curobo", extra = ["cu12"] },
+    { name = "pydantic" },
+    { name = "pymeshlab" },
+    { name = "pyyaml" },
+    { name = "rich" },
+    { name = "torch" },
+    { name = "torchaudio" },
+    { name = "torchvision" },
+]
+
+[package.optional-dependencies]
+qwen-views = [
+    { name = "accelerate" },
+    { name = "diffusers" },
+    { name = "transformers" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "accelerate", marker = "extra == 'qwen-views'", specifier = "==1.15.0" },
+    { name = "diffusers", marker = "extra == 'qwen-views'", specifier = "==0.39.0" },
+    { name = "isaaclab", editable = "third_parties/IsaacLab/source/isaaclab" },
+    { name = "isaaclab-assets", editable = "third_parties/IsaacLab/source/isaaclab_assets" },
+    { name = "isaaclab-contrib", editable = "third_parties/IsaacLab/source/isaaclab_contrib" },
+    { name = "isaaclab-experimental", editable = "third_parties/IsaacLab/source/isaaclab_experimental" },
+    { name = "isaaclab-mimic", editable = "third_parties/IsaacLab/source/isaaclab_mimic" },
+    { name = "isaaclab-newton", extras = ["all"], editable = "third_parties/IsaacLab/source/isaaclab_newton" },
+    { name = "isaaclab-ov", editable = "third_parties/IsaacLab/source/isaaclab_ov" },
+    { name = "isaaclab-ovphysx", editable = "third_parties/IsaacLab/source/isaaclab_ovphysx" },
+    { name = "isaaclab-physx", extras = ["newton"], editable = "third_parties/IsaacLab/source/isaaclab_physx" },
+    { name = "isaaclab-ppisp", editable = "third_parties/IsaacLab/source/isaaclab_ppisp" },
+    { name = "isaaclab-rl", extras = ["rsl-rl"], editable = "third_parties/IsaacLab/source/isaaclab_rl" },
+    { name = "isaaclab-tasks", editable = "third_parties/IsaacLab/source/isaaclab_tasks" },
+    { name = "isaaclab-tasks-experimental", editable = "third_parties/IsaacLab/source/isaaclab_tasks_experimental" },
+    { name = "isaaclab-visualizers", editable = "third_parties/IsaacLab/source/isaaclab_visualizers" },
+    { name = "isaacsim", extras = ["all", "extscache"], specifier = "==6.0.1.0", index = "https://pypi.nvidia.com/" },
+    { name = "modelscope" },
+    { name = "nicegui" },
+    { name = "nvidia-curobo", extras = ["cu12"], editable = "third_parties/curobo" },
+    { name = "pydantic" },
+    { name = "pymeshlab" },
+    { name = "pyyaml" },
+    { name = "rich" },
+    { name = "torch", specifier = "==2.10.0", index = "https://download.pytorch.org/whl/cu128" },
+    { name = "torchaudio", specifier = "==2.10.0", index = "https://download.pytorch.org/whl/cu128" },
+    { name = "torchvision", specifier = "==0.25.0", index = "https://download.pytorch.org/whl/cu128" },
+    { name = "transformers", marker = "extra == 'qwen-views'", specifier = "==4.57.6" },
+]
+provides-extras = ["qwen-views"]
 
 [[package]]
 name = "scikit-image"
