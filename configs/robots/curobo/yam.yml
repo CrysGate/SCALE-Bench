@@ -673,7 +673,7 @@ kinematics:
       joint_name: attached_object_joint
       joint_type: FIXED
       link_name: attached_object
-      parent_link_name: gripper
+      parent_link_name: tcp
   format_version: 2.0
   grasp_contact_link_names:
   - tip_left
@@ -750,7 +750,7 @@ kinematics:
     - gripper
     - attached_object
   tool_frames:
-  - gripper
+  - tcp
   urdf_path: ../../../Assets/Robots/yam/nvidia_urdf/yam.urdf
   use_external_assets: false
   use_global_cumul: true

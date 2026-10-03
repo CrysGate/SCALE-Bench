@@ -33,10 +33,7 @@ kinematics:
   arm_joint_names: [dof_joint1, dof_joint2, dof_joint3, dof_joint4, dof_joint5, dof_joint6]
   ee_body: gripper
   tcp:
-    parent_frame: gripper
-    # Match the USD tcp: +Z approaches the object and +Y is the opening axis.
-    position_m: [0.0, 0.0, -0.13]
-    orientation_xyzw: [1.0, 0.0, 0.0, 0.0]
+    parent_frame: tcp
 
 actuators:
   arm:
