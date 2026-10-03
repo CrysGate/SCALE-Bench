@@ -74,6 +74,6 @@ camera:
   sensor_prim_name: D435Sensor
   # The camera housing front is x=0 in the authored camera link frame.
   position_m: [0.001, 0.0, 0.0]
-  # Pitch 3 degrees toward the fingers about camera-link +Y.
-  orientation_xyzw: [0.48674019, -0.48674019, -0.51291714, 0.51291714]
+  # Pitch 2 degrees toward the fingers about camera-link +Y.
+  orientation_xyzw: [0.49119764, -0.49119764, -0.50865005, 0.50865005]
   convention: opengl
