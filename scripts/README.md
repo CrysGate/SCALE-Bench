@@ -256,6 +256,16 @@ uv run python src/qwen_image_edit_views/generate_object_views.py \
   --device cuda:0 --text-encoder-device cuda:1
 ```
 
+三张 32 GB GPU 时，将 Transformer 分到前两张卡，文本编码器放第三张：
+
+```bash
+uv run --frozen --extra qwen-views python src/qwen_image_edit_views/generate_object_views.py \
+  --input path/to/front.png \
+  --output_dir outputs/object_views \
+  --local-files-only \
+  --device cuda:0 --transformer-second-device cuda:1 --text-encoder-device cuda:2
+```
+
 ## 生成 CuRobo 机器人配置
 
 根据机器人配置和 URDF 生成 YAML 碰撞配置，需要 CUDA：

@@ -187,6 +187,11 @@ def parse_args() -> argparse.Namespace:
         help="Place the text encoder on a second CUDA device, for example cuda:1.",
     )
     parser.add_argument(
+        "--transformer-second-device",
+        default="",
+        help="Place the second half of the transformer blocks on another CUDA device, for example cuda:1.",
+    )
+    parser.add_argument(
         "--dtype",
         default="auto",
         choices=("auto", "bfloat16", "float16", "float32"),
@@ -498,8 +503,35 @@ def load_split_pipeline(
             return self.transformer.device
 
     common = {"torch_dtype": dtype, "local_files_only": args.local_files_only}
+    transformer_device_map: str | dict[str, str] = device
+    if args.transformer_second_device:
+        second_device = args.transformer_second_device
+        if not device.startswith("cuda:") or not second_device.startswith("cuda:"):
+            raise ValueError("Transformer sharding requires explicit CUDA device indices.")
+        if torch.device(device) == torch.device(second_device):
+            raise ValueError("The two transformer devices must be different.")
+        transformer_config = QwenImageTransformer2DModel.load_config(
+            model_ref, subfolder="transformer", local_files_only=args.local_files_only
+        )
+        num_layers = transformer_config["num_layers"]
+        split_index = num_layers // 2
+        if split_index == 0:
+            raise ValueError("Transformer sharding requires at least two blocks.")
+        transformer_device_map = {
+            "img_in": device,
+            "txt_in": device,
+            "txt_norm": device,
+            "time_text_embed": device,
+            **{
+                f"transformer_blocks.{index}": device if index < split_index else second_device
+                for index in range(num_layers)
+            },
+            "norm_out": second_device,
+            "proj_out": second_device,
+        }
+        log(f"Transformer blocks: 0-{split_index - 1} on {device}, {split_index}-{num_layers - 1} on {second_device}")
     transformer = QwenImageTransformer2DModel.from_pretrained(
-        model_ref, subfolder="transformer", device_map=device, **common
+        model_ref, subfolder="transformer", device_map=transformer_device_map, **common
     )
     text_encoder = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         model_ref, subfolder="text_encoder", device_map=args.text_encoder_device, **common
@@ -517,6 +549,8 @@ def load_split_pipeline(
 
 
 def load_pipeline(args: argparse.Namespace, device: str, dtype: Any) -> LoadedPipeline:
+    if args.transformer_second_device and not args.text_encoder_device:
+        raise ValueError("--transformer-second-device requires --text-encoder-device.")
     errors: list[str] = []
 
     for model_ref in model_refs(args.model, args.fallback_model):
