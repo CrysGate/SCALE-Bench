@@ -72,3 +72,11 @@ nav:
   - 资产图鉴:
       - 资产总览: assets/index.md
       - 奶茶杯: assets/bubble_tea_cup.md
+      - 垃圾桶: assets/bucket.md
+      - 罐头: assets/can.md
+      - 可乐: assets/coca.md
+      - 齿轮: assets/gear.md
+      - 香水瓶: assets/perfume.md
+      - 洗发水瓶: assets/shampoo.md
+      - 保温杯: assets/thermos_cup.md
+      - 牙膏: assets/toothpaste.md
