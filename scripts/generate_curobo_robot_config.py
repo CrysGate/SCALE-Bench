@@ -89,6 +89,12 @@ def _parser() -> argparse.ArgumentParser:
         help="Fit a link's convex hull when it matches the PhysX collision shape.",
     )
     parser.add_argument(
+        "--refit-protrusion-weight",
+        type=float,
+        help="Penalize spheres extending outside the mesh for --refit-link in tight "
+        "clearances; omit to use CuRobo's default fitting weight.",
+    )
+    parser.add_argument(
         "--ignore-collision-pair",
         action="append",
         default=[],
@@ -116,6 +122,8 @@ def main() -> int:
         raise ValueError("sphere density and iterations must be positive")
     if args.collision_samples <= 0 or args.collision_batch_size <= 0:
         raise ValueError("collision sampling values must be positive")
+    if args.refit_protrusion_weight is not None and args.refit_protrusion_weight <= 0:
+        raise ValueError("refit protrusion weight must be positive")
 
     robot_config = _load_source_robot_config(args.robot_config)
     if robot_config.urdf_path is None:
@@ -167,6 +175,7 @@ def main() -> int:
                 sphere_density=density,
                 use_collision_mesh=args.use_collision_mesh,
                 iterations=args.iterations,
+                protrusion_weight=args.refit_protrusion_weight,
                 compute_metrics=True,
             )
         for index, link_name in enumerate(args.convex_fit_link):

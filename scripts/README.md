@@ -345,6 +345,7 @@ uv run python scripts/generate_curobo_robot_config.py \
   --robot-config configs/robots/yam.yml \
   --output configs/robots/curobo/yam.yml \
   --sphere-density 2 --refit-link link3:6 \
+  --refit-link link2:6 --refit-link link4:6 --refit-protrusion-weight 100 \
   --convex-fit-link camera \
   --ignore-collision-pair camera:attached_object \
   --ignore-collision-pair tip_left:tip_right
