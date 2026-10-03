@@ -2904,6 +2904,7 @@ kinematics:
     camera:
     - camera_base
     - camera_optical_frame
+    - attached_object
     camera_base:
     - wrist_3_link
     - camera

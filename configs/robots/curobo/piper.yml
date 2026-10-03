@@ -420,6 +420,7 @@ kinematics:
     - link1
     camera:
     - link6
+    - attached_object
     gripper_center:
     - link6
     link1:

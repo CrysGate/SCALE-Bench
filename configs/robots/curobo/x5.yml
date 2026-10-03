@@ -469,6 +469,7 @@ kinematics:
     - link2
     camera:
     - camera_base
+    - attached_object
     camera_base:
     - link6
     - camera

@@ -2716,6 +2716,7 @@ kinematics:
     - panda_link0
     camera:
     - camera_base
+    - attached_object
     camera_base:
     - panda_hand
     - camera
