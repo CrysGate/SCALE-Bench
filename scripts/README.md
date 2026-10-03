@@ -120,6 +120,38 @@ uv run python scripts/run_policy_rollout.py \
   --viz none
 ```
 
+## 使用 Airbot Play 与 YAM
+
+两者均配置双指夹爪和腕部 D435，通过 `--robot-config` 切换：
+
+| 机械臂 | 配置 | 最大开口 |
+| --- | --- | --- |
+| Airbot Play | `configs/robots/airbot_play.yml` | 80 mm |
+| YAM | `configs/robots/yam.yml` | 93.9 mm |
+
+预览 YAM：
+
+```bash
+uv run python scripts/preview_scene.py \
+  --task single_object_pick_and_place \
+  --robot-config configs/robots/yam.yml
+```
+
+验证关节动作并录制 RGB-D：
+
+```bash
+for robot in airbot_play yam; do
+  uv run python scripts/run_policy_rollout.py \
+    --task single_object_pick_and_place \
+    --robot-config "configs/robots/${robot}.yml" \
+    --left-joint4-offset-rad 0.125 \
+    --record-output "outputs/${robot}-smoke" \
+    --dataset-name joint_motion --viz none || break
+done
+```
+
+专家抓放所用物体需提供 `grasps-airbot_play.yaml` 或 `grasps-yam.yaml`，格式见[抓取数据](../docs/assets/index.md#grasps)。
+
 ## 浏览与回放数据
 
 在浏览器中检查关节轨迹、逐帧数据和相机观测：
@@ -181,10 +213,10 @@ uv run python scripts/inspect_gripper_collision.py \
   --robot-config configs/robots/ur5e.yml
 ```
 
-依次检查四种机械臂，关闭当前窗口后启动下一种：
+依次检查各机械臂，关闭当前窗口后启动下一种：
 
 ```bash
-for robot in piper x5 franka_panda ur5e; do
+for robot in piper x5 franka_panda ur5e airbot_play yam; do
   uv run python scripts/inspect_gripper_collision.py \
     --robot-config "configs/robots/${robot}.yml" || break
 done
@@ -296,4 +328,26 @@ uv run python scripts/generate_curobo_robot_config.py \
   --ignore-collision-pair robotiq_85_left_finger_tip_link:robotiq_85_right_inner_knuckle_link \
   --ignore-collision-pair robotiq_85_left_inner_knuckle_link:robotiq_85_right_finger_tip_link \
   --ignore-collision-pair robotiq_85_left_inner_knuckle_link:robotiq_85_right_inner_knuckle_link
+```
+
+Airbot Play 使用碰撞网格，YAM 使用与 USD 对齐的 NVIDIA URDF 视觉网格：
+
+```bash
+uv run python scripts/generate_curobo_robot_config.py \
+  --robot-config configs/robots/airbot_play.yml \
+  --output configs/robots/curobo/airbot_play.yml \
+  --use-collision-mesh --sphere-density 2 --refit-link link1:6 \
+  --refit-link link2:6 --refit-link link5:6 --refit-protrusion-weight 200 \
+  --convex-fit-link camera_link \
+  --ignore-collision-pair camera_link:attached_object \
+  --ignore-collision-pair left:right
+
+uv run python scripts/generate_curobo_robot_config.py \
+  --robot-config configs/robots/yam.yml \
+  --output configs/robots/curobo/yam.yml \
+  --sphere-density 2 --refit-link link3:6 \
+  --refit-link link2:6 --refit-link link4:6 --refit-protrusion-weight 100 \
+  --convex-fit-link camera \
+  --ignore-collision-pair camera:attached_object \
+  --ignore-collision-pair tip_left:tip_right
 ```

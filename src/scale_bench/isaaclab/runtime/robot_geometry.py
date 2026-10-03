@@ -32,14 +32,19 @@ def camera_position_tcp_m(
     camera_mount_prim = robot_stage.GetPrimAtPath(
         robot_prim.GetPath().AppendPath(camera.parent_prim_path)
     )
-    ee_body_prim = robot_prim.GetChild(robot_config.kinematics.ee_body)
+    ee_body_prim = next(
+        prim for prim in Usd.PrimRange(robot_prim)
+        if prim.GetName() == robot_config.kinematics.ee_body
+        and prim.HasAPI(UsdPhysics.RigidBodyAPI)
+    )
+    transforms = UsdGeom.XformCache()
+    camera_transform_ee_body = (
+        transforms.GetLocalToWorldTransform(camera_mount_prim)
+        * transforms.GetLocalToWorldTransform(ee_body_prim).GetInverse()
+    )
     camera_offset_tcp_m = rotate_vector_xyzw(
         ee_body_pose_tcp.orientation_xyzw,
-        tuple(
-            UsdGeom.XformCache().ComputeRelativeTransform(
-                camera_mount_prim, ee_body_prim
-            )[0].Transform(Gf.Vec3d(*camera.position_m))
-        ),
+        tuple(camera_transform_ee_body.Transform(Gf.Vec3d(*camera.position_m))),
     )
     return tuple(
         coordinate_tcp_m + offset_tcp_m

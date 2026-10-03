@@ -1,0 +1,67 @@
+name: yam
+usd_path: Assets/Robots/yam/yam.usda
+urdf_path: Assets/Robots/yam/nvidia_urdf/yam.urdf
+curobo_config_path: curobo/yam.yml
+fixed_base: true
+disable_gravity: false
+self_collisions: false
+
+robot_mounts:
+  left:
+    position_xy_m: [-0.3, -0.45]
+    orientation_xyzw: [0.0, 0.0, 1.0, 0.0]
+  right:
+    position_xy_m: [0.3, -0.45]
+    orientation_xyzw: [0.0, 0.0, 1.0, 0.0]
+
+task_object_placement_area:
+  x_range_m: [-0.55, 0.55]
+  y_range_m: [-0.20, 0.18]
+
+initial_joint_positions:
+  dof_joint1: 0.0
+  dof_joint2: 0.0
+  dof_joint3: 0.0
+  dof_joint4: 0.0
+  dof_joint5: 0.0
+  dof_joint6: 0.0
+  dof_joint7: -0.04695
+  dof_joint8: -0.04695
+
+kinematics:
+  base_body: base
+  arm_joint_names: [dof_joint1, dof_joint2, dof_joint3, dof_joint4, dof_joint5, dof_joint6]
+  ee_body: gripper
+  tcp:
+    parent_frame: tcp
+    position_m: [0.0, 0.0, -0.01]
+
+actuators:
+  arm:
+    joint_names: [dof_joint1, dof_joint2, dof_joint3, dof_joint4, dof_joint5, dof_joint6]
+  gripper:
+    joint_names: [dof_joint7]
+
+gripper:
+  joint_names: [dof_joint7, dof_joint8]
+  command_joint_names: [dof_joint7]
+  finger_body_names: [tip_left, tip_right]
+  min_aperture_m: 0.0
+  max_aperture_m: 0.0939
+  aperture_joint_multipliers:
+    dof_joint7: -1.0
+    dof_joint8: -1.0
+  minimum_grasp_aperture_m: 0.002
+  closed_positions:
+    dof_joint7: 0.0
+  open_positions:
+    dof_joint7: -0.04695
+
+camera:
+  profile_path: ../cameras/d435.yml
+  parent_prim_path: Geometry/camera
+  sensor_prim_name: D435Sensor
+  position_m: [0.001, 0.0, 0.0]
+  # Pitch 17 degrees toward the fingers about camera-link +Y.
+  orientation_xyzw: [0.42060323, -0.42060323, -0.56841264, 0.56841264]
+  convention: opengl
