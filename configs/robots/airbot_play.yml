@@ -1,0 +1,68 @@
+name: airbot_play
+usd_path: Assets/Robots/airbot_play/airbot_play.usd
+urdf_path: Assets/Robots/airbot_play/airbot_play_description/urdf/airbot_play.urdf
+curobo_config_path: curobo/airbot_play.yml
+fixed_base: true
+disable_gravity: false
+self_collisions: false
+
+robot_mounts:
+  left:
+    position_xy_m: [-0.3, -0.45]
+    orientation_xyzw: [0.0, 0.0, 0.70710678, 0.70710678]
+  right:
+    position_xy_m: [0.3, -0.45]
+    orientation_xyzw: [0.0, 0.0, 0.70710678, 0.70710678]
+
+task_object_placement_area:
+  x_range_m: [-0.55, 0.55]
+  y_range_m: [-0.20, 0.18]
+
+initial_joint_positions:
+  joint1: 0.0
+  joint2: -0.5
+  joint3: 0.8
+  joint4: 0.0
+  joint5: -0.3
+  joint6: 0.0
+  gripper_joint: 0.04
+  gripper_joint1: 0.04
+
+kinematics:
+  base_body: base_link
+  arm_joint_names: [joint1, joint2, joint3, joint4, joint5, joint6]
+  ee_body: link6
+  tcp:
+    # Move the authored fingertip frame to the centre of the contact surfaces.
+    parent_frame: gripper_center
+    position_m: [-0.04, 0.0, 0.0]
+    orientation_xyzw: [0.0, 0.0, 0.0, 1.0]
+
+actuators:
+  arm:
+    joint_names: [joint1, joint2, joint3, joint4, joint5, joint6]
+  gripper:
+    joint_names: [gripper_joint]
+
+gripper:
+  joint_names: [gripper_joint, gripper_joint1]
+  command_joint_names: [gripper_joint]
+  finger_body_names: [left, right]
+  min_aperture_m: 0.0
+  max_aperture_m: 0.08
+  aperture_joint_multipliers:
+    gripper_joint: 1.0
+    gripper_joint1: 1.0
+  minimum_grasp_aperture_m: 0.002
+  closed_positions:
+    gripper_joint: 0.0
+  open_positions:
+    gripper_joint: 0.04
+
+camera:
+  profile_path: ../cameras/d435.yml
+  parent_prim_path: link6/camera_link
+  sensor_prim_name: D435Sensor
+  position_m: [0.001, 0.0, 0.0]
+  orientation_xyzw: [0.5, -0.5, -0.5, 0.5]
+  convention: opengl
