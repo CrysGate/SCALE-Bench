@@ -243,13 +243,13 @@ uv run python scripts/render_asset_views.py \
 
 ```bash
 uv sync --frozen --extra qwen-views
-uv run --extra qwen-views hf download Qwen/Qwen-Image-Edit-2511 --local-dir models/Qwen-Image-Edit-2511
+uv run hf download Qwen/Qwen-Image-Edit-2511 --local-dir models/Qwen-Image-Edit-2511
 ```
 
 也可以把已有的权重目录软链接为 `models/Qwen-Image-Edit-2511`。
 
 ```bash
-PYTORCH_ALLOC_CONF=expandable_segments:True uv run --extra qwen-views python src/qwen_image_edit_views/generate_object_views.py \
+uv run python src/qwen_image_edit_views/generate_object_views.py \
   --input path/to/front.png \
   --output_dir outputs/object_views \
   --local-files-only \
