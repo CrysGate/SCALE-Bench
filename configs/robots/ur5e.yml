@@ -78,5 +78,6 @@ camera:
   parent_prim_path: wrist_3_link/camera_base/camera
   sensor_prim_name: D435Sensor
   position_m: [0.001, 0.0, 0.0]
-  orientation_xyzw: [0.5, -0.5, -0.5, 0.5]
+  # Pitch 3 degrees toward the fingers about camera-link +Y.
+  orientation_xyzw: [0.48674019, -0.48674019, -0.51291714, 0.51291714]
   convention: opengl
