@@ -35,7 +35,7 @@ kinematics:
   tcp:
     parent_frame: link6
     # +X approaches the object; +Y is the finger-opening axis, both in link6.
-    position_m: [0.118, 0.0, 0.0]
+    position_m: [0.13, 0.0, 0.0]
     orientation_xyzw: [0.0, 0.0, 0.0, 1.0]
 
 actuators:
