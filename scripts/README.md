@@ -337,6 +337,7 @@ uv run python scripts/generate_curobo_robot_config.py \
   --robot-config configs/robots/airbot_play.yml \
   --output configs/robots/curobo/airbot_play.yml \
   --use-collision-mesh --sphere-density 2 --refit-link link1:6 \
+  --refit-link link2:6 --refit-link link5:6 --refit-protrusion-weight 200 \
   --convex-fit-link camera_link \
   --ignore-collision-pair camera_link:attached_object \
   --ignore-collision-pair left:right
